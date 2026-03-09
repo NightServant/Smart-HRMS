@@ -19,6 +19,10 @@ Route::get('dashboard', function () {
     return Inertia::render('dashboard');
 })->middleware(['auth', 'verified', 'role:employee'])->name('dashboard');
 
+Route::get('attendance', function () {
+    return Inertia::render('attendance');
+})->middleware(['auth', 'verified', 'role:employee'])->name('attendance');
+
 Route::get('leave-application', [LeaveRequestController::class, 'create'])
     ->middleware(['auth', 'verified', 'role:employee'])
     ->name('leave-application');
@@ -46,15 +50,19 @@ Route::get('document-management', [PaginationController::class, 'documentManagem
     ->middleware(['auth', 'verified', 'role:evaluator'])
     ->name('document-management');
 
+Route::get('admin/historical-data', [PaginationController::class, 'adminHistoricalManagement'])
+    ->middleware(['auth', 'verified', 'role:hr-personnel'])
+    ->name('admin.historical-data');
+Route::post('admin/historical-data/import-csv', [Import_CSV_Controller::class, 'storeHistorical'])
+    ->middleware(['auth', 'verified', 'role:hr-personnel'])
+    ->name('admin.historical-data.import-csv');
+Route::delete('admin/historical-data/clear-imported', [Import_CSV_Controller::class, 'clearHistoricalImported'])
+    ->middleware(['auth', 'verified', 'role:hr-personnel'])
+    ->name('admin.historical-data.clear-imported');
+
 Route::get('admin/attendance-management', [PaginationController::class, 'attendanceManagement'])
     ->middleware(['auth', 'verified', 'role:hr-personnel'])
     ->name('admin.attendance-management');
-Route::post('admin/attendance-management/import-csv', [Import_CSV_Controller::class, 'store'])
-    ->middleware(['auth', 'verified', 'role:hr-personnel'])
-    ->name('admin.attendance-management.import-csv');
-Route::delete('admin/attendance-management/clear-imported', [Import_CSV_Controller::class, 'clearImported'])
-    ->middleware(['auth', 'verified', 'role:hr-personnel'])
-    ->name('admin.attendance-management.clear-imported');
 Route::get('admin/attendance-management/export-csv', [Export_CSV_Controller::class, 'index'])
     ->middleware(['auth', 'verified', 'role:hr-personnel'])
     ->name('admin.attendance-management.export-csv');
@@ -78,6 +86,5 @@ Route::get('admin/training-scheduling', [SeminarsController::class, 'adminTraini
 Route::resource('seminars', SeminarsController::class)
     ->only(['store', 'update', 'destroy'])
     ->middleware(['auth', 'verified', 'role:hr-personnel']);
-
 
 require __DIR__.'/settings.php';

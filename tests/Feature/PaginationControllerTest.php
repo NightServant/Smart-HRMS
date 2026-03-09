@@ -31,3 +31,15 @@ test('employee directory supports page and per page query parameters', function 
             ->where('pagination.lastPage', 2)
             ->where('pagination.total', 6));
 });
+
+test('hr personnel can open admin historical data page', function () {
+    $hrUser = User::factory()->asHrPersonnel()->create();
+
+    $this->actingAs($hrUser)
+        ->get(route('admin.historical-data'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/historical-data')
+            ->has('historicalData')
+            ->has('pagination')
+            ->has('search'));
+});

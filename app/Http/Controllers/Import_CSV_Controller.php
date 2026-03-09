@@ -2,29 +2,34 @@
 
 namespace App\Http\Controllers;
 
-use App\Imports\AttendanceRecordsImport;
-use App\Models\AttendanceRecord;
+use App\Imports\HistoricalDataRecordsImport;
+use App\Models\HistoricalDataRecord;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
 class Import_CSV_Controller extends Controller
 {
-    public function store(Request $request): RedirectResponse
+    public function storeHistorical(Request $request): RedirectResponse
     {
-        $validated = $request->validate([
-            'attendance_csv' => ['required', 'file', 'mimes:csv,txt'],
-        ]);
+        $this->importHistoricalCsv($request);
 
-        Excel::import(new AttendanceRecordsImport(), $validated['attendance_csv']);
-
-        return to_route('admin.attendance-management')->with('success', 'Attendance CSV imported successfully.');
+        return to_route('admin.historical-data')->with('success', 'Historical CSV imported successfully.');
     }
 
-    public function clearImported(): RedirectResponse
+    public function clearHistoricalImported(): RedirectResponse
     {
-        AttendanceRecord::query()->delete();
+        HistoricalDataRecord::query()->delete();
 
-        return to_route('admin.attendance-management')->with('success', 'Imported attendance records were cleared.');
+        return to_route('admin.historical-data')->with('success', 'Imported historical records were cleared.');
+    }
+
+    private function importHistoricalCsv(Request $request): void
+    {
+        $validated = $request->validate([
+            'historical_csv' => ['required', 'file', 'mimes:csv,txt'],
+        ]);
+
+        Excel::import(new HistoricalDataRecordsImport, $validated['historical_csv']);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceRecord;
+use App\Models\HistoricalDataRecord;
 use App\Models\LeaveRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -164,6 +165,50 @@ class PaginationController extends Controller
                 'lastPage' => $employees->lastPage(),
                 'perPage' => $employees->perPage(),
                 'total' => $employees->total(),
+            ],
+        ]);
+    }
+
+    public function adminHistoricalManagement(): Response
+    {
+        $search = trim((string) request()->string('search'));
+        $perPage = max(1, min(50, (int) request()->integer('perPage', 10)));
+
+        $historicalData = HistoricalDataRecord::query()
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($subQuery) use ($search): void {
+                    $subQuery
+                        ->where('employee_name', 'like', '%'.$search.'%')
+                        ->orWhere('department_name', 'like', '%'.$search.'%')
+                        ->orWhere('year', 'like', '%'.$search.'%')
+                        ->orWhere('quarter', 'like', '%'.$search.'%')
+                        ->orWhere('training_completion_status', 'like', '%'.$search.'%');
+                });
+            })
+            ->latest()
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (HistoricalDataRecord $historicalDataRecord): array => [
+                'id' => $historicalDataRecord->id,
+                'employeeName' => $historicalDataRecord->employee_name,
+                'departmentName' => $historicalDataRecord->department_name,
+                'year' => $historicalDataRecord->year,
+                'quarter' => $historicalDataRecord->quarter,
+                'attendancePunctualityRate' => $historicalDataRecord->attendance_punctuality_rate,
+                'absenteeismDays' => $historicalDataRecord->absenteeism_days,
+                'tardinessIncidents' => $historicalDataRecord->tardiness_incidents,
+                'trainingCompletionStatus' => $historicalDataRecord->training_completion_status,
+                'evaluatedPerformanceScore' => (float) $historicalDataRecord->evaluated_performance_score,
+            ]);
+
+        return Inertia::render('admin/historical-data', [
+            'search' => $search,
+            'historicalData' => $historicalData->items(),
+            'pagination' => [
+                'currentPage' => $historicalData->currentPage(),
+                'lastPage' => $historicalData->lastPage(),
+                'perPage' => $historicalData->perPage(),
+                'total' => $historicalData->total(),
             ],
         ]);
     }
