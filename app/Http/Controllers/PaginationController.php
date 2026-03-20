@@ -58,12 +58,13 @@ class PaginationController extends Controller
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
 
         $leaveRequests = LeaveRequest::query()
-            ->with('user:id,name')
+            ->with('user:id,name,employee_id')
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
                     $subQuery
                         ->where('leave_type', 'like', '%'.$search.'%')
                         ->orWhere('reason', 'like', '%'.$search.'%')
+                        ->orWhere('status', 'like', '%'.$search.'%')
                         ->orWhereHas('user', function ($userQuery) use ($search): void {
                             $userQuery->where('name', 'like', '%'.$search.'%');
                         });
@@ -79,9 +80,56 @@ class PaginationController extends Controller
                 'startDate' => $leaveRequest->start_date?->format('Y-m-d') ?? '-',
                 'endDate' => $leaveRequest->end_date?->format('Y-m-d') ?? '-',
                 'reason' => $leaveRequest->reason,
+                'status' => $leaveRequest->status ?? 'pending',
+                'stage' => $leaveRequest->stage,
             ]);
 
         return Inertia::render('admin/leave-management', [
+            'search' => $search,
+            'leaveRequests' => $leaveRequests->items(),
+            'pagination' => [
+                'currentPage' => $leaveRequests->currentPage(),
+                'lastPage' => $leaveRequests->lastPage(),
+                'perPage' => $leaveRequests->perPage(),
+                'total' => $leaveRequests->total(),
+            ],
+        ]);
+    }
+
+    public function hrLeaveManagement(Request $request): Response
+    {
+        $search = trim((string) $request->string('search'));
+        $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
+
+        $leaveRequests = LeaveRequest::query()
+            ->with('user:id,name,employee_id')
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($subQuery) use ($search): void {
+                    $subQuery
+                        ->where('leave_type', 'like', '%'.$search.'%')
+                        ->orWhere('reason', 'like', '%'.$search.'%')
+                        ->orWhere('status', 'like', '%'.$search.'%')
+                        ->orWhereHas('user', function ($userQuery) use ($search): void {
+                            $userQuery->where('name', 'like', '%'.$search.'%');
+                        });
+                });
+            })
+            ->latest()
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (LeaveRequest $leaveRequest): array => [
+                'id' => $leaveRequest->id,
+                'name' => $leaveRequest->user?->name ?? 'Unknown User',
+                'leaveType' => $leaveRequest->leave_type,
+                'startDate' => $leaveRequest->start_date?->format('Y-m-d') ?? '-',
+                'endDate' => $leaveRequest->end_date?->format('Y-m-d') ?? '-',
+                'reason' => $leaveRequest->reason,
+                'status' => $leaveRequest->status ?? 'pending',
+                'stage' => $leaveRequest->stage,
+                'dhDecision' => $leaveRequest->dh_decision,
+            ]);
+
+        return Inertia::render('admin/hr-leave-management', [
             'search' => $search,
             'leaveRequests' => $leaveRequests->items(),
             'pagination' => [

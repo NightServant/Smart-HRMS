@@ -39,6 +39,7 @@ type LeaveRequest = {
     reason: string;
     status?: string;
     stage?: string;
+    dhDecision?: number;
 };
 
 type PaginationMeta = {
@@ -48,7 +49,7 @@ type PaginationMeta = {
     total: number;
 };
 
-export default function LeaveRequestTable({
+export default function HrLeaveManagementTable({
     leaveRequests,
     search,
     pagination,
@@ -65,7 +66,7 @@ export default function LeaveRequestTable({
     const handleSearchChange = (value: string): void => {
         setSearchTerm(value);
         router.get(
-            admin.leaveManagement().url,
+            admin.hrLeaveManagement().url,
             { search: value, page: 1, perPage: pagination.perPage },
             {
                 preserveScroll: true,
@@ -78,7 +79,7 @@ export default function LeaveRequestTable({
 
     const handleRowsPerPageChange = (value: string): void => {
         router.get(
-            admin.leaveManagement().url,
+            admin.hrLeaveManagement().url,
             { search: searchTerm, page: 1, perPage: Number(value) },
             {
                 preserveScroll: true,
@@ -92,7 +93,7 @@ export default function LeaveRequestTable({
     const goToPreviousPage = (): void => {
         if (pagination.currentPage <= 1) return;
         router.get(
-            admin.leaveManagement().url,
+            admin.hrLeaveManagement().url,
             { search: searchTerm, page: pagination.currentPage - 1, perPage: pagination.perPage },
             { preserveScroll: true, preserveState: true, replace: true, only: ["leaveRequests", "search", "pagination"] }
         );
@@ -101,13 +102,13 @@ export default function LeaveRequestTable({
     const goToNextPage = (): void => {
         if (pagination.currentPage >= pagination.lastPage) return;
         router.get(
-            admin.leaveManagement().url,
+            admin.hrLeaveManagement().url,
             { search: searchTerm, page: pagination.currentPage + 1, perPage: pagination.perPage },
             { preserveScroll: true, preserveState: true, replace: true, only: ["leaveRequests", "search", "pagination"] }
         );
     };
 
-    const isActionable = (lr: LeaveRequest): boolean => lr.stage === 'sent_to_department_head';
+    const isActionable = (lr: LeaveRequest): boolean => lr.stage === 'sent_to_hr';
 
     const handleApprove = (id: number): void => {
         setProcessingId(id);
@@ -140,6 +141,18 @@ export default function LeaveRequestTable({
         );
     };
 
+    const dhDecisionLabel = (decision?: number): string => {
+        if (decision === 1) return 'Approved';
+        if (decision === 2) return 'Rejected';
+        return 'Pending';
+    };
+
+    const dhDecisionClass = (decision?: number): string => {
+        if (decision === 1) return 'bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-200';
+        if (decision === 2) return 'bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200';
+        return 'bg-yellow-200 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
+    };
+
     return (
         <>
             <div className="animate-slide-in-down">
@@ -147,9 +160,9 @@ export default function LeaveRequestTable({
                     <div>
                         <h1 className="flex items-center gap-2 text-3xl font-bold">
                             <UserSearch className="h-8 w-8" />
-                            Leave Request Records
+                            HR Leave Management
                         </h1>
-                        <p className="mt-1 text-muted-foreground">List of leave requests from employees in the administrative office.</p>
+                        <p className="mt-1 text-muted-foreground">Review and process leave requests forwarded by the Department Head.</p>
                     </div>
                 </div>
             </div>
@@ -178,6 +191,7 @@ export default function LeaveRequestTable({
                             <TableHead className="px-4 py-3">Start Date</TableHead>
                             <TableHead className="px-4 py-3">End Date</TableHead>
                             <TableHead className="px-4 py-3">Reason</TableHead>
+                            <TableHead className="px-4 py-3 text-center">DH Decision</TableHead>
                             <TableHead className="px-4 py-3 text-center">Status</TableHead>
                             <TableHead className="px-4 py-3 text-center">Action 1</TableHead>
                             <TableHead className="px-4 py-3 text-center">Action 2</TableHead>
@@ -199,6 +213,11 @@ export default function LeaveRequestTable({
                                     <TableCell className="px-4 py-2">{leaveRequest.startDate}</TableCell>
                                     <TableCell className="px-4 py-2">{leaveRequest.endDate}</TableCell>
                                     <TableCell className="px-4 py-2">{leaveRequest.reason}</TableCell>
+                                    <TableCell className="px-4 py-2 text-center">
+                                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold ${dhDecisionClass(leaveRequest.dhDecision)}`}>
+                                            {dhDecisionLabel(leaveRequest.dhDecision)}
+                                        </span>
+                                    </TableCell>
                                     <TableCell className="px-4 py-2 text-center">
                                         <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold ${
                                             leaveRequest.status === 'completed' ? 'bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-200' :
@@ -247,7 +266,7 @@ export default function LeaveRequestTable({
                                 </TableRow>
                                 {rejectingRowId === leaveRequest.id && isActionable(leaveRequest) && (
                                     <TableRow key={`reject-${leaveRequest.id}`} className="bg-red-50 dark:bg-red-950/30">
-                                        <TableCell colSpan={9} className="px-4 py-3">
+                                        <TableCell colSpan={10} className="px-4 py-3">
                                             <div className="flex items-end gap-3">
                                                 <div className="flex-1">
                                                     <label className="mb-1 block text-sm font-semibold text-foreground">
@@ -288,15 +307,15 @@ export default function LeaveRequestTable({
                         ))}
                         {leaveRequests.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={9} className="bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80">
-                                    No matching leave requests found.
+                                <TableCell colSpan={10} className="bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80">
+                                    No leave requests awaiting HR review.
                                 </TableCell>
                             </TableRow>
                         )}
                     </TableBody>
                     <TableFooter>
                         <TableRow className="bg-[#E8F4E4] text-sm font-semibold text-foreground dark:bg-[#1A2F1A] dark:text-[#EAF7E6]">
-                            <TableCell colSpan={9} className="px-4 py-3">
+                            <TableCell colSpan={10} className="px-4 py-3">
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-2">
                                         <span>Rows per page</span>

@@ -90,7 +90,7 @@ const hrPersonnelNavItems: NavItem[] = [
     },
     {
         title: 'Leave Management',
-        href: admin.leaveManagement(),
+        href: admin.hrLeaveManagement(),
         icon: FileUser,
     },
     {

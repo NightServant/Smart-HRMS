@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -30,6 +31,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'employee_id',
     ];
 
     /**
@@ -88,8 +90,18 @@ class User extends Authenticatable
         return 'dashboard';
     }
 
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'employee_id', 'employee_id');
+    }
+
     public function leaveRequests(): HasMany
     {
         return $this->hasMany(LeaveRequest::class);
+    }
+
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(Notification::class);
     }
 }

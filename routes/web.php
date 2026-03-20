@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Export_CSV_Controller;
 use App\Http\Controllers\Import_CSV_Controller;
+use App\Http\Controllers\IwrController;
 use App\Http\Controllers\LeaveRequestController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaginationController;
 use App\Http\Controllers\SeminarsController;
 use Illuminate\Support\Facades\Route;
@@ -34,9 +36,18 @@ Route::get('submit-evaluation', function () {
     return Inertia::render('submit-evaluation');
 })->middleware(['auth', 'verified', 'role:employee'])->name('submit-evaluation');
 
-Route::get('notifications', function () {
-    return Inertia::render('notifications');
-})->middleware(['auth', 'verified', 'role:employee,evaluator'])->name('notifications');
+Route::get('notifications', [NotificationController::class, 'index'])
+    ->middleware(['auth', 'verified', 'role:employee,evaluator,hr-personnel'])
+    ->name('notifications');
+Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
+    ->middleware(['auth', 'verified'])
+    ->name('notifications.read');
+Route::delete('notifications/{notification}', [NotificationController::class, 'dismiss'])
+    ->middleware(['auth', 'verified'])
+    ->name('notifications.dismiss');
+Route::post('notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])
+    ->middleware(['auth', 'verified'])
+    ->name('notifications.mark-all-read');
 
 Route::get('performanceDashboard', [SeminarsController::class, 'performanceDashboard'])
     ->middleware(['auth', 'verified', 'role:evaluator'])
@@ -72,12 +83,32 @@ Route::get('admin/attendance-management/export-csv', [Export_CSV_Controller::cla
     ->name('admin.attendance-management.export-csv');
 
 Route::get('admin/leave-management', [PaginationController::class, 'leaveManagement'])
-    ->middleware(['auth', 'verified', 'role:hr-personnel,evaluator'])
+    ->middleware(['auth', 'verified', 'role:evaluator'])
     ->name('admin.leave-management');
 
-Route::get('evaluation-page', function () {
-    return Inertia::render('evaluation-page');
-})->middleware(['auth', 'verified'])->name('evaluation-page');
+Route::get('admin/hr-leave-management', [PaginationController::class, 'hrLeaveManagement'])
+    ->middleware(['auth', 'verified', 'role:hr-personnel'])
+    ->name('admin.hr-leave-management');
+
+// IWR IPCR routes
+Route::post('ipcr/submit', [IwrController::class, 'submitIpcr'])
+    ->middleware(['auth', 'verified', 'role:employee'])
+    ->name('ipcr.submit');
+Route::post('ipcr/evaluate', [IwrController::class, 'saveEvaluation'])
+    ->middleware(['auth', 'verified', 'role:evaluator'])
+    ->name('ipcr.evaluate');
+
+// IWR Leave approval routes
+Route::post('leave/{leaveRequest}/approve', [IwrController::class, 'approveLeave'])
+    ->middleware(['auth', 'verified', 'role:evaluator,hr-personnel'])
+    ->name('leave.approve');
+Route::post('leave/{leaveRequest}/reject', [IwrController::class, 'rejectLeave'])
+    ->middleware(['auth', 'verified', 'role:evaluator,hr-personnel'])
+    ->name('leave.reject');
+
+Route::get('evaluation-page', [IwrController::class, 'evaluationPage'])
+    ->middleware(['auth', 'verified', 'role:evaluator'])
+    ->name('evaluation-page');
 
 Route::get('training-scheduling', [SeminarsController::class, 'index'])
     ->middleware(['auth', 'verified', 'role:hr-personnel'])

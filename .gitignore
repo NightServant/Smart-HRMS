@@ -26,3 +26,7 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+/iwr/.venv/
+/iwr/__pycache__/
+/iwr/models/*.pkl
+/iwr/data/

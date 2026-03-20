@@ -75,12 +75,27 @@ export default function Register() {
                             </div>
 
                             <div className="grid gap-2">
+                                <Label htmlFor="employee_id">Employee ID <span className="text-muted-foreground">(optional)</span></Label>
+                                <Input
+                                    id="employee_id"
+                                    type="text"
+                                    tabIndex={4}
+                                    name="employee_id"
+                                    placeholder="e.g. EMP-001"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    If you have an employee ID, enter it to link your account to your employee record.
+                                </p>
+                                <InputError message={errors.employee_id} />
+                            </div>
+
+                            <div className="grid gap-2">
                                 <Label htmlFor="password">Password</Label>
                                 <Input
                                     id="password"
                                     type="password"
                                     required
-                                    tabIndex={4}
+                                    tabIndex={5}
                                     autoComplete="new-password"
                                     name="password"
                                     placeholder="Password"
@@ -96,7 +111,7 @@ export default function Register() {
                                     id="password_confirmation"
                                     type="password"
                                     required
-                                    tabIndex={5}
+                                    tabIndex={6}
                                     autoComplete="new-password"
                                     name="password_confirmation"
                                     placeholder="Confirm password"
@@ -108,7 +123,7 @@ export default function Register() {
                             <Button
                                 type="submit"
                                 className="mt-2 w-full"
-                                tabIndex={6}
+                                tabIndex={7}
                                 data-test="register-user-button"
                             >
                                 {processing && <Spinner />}
@@ -118,7 +133,7 @@ export default function Register() {
 
                         <div className="text-center text-sm text-muted-foreground">
                             Already have an account?{' '}
-                            <TextLink href={login()} tabIndex={7}>
+                            <TextLink href={login()} tabIndex={8}>
                                 Log in
                             </TextLink>
                         </div>

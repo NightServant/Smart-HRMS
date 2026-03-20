@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreSeminarsRequest;
 use App\Http\Requests\UpdateSeminarsRequest;
+use App\Models\IpcrSubmission;
 use App\Models\Seminars;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -33,10 +34,33 @@ class SeminarsController extends Controller
             ->all();
     }
 
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function remarksPayload(): array
+    {
+        return IpcrSubmission::query()
+            ->where('evaluator_gave_remarks', true)
+            ->whereNotNull('rejection_reason')
+            ->where('rejection_reason', '!=', '')
+            ->with('employee')
+            ->latest()
+            ->limit(20)
+            ->get()
+            ->map(fn (IpcrSubmission $submission): array => [
+                'employeeId' => $submission->employee_id,
+                'employeeName' => $submission->employee?->name ?? $submission->employee_id,
+                'date' => $submission->created_at?->format('F j, Y'),
+                'remark' => $submission->rejection_reason,
+            ])
+            ->all();
+    }
+
     public function performanceDashboard(): Response
     {
         return Inertia::render('performanceDashboard', [
             'seminars' => $this->seminarPayload(),
+            'remarks' => $this->remarksPayload(),
         ]);
     }
 
@@ -44,6 +68,7 @@ class SeminarsController extends Controller
     {
         return Inertia::render('admin/performance-dashboard', [
             'seminars' => $this->seminarPayload(),
+            'remarks' => $this->remarksPayload(),
         ]);
     }
 

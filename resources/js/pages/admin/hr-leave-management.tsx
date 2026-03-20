@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import LeaveRequestTable from '@/components/leave-request-table';
+import HrLeaveManagementTable from '@/components/hr-leave-management-table';
 import AppLayout from '@/layouts/app-layout';
 import * as admin from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types';
@@ -13,6 +13,7 @@ type LeaveRequest = {
     reason: string;
     status?: string;
     stage?: string;
+    dhDecision?: number;
 };
 
 type PaginationMeta = {
@@ -24,12 +25,12 @@ type PaginationMeta = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Leave Management',
-        href: admin.leaveManagement().url,
+        title: 'HR Leave Management',
+        href: admin.hrLeaveManagement().url,
     },
 ];
 
-export default function LeaveManagement({
+export default function HrLeaveManagement({
     leaveRequests,
     search,
     pagination,
@@ -40,9 +41,9 @@ export default function LeaveManagement({
 }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Leave Management" />
+            <Head title="HR Leave Management" />
             <div className="p-4 mx-auto flex w-full flex-col gap-6 lg:items-stretch">
-                <LeaveRequestTable leaveRequests={leaveRequests} search={search} pagination={pagination} />
+                <HrLeaveManagementTable leaveRequests={leaveRequests} search={search} pagination={pagination} />
             </div>
         </AppLayout>
     );
