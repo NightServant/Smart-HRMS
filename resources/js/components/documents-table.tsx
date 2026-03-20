@@ -160,7 +160,7 @@ export default function DocumentsTable({
                             <TableHead>Name</TableHead>
                             <TableHead>Email Address</TableHead>
                             <TableHead>Position</TableHead>
-                            <TableHead className="w-[28rem] text-center">Evaluation</TableHead>
+                            <TableHead className="w-[26rem] text-center">Evaluation</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -175,19 +175,12 @@ export default function DocumentsTable({
                                 <TableCell>{employee.name}</TableCell>
                                 <TableCell>{employee.email}</TableCell>
                                 <TableCell>{employee.position}</TableCell>
-                                <TableCell className="min-w-[26rem] text-center">
-                                    <div className="ml-auto grid w-full max-w-[26rem] grid-cols-1 gap-2 sm:grid-cols-2">
-                                        <Button asChild type="button" className="bg-secondary px-3 py-2 text-xs font-bold text-foreground shadow-md transition-colors hover:bg-secondary/90">
+                                <TableCell className="text-center">
+                                        <Button asChild type="button" className="bg-secondary px-3 py-2 w-1/2 text-xs font-bold text-foreground shadow-md transition-colors hover:bg-secondary/90">
                                             <a href={evaluationPage().url} target="_blank" rel="noopener noreferrer">
-                                               1st Semester
+                                               Evaluate
                                             </a>
                                         </Button>
-                                        <Button asChild type="button" className="bg-primary px-3 py-2 text-xs font-bold text-primary-foreground shadow-md transition-colors hover:bg-primary/90">
-                                            <a href={evaluationPage().url} target="_blank" rel="noopener noreferrer">
-                                                2nd Semester
-                                            </a>
-                                        </Button>
-                                    </div>
                                 </TableCell>
                             </TableRow>
                         ))}

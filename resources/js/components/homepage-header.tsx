@@ -14,7 +14,7 @@ export default function HomepageHeader() {
                 />
             </Head>
             <header className="overflow-x-hidden">
-                <nav className="relative bg-secondary/80 p-6 dark:bg-background/80">
+                <nav className="fixed inset-x-0 top-0 z-50 bg-secondary/80 p-6 backdrop-blur-md dark:bg-background/80">
                     <Link
                         href={home()}
                         className="relative z-10 inline-flex items-center gap-2 text-2xl font-bold text-foreground animate-fade-in-left"

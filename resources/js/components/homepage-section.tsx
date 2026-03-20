@@ -128,7 +128,7 @@ export default function HomepageSection() {
     }, [isDragging]);
 
     return (
-        <section className="bg-video relative flex h-auto w-full overflow-x-hidden py-16 md:py-20">
+        <section className="bg-video relative flex h-auto w-full overflow-x-hidden px-0 pb-16 pt-28 md:pb-20 md:pt-32">
             <video
                 className="bg-video__media"
                 autoPlay

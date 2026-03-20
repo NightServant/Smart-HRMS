@@ -17,20 +17,20 @@ export default function HomepageCards() {
                 </div>
 
                 <Tabs defaultValue="routing" className="mx-auto w-full max-w-3xl animate-fade-in-up xl:col-span-6 xl:mx-0 xl:max-w-none">
-                    <TabsList className="h-auto w-full gap-2 overflow-x-auto p-1">
-                        <TabsTrigger value="routing" className="shrink-0 px-4 data-[state=active]:bg-secondary data-[state=active]:text-foreground dark:data-[state=active]:bg-background">
+                    <TabsList className="!grid !h-auto min-h-0 w-full grid-cols-2 auto-rows-fr gap-2 overflow-y-hidden p-1 sm:grid-cols-4">
+                        <TabsTrigger value="routing" className="h-auto min-w-0 px-3 py-2 text-xs sm:px-4 sm:text-sm data-[state=active]:bg-secondary/80 data-[state=active]:text-foreground dark:data-[state=active]:bg-background/80">
                             <Workflow className="mr-2 size-4" />
                             Routing
                         </TabsTrigger>
-                        <TabsTrigger value="performance" className="shrink-0 px-4 data-[state=active]:bg-secondary data-[state=active]:text-foreground dark:data-[state=active]:bg-background">
+                        <TabsTrigger value="performance" className="h-auto min-w-0 px-3 py-2 text-xs sm:px-4 sm:text-sm data-[state=active]:bg-secondary/80 data-[state=active]:text-foreground dark:data-[state=active]:bg-background/80">
                             <TrendingUpDown className="mr-2 size-4" />
                             Performance
                         </TabsTrigger>
-                        <TabsTrigger value="analytics" className="shrink-0 px-4 data-[state=active]:bg-secondary data-[state=active]:text-foreground dark:data-[state=active]:bg-background">
+                        <TabsTrigger value="analytics" className="h-auto min-w-0 px-3 py-2 text-xs sm:px-4 sm:text-sm data-[state=active]:bg-secondary/80 data-[state=active]:text-foreground dark:data-[state=active]:bg-background/80">
                             <ChartPie className="mr-2 size-4" />
                             Analytics
                         </TabsTrigger>
-                        <TabsTrigger value="training" className="shrink-0 px-4 data-[state=active]:bg-secondary data-[state=active]:text-foreground dark:data-[state=active]:bg-background">
+                        <TabsTrigger value="training" className="h-auto min-w-0 px-3 py-2 text-xs sm:px-4 sm:text-sm data-[state=active]:bg-secondary/80 data-[state=active]:text-foreground dark:data-[state=active]:bg-background/80">
                             <Target className="mr-2 size-4" />
                             Training
                         </TabsTrigger>
