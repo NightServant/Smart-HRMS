@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Export_CSV_Controller;
 use App\Http\Controllers\Import_CSV_Controller;
 use App\Http\Controllers\IwrController;
@@ -17,9 +18,9 @@ Route::get('/', function () {
     ]);
 })->name('home');
 
-Route::get('dashboard', function () {
-    return Inertia::render('dashboard');
-})->middleware(['auth', 'verified', 'role:employee'])->name('dashboard');
+Route::get('dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified', 'role:employee'])
+    ->name('dashboard');
 
 Route::get('attendance', function () {
     return Inertia::render('attendance');

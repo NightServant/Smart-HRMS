@@ -1,71 +1,41 @@
-import { BookOpen, Clock3, MapPin, Mic, Target } from 'lucide-react';
-import { Card, CardDescription, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { AlertTriangle, BookOpen, Clock3, MapPin, Mic, Target } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 
-const recommendations = [
-    {
-        id: 1,
-        title: 'Effective Communication',
-        description: 'Enhance your ability to convey ideas clearly and collaborate effectively with colleagues.',
-        date: '2026-04-15',
-        time: '09:00 - 12:00',
-        location: 'Online',
-        speaker: 'Dr. Evelyn Reed',
-        target_performance_area: 'Communication',
-    },
-    {
-        id: 2,
-        title: 'Advanced Time Management',
-        description: 'Master techniques to prioritize tasks, manage workload, and boost overall productivity.',
-        date: '2026-04-22',
-        time: '13:00 - 16:00',
-        location: 'Conference Room 3',
-        speaker: 'Markus Vance',
-        target_performance_area: 'Productivity',
-    },
-    {
-        id: 3,
-        title: 'Foundations of Leadership',
-        description: 'Develop essential skills for leading teams, motivating others, and driving successful projects.',
-        date: '2026-05-05',
-        time: '09:00 - 16:00',
-        location: 'Leadership Academy',
-        speaker: 'Aria Montgomery',
-        target_performance_area: 'Leadership',
-    },
-    {
-        id: 4,
-        title: 'Conflict Resolution Mastery',
-        description: 'Learn strategies to navigate workplace disagreements and foster a positive environment.',
-        date: '2026-05-12',
-        time: '10:00 - 12:00',
-        location: 'Online',
-        speaker: 'Kenji Tanaka',
-        target_performance_area: 'Teamwork',
-    },
-    {
-        id: 5,
-        title: 'Creative Problem-Solving',
-        description: 'Unlock innovative solutions to complex challenges and drive continuous improvement.',
-        date: '2026-05-20',
-        time: '14:00 - 17:00',
-        location: 'Innovation Hub',
-        speaker: 'Dr. Lena Petrova',
-        target_performance_area: 'Innovation',
-    },
-    {
-        id: 6,
-        title: 'Emotional Intelligence at Work',
-        description: 'Improve self-awareness and interpersonal skills to build stronger professional relationships.',
-        date: '2026-06-01',
-        time: '09:30 - 12:30',
-        location: 'Online',
-        speaker: 'David Chen',
-        target_performance_area: 'Emotional Intelligence',
-    },
-];
+type Recommendation = {
+    seminar_id: number;
+    title: string;
+    description: string;
+    location: string;
+    time: string;
+    speaker: string;
+    target_performance_area: string;
+    date: string;
+    score: number;
+    priority: 'HIGH' | 'MEDIUM';
+    matched_area: string;
+};
 
-export default function TrainingRecommendations() {
+type Props = {
+    recommendations: Recommendation[];
+    riskLevel?: string;
+};
+
+function priorityBadge(priority: string) {
+    if (priority === 'HIGH') {
+        return <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-400">High Priority</span>;
+    }
+    return <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Medium Priority</span>;
+}
+
+function matchBadge(score: number) {
+    const pct = Math.round(score * 100);
+    return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">{pct}% match</span>;
+}
+
+export default function TrainingRecommendations({ recommendations, riskLevel }: Props) {
+    const showRiskBanner = riskLevel === 'CRITICAL' || riskLevel === 'HIGH';
+
     return (
         <div className="animate-fade-in-right flex w-full flex-col gap-3 overflow-hidden rounded-xl border border-border bg-card/80 p-4 shadow-xl transition-shadow duration-300 hover:shadow-2xl sm:gap-4">
             <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg">
@@ -75,15 +45,45 @@ export default function TrainingRecommendations() {
             <p className="text-sm text-muted-foreground">
                 Suggested learning programs based on current performance trends and priority skill gaps. Prioritize programs that align with your role goals and the most frequent coaching feedback.
             </p>
+
+            {showRiskBanner && (
+                <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 dark:border-red-800 dark:bg-red-950/30">
+                    <AlertTriangle className="size-4 text-red-600 dark:text-red-400" />
+                    <span className="text-xs font-medium text-red-700 dark:text-red-400">
+                        {riskLevel === 'CRITICAL'
+                            ? 'Critical performance risk — immediate training intervention required.'
+                            : 'High performance risk — mandatory training within 30 days.'}
+                    </span>
+                </div>
+            )}
+
             <div className="mx-4 mt-2 h-1 rounded-full bg-gradient-to-r from-primary/60 via-secondary/60 to-primary/60 sm:mx-6" />
+
             <div className="mt-2">
                 <Carousel className="w-full max-w-none px-2 sm:px-4 lg:px-6">
                     <CarouselContent className="-ml-2 md:-ml-4">
+                        {recommendations.length === 0 && (
+                            <CarouselItem className="basis-full">
+                                <Card className="h-full bg-card/80">
+                                    <CardHeader>
+                                        <CardTitle>No training recommendations yet</CardTitle>
+                                        <CardDescription>
+                                            Complete an IPCR evaluation to receive personalized training suggestions based on your performance areas.
+                                        </CardDescription>
+                                    </CardHeader>
+                                </Card>
+                            </CarouselItem>
+                        )}
+
                         {recommendations.map((reco) => (
-                            <CarouselItem key={reco.id} className="basis-full 2xl:basis-1/2">
+                            <CarouselItem key={reco.seminar_id} className="basis-full 2xl:basis-1/2">
                                 <Card className="group bg-card/80 py-4 shadow-sm transition-shadow duration-300 hover:shadow-lg">
                                     <CardHeader className="px-4">
-                                        <CardTitle>{reco.title}</CardTitle>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            {priorityBadge(reco.priority)}
+                                            {matchBadge(reco.score)}
+                                        </div>
+                                        <CardTitle className="mt-1">{reco.title}</CardTitle>
                                         <CardDescription className="flex items-center gap-2">
                                             <Clock3 className="size-4 text-muted-foreground" />
                                             {reco.date} | {reco.time}

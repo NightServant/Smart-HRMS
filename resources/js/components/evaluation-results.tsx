@@ -194,6 +194,9 @@ export default function EvaluationResults({ employee, submission }: Props) {
                                         value={score > 0 ? (score / 5) * 100 : 0}
                                         className={`h-2 ${ratingBarColor(score)}`}
                                     />
+                                    {score > 0 && score <= 2 && (
+                                        <p className="text-xs text-amber-600 dark:text-amber-400">Training recommended for this area</p>
+                                    )}
                                 </div>
                             );
                         })}
