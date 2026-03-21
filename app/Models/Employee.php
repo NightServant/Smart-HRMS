@@ -44,6 +44,11 @@ class Employee extends Model
         return $this->hasMany(IpcrSubmission::class, 'employee_id', 'employee_id');
     }
 
+    public function latestSubmission(): HasOne
+    {
+        return $this->hasOne(IpcrSubmission::class, 'employee_id', 'employee_id')->latestOfMany();
+    }
+
     public function leaveRequests(): HasMany
     {
         return $this->hasMany(LeaveRequest::class, 'employee_id', 'employee_id');

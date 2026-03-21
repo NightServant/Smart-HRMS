@@ -1,10 +1,23 @@
 import { usePage } from '@inertiajs/react';
-import { Briefcase, ChartLine, TrendingUp, UserRound } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Briefcase, ChartLine, MessageSquare, TrendingUp, UserRound } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart } from '@/components/ui/line-chart';
 
+type EmployeeProfile = {
+    employee_id: string;
+    name: string;
+    job_title: string;
+    performance_rating: string | null;
+    remarks: string | null;
+    notification: string | null;
+};
+
+type PageProps = {
+    employeeProfile?: EmployeeProfile | null;
+};
+
 export default function PredictivePerformance() {
-    const { auth } = usePage().props;
+    const { employeeProfile } = usePage<PageProps>().props;
 
     return (
         <div className="animate-fade-in col-span-2 flex w-full flex-col gap-4 rounded-xl border border-border bg-card/80 p-4 shadow-xl transition-shadow duration-300 hover:shadow-2xl sm:gap-5">
@@ -44,20 +57,21 @@ export default function PredictivePerformance() {
                 <div className="space-y-1 text-sm text-muted-foreground">
                     <p className="flex items-center gap-2 font-semibold text-foreground">
                         <UserRound className="size-4 text-primary" />
-                        Employee ID: EMP-00{auth.user.id}
+                        Employee ID: {employeeProfile?.employee_id ?? 'N/A'}
                     </p>
                     <p className="flex items-center gap-2 font-semibold text-foreground">
                         <UserRound className="size-4 text-primary" />
-                        Name: {auth.user.name}
+                        Name: {employeeProfile?.name ?? 'N/A'}
                     </p>
                 </div>
                 <div className="space-y-1 text-sm text-muted-foreground sm:text-right">
                     <p className="flex items-center justify-start gap-2 font-semibold text-foreground sm:justify-end">
                         <Briefcase className="size-4 text-primary" />
-                        Position: {auth.user.role || 'N/A'}
+                        Position: {employeeProfile?.job_title ?? 'N/A'}
                     </p>
                     <p className="flex items-center justify-start gap-2 sm:justify-end">
-                        Remarks: Consistent communicator with room to improve delivery under pressure.
+                        <MessageSquare className="size-4 text-primary" />
+                        Remarks: {employeeProfile?.remarks ?? 'No remarks yet.'}
                     </p>
                 </div>
             </div>

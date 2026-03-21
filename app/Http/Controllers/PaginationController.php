@@ -148,6 +148,7 @@ class PaginationController extends Controller
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
 
         $employees = User::query()
+            ->with(['employee', 'employee.latestSubmission'])
             ->where('role', User::ROLE_EMPLOYEE)
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
@@ -164,9 +165,13 @@ class PaginationController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
-                'position' => 'Employee',
+                'employee_id' => $user->employee_id ?? '',
+                'position' => $user->employee?->job_title ?? 'Employee',
                 'date_hired' => $user->created_at?->format('Y-m-d') ?? '-',
                 'age' => 'N/A',
+                'performance_rating' => $user->employee?->latestSubmission?->performance_rating,
+                'remarks' => $user->employee?->latestSubmission?->rejection_reason,
+                'notification' => $user->employee?->latestSubmission?->notification,
             ]);
 
         return Inertia::render('admin/employee-directory', [

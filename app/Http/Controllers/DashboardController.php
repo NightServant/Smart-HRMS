@@ -49,10 +49,25 @@ class DashboardController extends Controller
             }
         }
 
+        $latestSubmission = $employee
+            ? IpcrSubmission::query()
+                ->where('employee_id', $employee->employee_id)
+                ->latest()
+                ->first()
+            : null;
+
         return Inertia::render('dashboard', [
             'recommendations' => $recommendations,
             'riskLevel' => $riskLevel,
             'weakAreas' => $weakAreas,
+            'employeeProfile' => $employee ? [
+                'employee_id' => $employee->employee_id,
+                'name' => $employee->name,
+                'job_title' => $employee->job_title,
+                'performance_rating' => $latestSubmission?->performance_rating,
+                'remarks' => $latestSubmission?->rejection_reason,
+                'notification' => $latestSubmission?->notification,
+            ] : null,
         ]);
     }
 }

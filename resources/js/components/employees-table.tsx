@@ -35,9 +35,13 @@ type Employee = {
     name: string;
     email: string;
     role: string;
+    employee_id: string;
     position: string;
     date_hired: string;
     age: string;
+    performance_rating?: string | null;
+    remarks?: string | null;
+    notification?: string | null;
 };
 
 type PaginationMeta = {
