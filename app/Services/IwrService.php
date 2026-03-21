@@ -27,7 +27,7 @@ class IwrService
             $result = Process::path(base_path('node-bridge'))
                 ->timeout(30)
                 ->input($input)
-                ->run('node bridge.js');
+                ->run('node bridge.cjs');
 
             if (! $result->successful()) {
                 Log::error('IWR bridge failed', [

@@ -10,8 +10,9 @@ type Employee = {
     email: string;
     role: string;
     position: string;
-    date_hired: string;
-    age: string;
+    employeeId: string | null;
+    submissionStatus: string | null;
+    submissionStage: string | null;
 };
 
 type PaginationMeta = {

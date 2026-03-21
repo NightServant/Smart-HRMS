@@ -8,11 +8,26 @@ export default function AppHeaderLayout({
     breadcrumbs = [],
 }: AppLayoutProps) {
     return (
-        <AppShell>
-            <AppHeader breadcrumbs={breadcrumbs} />
-            <AppContent className="min-h-screen w-full overflow-x-hidden">
-                {children}
-            </AppContent>
-        </AppShell>
+        <div className="bg-video min-h-svh w-full">
+            <video
+                className="bg-video__media"
+                autoPlay
+                muted
+                loop
+                playsInline
+            >
+                <source src="/videos/background-video.mp4" type="video/mp4" />
+            </video>
+            <div className="bg-video__overlay" />
+            <div className="bg-video__content min-h-svh">
+
+                <AppShell>
+                    <AppHeader breadcrumbs={breadcrumbs} />
+                    <AppContent className="min-h-screen w-full overflow-x-hidden">
+                        {children}
+                    </AppContent>
+                </AppShell>
+            </div>
+        </div>
     );
 }

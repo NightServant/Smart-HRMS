@@ -40,8 +40,8 @@ class UserSeeder extends Seeder
             ['name' => 'Benedict Mercado', 'email' => 'benedict.mercado@shrms.test', 'password' => $password, 'role' => 'employee', 'employee_id' => 'EMP-020'],
             ['name' => 'Theresa Evangelista', 'email' => 'theresa.evangelista@shrms.test', 'password' => $password, 'role' => 'employee', 'employee_id' => 'EMP-021'],
 
-            // Fictional HR user (not in org chart)
-            ['name' => 'HR Admin', 'email' => 'hr.admin@shrms.test', 'password' => $password, 'role' => 'hr-personnel', 'employee_id' => null],
+            // HR Personnel (not in org chart, required for leave workflow Stage 2)
+            ['name' => 'Grace Tan', 'email' => 'grace.tan@shrms.test', 'password' => $password, 'role' => 'hr-personnel', 'employee_id' => null],
         ];
 
         foreach ($users as $user) {

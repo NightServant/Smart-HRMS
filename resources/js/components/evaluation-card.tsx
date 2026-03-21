@@ -1,3 +1,4 @@
+import { router } from "@inertiajs/react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,9 +83,31 @@ const ratingScale = ["1", "2", "3", "4", "5"];
 
 type RatingMap = Record<string, string>;
 
-export default function EvaluationCard() {
+type Employee = {
+    employee_id: string;
+    name: string;
+    job_title: string;
+};
+
+type Submission = {
+    id: number;
+    performance_rating: number | null;
+    status: string | null;
+    stage: string | null;
+    evaluator_gave_remarks: boolean;
+    remarks: string | null;
+    notification: string | null;
+};
+
+type Props = {
+    employee: Employee | null;
+    submission: Submission | null;
+};
+
+export default function EvaluationCard({ employee, submission }: Props) {
     const [remarks, setRemarks] = useState("");
     const [ratings, setRatings] = useState<RatingMap>({});
+    const [processing, setProcessing] = useState(false);
 
     const ratedScores = useMemo<number[]>(() => {
         return Object.values(ratings)
@@ -101,7 +124,28 @@ export default function EvaluationCard() {
         return totalScore / ratedScores.length;
     }, [ratedScores]);
 
+    const allRated = ratedScores.length === evaluationCriteria.length;
     const showEvaluatorRemarks = averageScore > 0 && averageScore < 3;
+    const canSubmit = allRated && employee && !processing;
+
+    const handleSave = (): void => {
+        if (!employee || !allRated) return;
+        setProcessing(true);
+        router.post(
+            "/ipcr/evaluate",
+            {
+                employee_id: employee.employee_id,
+                performance_rating: averageScore.toFixed(2),
+                evaluator_gave_remarks: remarks.trim().length > 0,
+                remarks: remarks.trim() || null,
+                criteria_ratings: JSON.stringify(ratings),
+            },
+            {
+                onFinish: () => setProcessing(false),
+                onError: () => setProcessing(false),
+            }
+        );
+    };
 
     const resetForm = (): void => {
         setRemarks("");
@@ -111,10 +155,16 @@ export default function EvaluationCard() {
     return (
         <Card className="animate-zoom-in-soft hover-lift-soft mx-auto w-full max-w-7xl rounded-xl border border-border bg-card/80 shadow-xl">
             <CardHeader className="animate-slide-in-down">
-                <CardTitle>Indivdual Performance Commitment and Review</CardTitle>
+                <CardTitle>Individual Performance Commitment and Review</CardTitle>
                 <CardDescription>
-                    Rate each criterion from 1 (lowest) to 5 (highest).
+                    {employee
+                        ? <>Evaluating: <span className="font-semibold text-foreground">{employee.name}</span> — {employee.job_title}</>
+                        : "No employee selected. Open this page from the Document Management table."
+                    }
                 </CardDescription>
+                {submission?.notification && (
+                    <p className="mt-2 text-sm text-primary">{submission.notification}</p>
+                )}
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="animate-fade-in-up anim-stagger-1 w-full overflow-x-auto rounded-md border border-border">
@@ -195,8 +245,14 @@ export default function EvaluationCard() {
                         <Button type="button" variant="destructive" onClick={resetForm} className="w-32">
                             Reset
                         </Button>
-                        <Button type="button" variant="default" className="animate-pulse-glow w-40">
-                            Save Evaluation
+                        <Button
+                            type="button"
+                            variant="default"
+                            className="animate-pulse-glow w-40"
+                            disabled={!canSubmit}
+                            onClick={handleSave}
+                        >
+                            {processing ? "Saving..." : "Save Evaluation"}
                         </Button>
                     </div>
                 </div>

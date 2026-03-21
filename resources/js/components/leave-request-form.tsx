@@ -110,7 +110,7 @@ export default function LeaveRequestForm() {
     const [selectedLeaveType, setSelectedLeaveType] = useState('force-leave');
     const [startDate, setStartDate] = useState<Date>();
     const [endDate, setEndDate] = useState<Date>();
-    const { data, setData, errors, reset } = useForm<{
+    const { data, setData, post, processing, errors, reset } = useForm<{
         leaveType: string;
         startDate: string;
         endDate: string;
@@ -288,6 +288,15 @@ export default function LeaveRequestForm() {
 
         setEndDate(date);
         setData('endDate', format(date, 'yyyy-MM-dd'));
+    };
+
+    const handleSubmit = (): void => {
+        post('/leave-application', {
+            forceFormData: true,
+            onSuccess: () => {
+                handleReset();
+            },
+        });
     };
 
     const handleReset = (): void => {
@@ -475,9 +484,10 @@ export default function LeaveRequestForm() {
                             <Button
                                 type="button"
                                 variant="default"
-                                disabled={Boolean(dateValidationMessage || dateNoticeMessage)}
+                                disabled={Boolean(dateValidationMessage || dateNoticeMessage || processing)}
+                                onClick={handleSubmit}
                             >
-                                Submit Request
+                                {processing ? "Submitting..." : "Submit Request"}
                             </Button>
                         </div>
                     </form>

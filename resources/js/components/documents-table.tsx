@@ -37,6 +37,9 @@ type DocumentEmployee = {
     email: string;
     role: string;
     position: string;
+    employeeId: string | null;
+    submissionStatus: string | null;
+    submissionStage: string | null;
 };
 
 type PaginationMeta = {
@@ -157,6 +160,7 @@ export default function DocumentsTable({
                 <Table className="w-full min-w-[900px]">
                     <TableHeader>
                         <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
+                            <TableHead>Employee ID</TableHead>
                             <TableHead>Name</TableHead>
                             <TableHead>Email Address</TableHead>
                             <TableHead>Position</TableHead>
@@ -172,21 +176,30 @@ export default function DocumentsTable({
                                     index % 2 === 0 ? "bg-[#DDEFD7] dark:bg-[#345A34]/80" : "bg-[#BFDDB5] dark:bg-[#274827]/80"
                                 } animate-fade-in-up`}
                             >
+                                <TableCell>{employee.employeeId}</TableCell>
                                 <TableCell>{employee.name}</TableCell>
                                 <TableCell>{employee.email}</TableCell>
                                 <TableCell>{employee.position}</TableCell>
                                 <TableCell className="text-center">
+                                    {employee.submissionStatus === 'completed' || employee.submissionStage === 'evaluation_saved' ? (
+                                        <Button asChild type="button" variant="outline" className="bg-secondary px-3 py-2 w-1/2 text-xs font-bold shadow-md transition-colors">
+                                            <a href={evaluationPage({ query: { employee_id: employee.employeeId ?? '' } }).url} target="_blank" rel="noopener noreferrer">
+                                               View Results
+                                            </a>
+                                        </Button>
+                                    ) : (
                                         <Button asChild type="button" className="bg-secondary px-3 py-2 w-1/2 text-xs font-bold text-foreground shadow-md transition-colors hover:bg-secondary/90">
-                                            <a href={evaluationPage().url} target="_blank" rel="noopener noreferrer">
+                                            <a href={evaluationPage({ query: { employee_id: employee.employeeId ?? '' } }).url} target="_blank" rel="noopener noreferrer">
                                                Evaluate
                                             </a>
                                         </Button>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))}
                         {employees.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={4} className="bg-[#DDEFD7] text-center dark:bg-[#345A34]/80">
+                                <TableCell colSpan={5} className="bg-[#DDEFD7] text-center dark:bg-[#345A34]/80">
                                     No matching records found.
                                 </TableCell>
                             </TableRow>
@@ -194,7 +207,7 @@ export default function DocumentsTable({
                     </TableBody>
                     <TableFooter>
                         <TableRow className="bg-[#E8F4E4] text-sm font-semibold text-foreground dark:bg-[#1A2F1A] dark:text-[#EAF7E6]">
-                            <TableCell colSpan={4}>
+                            <TableCell colSpan={5}>
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-2">
                                         <span>Rows per page</span>

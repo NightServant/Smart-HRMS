@@ -42,6 +42,7 @@ class IwrController extends Controller
             'submission' => $submission ? [
                 'id' => $submission->id,
                 'performance_rating' => $submission->performance_rating,
+                'criteria_ratings' => $submission->criteria_ratings,
                 'status' => $submission->status,
                 'stage' => $submission->stage,
                 'evaluator_gave_remarks' => $submission->evaluator_gave_remarks,
@@ -99,11 +100,15 @@ class IwrController extends Controller
             'performance_rating' => 'required|numeric|min:1|max:5',
             'evaluator_gave_remarks' => 'required|boolean',
             'remarks' => 'nullable|string|max:2000',
+            'criteria_ratings' => 'nullable|json',
         ]);
 
         $employeeId = $request->string('employee_id')->toString();
         $rating = (float) $request->input('performance_rating');
         $gaveRemarks = (bool) $request->input('evaluator_gave_remarks');
+        $criteriaRatings = $request->input('criteria_ratings')
+            ? json_decode($request->input('criteria_ratings'), true)
+            : null;
 
         $submission = IpcrSubmission::query()
             ->where('employee_id', $employeeId)
@@ -112,6 +117,7 @@ class IwrController extends Controller
 
         $submission->update([
             'performance_rating' => $rating,
+            'criteria_ratings' => $criteriaRatings,
             'is_first_submission' => false,
             'evaluator_gave_remarks' => $gaveRemarks,
             'rejection_reason' => $request->input('remarks'),

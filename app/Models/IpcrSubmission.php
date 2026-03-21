@@ -10,6 +10,7 @@ class IpcrSubmission extends Model
     protected $fillable = [
         'employee_id',
         'performance_rating',
+        'criteria_ratings',
         'is_first_submission',
         'evaluator_gave_remarks',
         'status',
@@ -27,6 +28,7 @@ class IpcrSubmission extends Model
             'is_first_submission' => 'boolean',
             'evaluator_gave_remarks' => 'boolean',
             'performance_rating' => 'decimal:2',
+            'criteria_ratings' => 'array',
             'confidence_pct' => 'decimal:2',
         ];
     }

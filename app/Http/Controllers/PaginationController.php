@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AttendanceRecord;
 use App\Models\HistoricalDataRecord;
+use App\Models\IpcrSubmission;
 use App\Models\LeaveRequest;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -184,35 +185,39 @@ class PaginationController extends Controller
     {
         $search = trim((string) $request->string('search'));
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
+        $evaluatorEmployeeId = $request->user()->employee_id;
 
-        $employees = User::query()
-            ->where('role', User::ROLE_EMPLOYEE)
+        $submissions = IpcrSubmission::query()
+            ->with('employee.user')
+            ->where('evaluator_id', $evaluatorEmployeeId)
             ->when($search !== '', function ($query) use ($search): void {
-                $query->where(function ($subQuery) use ($search): void {
-                    $subQuery
-                        ->where('name', 'like', '%'.$search.'%')
-                        ->orWhere('email', 'like', '%'.$search.'%');
+                $query->whereHas('employee.user', function ($q) use ($search): void {
+                    $q->where('name', 'like', '%'.$search.'%')
+                      ->orWhere('email', 'like', '%'.$search.'%');
                 });
             })
-            ->orderBy('name')
+            ->latest()
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn (User $user): array => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'position' => 'Employee',
+            ->through(fn (IpcrSubmission $submission): array => [
+                'id' => $submission->employee?->user?->id ?? 0,
+                'name' => $submission->employee?->name ?? 'Unknown',
+                'email' => $submission->employee?->user?->email ?? '-',
+                'role' => $submission->employee?->user?->role ?? 'employee',
+                'position' => $submission->employee?->job_title ?? 'Employee',
+                'employeeId' => $submission->employee_id,
+                'submissionStatus' => $submission->status,
+                'submissionStage' => $submission->stage,
             ]);
 
         return Inertia::render('document-management', [
             'search' => $search,
-            'employees' => $employees->items(),
+            'employees' => $submissions->items(),
             'pagination' => [
-                'currentPage' => $employees->currentPage(),
-                'lastPage' => $employees->lastPage(),
-                'perPage' => $employees->perPage(),
-                'total' => $employees->total(),
+                'currentPage' => $submissions->currentPage(),
+                'lastPage' => $submissions->lastPage(),
+                'perPage' => $submissions->perPage(),
+                'total' => $submissions->total(),
             ],
         ]);
     }
