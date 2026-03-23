@@ -27,7 +27,7 @@ class AtreService
 
             Log::info('ATRE request', ['criteria_count' => count($criteriaRatings), 'seminar_count' => count($seminars)]);
 
-            $result = Process::path(base_path('atre'))
+            $result = Process::path(base_path('python/atre'))
                 ->timeout(15)
                 ->input($input)
                 ->run('node bridge.cjs');

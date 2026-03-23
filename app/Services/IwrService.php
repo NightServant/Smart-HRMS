@@ -24,7 +24,7 @@ class IwrService
 
             Log::info('IWR request', ['action' => $action, 'payload' => $payload]);
 
-            $result = Process::path(base_path('node-bridge'))
+            $result = Process::path(base_path('python/iwr'))
                 ->timeout(30)
                 ->input($input)
                 ->run('node bridge.cjs');

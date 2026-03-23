@@ -26,7 +26,7 @@ class PpeService
 
             Log::info('PPE request', ['employee' => $employeeName, 'record_count' => count($records)]);
 
-            $result = Process::path(base_path('ppe'))
+            $result = Process::path(base_path('python/ppe'))
                 ->timeout(15)
                 ->input($input)
                 ->run('node bridge.cjs');

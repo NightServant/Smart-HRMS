@@ -1,8 +1,8 @@
 /**
- * bridge.js — Lightweight Node.js-to-Python bridge for IWR.
+ * IWR Bridge — Lightweight Node.js-to-Python bridge.
  *
  * Usage (called by Laravel's Process facade):
- *   echo '{"action":"route_leave","payload":{...}}' | node bridge.js
+ *   echo '{"action":"route_leave","payload":{...}}' | node bridge.cjs
  *
  * Reads JSON from stdin, spawns Python runner.py, writes result to stdout.
  */
@@ -10,7 +10,7 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-const IWR_DIR = path.resolve(__dirname, '..', 'iwr');
+const IWR_DIR = __dirname;
 const IS_WIN = process.platform === 'win32';
 const VENV_PYTHON = IS_WIN
     ? path.join(IWR_DIR, '.venv', 'Scripts', 'python.exe')
