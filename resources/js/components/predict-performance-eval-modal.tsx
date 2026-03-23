@@ -1,7 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { LineChart } from '@/components/ui/line-chart';
+import PredictionDisplay, { type PredictionResult } from '@/components/prediction-display';
 
 type EmployeeSummary = {
     id: number;
@@ -20,35 +20,33 @@ type PredictivePerformanceModuleProps = {
 };
 
 export default function PredictivePerformanceModule({ isOpen, onOpenChange, employee }: PredictivePerformanceModuleProps) {
+    const [prediction, setPrediction] = useState<PredictionResult | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen || !employee) {
+            setPrediction(null);
+            return;
+        }
+
+        setLoading(true);
+        fetch(`/api/predict?employee_name=${encodeURIComponent(employee.name)}`, {
+            headers: { 'Accept': 'application/json' },
+        })
+            .then((res) => res.json())
+            .then((data) => setPrediction(data))
+            .catch(() => setPrediction(null))
+            .finally(() => setLoading(false));
+    }, [isOpen, employee]);
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="w-full sm:max-w-5xl [&>button]:hidden bg-secondary text-foreground">
+            <DialogContent className="w-full sm:max-w-5xl [&>button]:hidden bg-background text-foreground">
                 <DialogHeader>
                     <DialogTitle>Predictive Performance Analysis Module</DialogTitle>
                     <DialogDescription></DialogDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <Card className="h-full w-full min-w-0 bg-card/80 transition-shadow duration-300 duration-600 hover:scale-105 hover:shadow-lg">
-                        <CardHeader>
-                            <CardTitle>Historical Evaluation</CardTitle>
-                        </CardHeader>
-                        <CardContent className="min-w-0">
-                            <div className="mx-auto my-auto w-full min-w-0">
-                                <LineChart />
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <Card className="h-full w-full min-w-0 bg-card/80 transition-shadow duration-300 duration-600 hover:scale-105 hover:shadow-lg">
-                        <CardHeader>
-                            <CardTitle>Predicted Evaluation</CardTitle>
-                        </CardHeader>
-                        <CardContent className="min-w-0">
-                            <div className="mx-auto my-auto w-full min-w-0">
-                                <LineChart />
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                <PredictionDisplay prediction={prediction} loading={loading} />
                 <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
                     <div className="space-y-1">
                         <p className="text-sm font-semibold">Employee ID: {employee?.employee_id ?? 'N/A'}</p>

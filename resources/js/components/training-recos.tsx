@@ -28,10 +28,6 @@ function priorityBadge(priority: string) {
     return <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Medium Priority</span>;
 }
 
-function matchBadge(score: number) {
-    const pct = Math.round(score * 100);
-    return <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">{pct}% match</span>;
-}
 
 export default function TrainingRecommendations({ recommendations, riskLevel }: Props) {
     const showRiskBanner = riskLevel === 'CRITICAL' || riskLevel === 'HIGH';
@@ -81,7 +77,6 @@ export default function TrainingRecommendations({ recommendations, riskLevel }: 
                                     <CardHeader className="px-4">
                                         <div className="flex flex-wrap items-center gap-2">
                                             {priorityBadge(reco.priority)}
-                                            {matchBadge(reco.score)}
                                         </div>
                                         <CardTitle className="mt-1">{reco.title}</CardTitle>
                                         <CardDescription className="flex items-center gap-2">

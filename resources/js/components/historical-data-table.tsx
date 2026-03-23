@@ -1,5 +1,5 @@
 import { router } from "@inertiajs/react";
-import { Upload, Search, UserSearch, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Upload, Search, UserSearch, Trash2 } from "lucide-react";
 import { useRef, useState, type ChangeEvent } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -50,13 +50,39 @@ type PaginationMeta = {
     total: number;
 };
 
+type HistoricalSortKey =
+    | "employee_name"
+    | "department_name"
+    | "year"
+    | "quarter"
+    | "attendance_punctuality_rate"
+    | "absenteeism_days"
+    | "tardiness_incidents"
+    | "training_completion_status"
+    | "evaluated_performance_score";
+
+type SortDirection = "asc" | "desc";
+
+type GroupedHistoricalRow = {
+    record: HistoricalData;
+    employeeRowSpan: number;
+    yearRowSpan: number;
+    showEmployee: boolean;
+    showDepartment: boolean;
+    showYear: boolean;
+};
+
 export function HistoricalDataTable({
     historicalData,
     search,
+    sort,
+    direction,
     pagination,
 }: {
     historicalData: HistoricalData[];
     search: string;
+    sort: HistoricalSortKey;
+    direction: SortDirection;
     pagination: PaginationMeta;
 }) {
     const [searchTerm, setSearchTerm] = useState(search);
@@ -64,31 +90,56 @@ export function HistoricalDataTable({
     const [isClearing, setIsClearing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-    const handleSearchChange = (value: string): void => {
-        setSearchTerm(value);
+    const visitHistoricalDataTable = (params: {
+        search?: string;
+        page?: number;
+        perPage?: number;
+        sort?: HistoricalSortKey;
+        direction?: SortDirection;
+    }): void => {
         router.get(
             admin.historicalData().url,
-            { search: value, page: 1, perPage: pagination.perPage },
+            {
+                search: params.search ?? searchTerm,
+                page: params.page ?? pagination.currentPage,
+                perPage: params.perPage ?? pagination.perPage,
+                sort: params.sort ?? sort,
+                direction: params.direction ?? direction,
+            },
             {
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ["historicalData", "search", "pagination"],
+                only: ["historicalData", "search", "sort", "direction", "pagination"],
             }
         );
     };
 
+    const renderSortIcon = (column: HistoricalSortKey) => {
+        if (sort !== column) {
+            return <ArrowUpDown className="size-4" />;
+        }
+
+        return direction === "asc" ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />;
+    };
+
+    const handleSortChange = (column: HistoricalSortKey): void => {
+        const nextDirection: SortDirection = sort === column && direction === "asc" ? "desc" : "asc";
+
+        visitHistoricalDataTable({
+            page: 1,
+            sort: column,
+            direction: nextDirection,
+        });
+    };
+
+    const handleSearchChange = (value: string): void => {
+        setSearchTerm(value);
+        visitHistoricalDataTable({ search: value, page: 1 });
+    };
+
     const handleRowsPerPageChange = (value: string): void => {
-        router.get(
-            admin.historicalData().url,
-            { search: searchTerm, page: 1, perPage: Number(value) },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                replace: true,
-                only: ["historicalData", "search", "pagination"],
-            }
-        );
+        visitHistoricalDataTable({ page: 1, perPage: Number(value) });
     };
 
     const goToPreviousPage = (): void => {
@@ -96,16 +147,7 @@ export function HistoricalDataTable({
             return;
         }
 
-        router.get(
-            admin.historicalData().url,
-            { search: searchTerm, page: pagination.currentPage - 1, perPage: pagination.perPage },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                replace: true,
-                only: ["historicalData", "search", "pagination"],
-            }
-        );
+        visitHistoricalDataTable({ page: pagination.currentPage - 1 });
     };
 
     const goToNextPage = (): void => {
@@ -113,16 +155,7 @@ export function HistoricalDataTable({
             return;
         }
 
-        router.get(
-            admin.historicalData().url,
-            { search: searchTerm, page: pagination.currentPage + 1, perPage: pagination.perPage },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                replace: true,
-                only: ["historicalData", "search", "pagination"],
-            }
-        );
+        visitHistoricalDataTable({ page: pagination.currentPage + 1 });
     };
 
     const handleImportClick = (): void => {
@@ -180,6 +213,65 @@ export function HistoricalDataTable({
             },
         });
     };
+
+    const groupedHistoricalData: GroupedHistoricalRow[] = [];
+
+    for (let index = 0; index < historicalData.length; index += 1) {
+        const record = historicalData[index];
+        const employeeGroupKey = `${record.employeeName}::${record.departmentName}`;
+        const yearGroupKey = `${employeeGroupKey}::${record.year}`;
+        const previousRecord = historicalData[index - 1];
+        const previousEmployeeGroupKey = previousRecord
+            ? `${previousRecord.employeeName}::${previousRecord.departmentName}`
+            : null;
+        const previousYearGroupKey = previousRecord
+            ? `${previousRecord.employeeName}::${previousRecord.departmentName}::${previousRecord.year}`
+            : null;
+        const showEmployee = employeeGroupKey !== previousEmployeeGroupKey;
+        const showYear = yearGroupKey !== previousYearGroupKey;
+
+        let employeeRowSpan = 0;
+        let yearRowSpan = 0;
+
+        if (showEmployee) {
+            employeeRowSpan = 1;
+
+            for (let nextIndex = index + 1; nextIndex < historicalData.length; nextIndex += 1) {
+                const nextRecord = historicalData[nextIndex];
+                const nextEmployeeGroupKey = `${nextRecord.employeeName}::${nextRecord.departmentName}`;
+
+                if (nextEmployeeGroupKey !== employeeGroupKey) {
+                    break;
+                }
+
+                employeeRowSpan += 1;
+            }
+        }
+
+        if (showYear) {
+            yearRowSpan = 1;
+
+            for (let nextIndex = index + 1; nextIndex < historicalData.length; nextIndex += 1) {
+                const nextRecord = historicalData[nextIndex];
+                const nextYearGroupKey = `${nextRecord.employeeName}::${nextRecord.departmentName}::${nextRecord.year}`;
+
+                if (nextYearGroupKey !== yearGroupKey) {
+                    break;
+                }
+
+                yearRowSpan += 1;
+            }
+        }
+
+        groupedHistoricalData.push({
+            record,
+            employeeRowSpan,
+            yearRowSpan,
+            showEmployee,
+            showDepartment: showEmployee,
+            showYear,
+        });
+    }
 
     return (
         <>
@@ -240,41 +332,98 @@ export function HistoricalDataTable({
                     </div>
                 </div>
 
-                <Table className="w-full">
+                <Table className="w-full border-collapse">
                     <TableHeader>
                         <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
-                            <TableHead className="px-4 py-3">Employee Name</TableHead>
-                            <TableHead className="px-4 py-3">Department</TableHead>
-                            <TableHead className="px-4 py-3">Year</TableHead>
-                            <TableHead className="px-4 py-3">Quarter</TableHead>
-                            <TableHead className="px-4 py-3">Attendance and Punctuality Rate</TableHead>
-                            <TableHead className="px-4 py-3">Absenteeism Days</TableHead>
-                            <TableHead className="px-4 py-3">Tardiness Incidents</TableHead>
-                            <TableHead className="px-4 py-3">Training Completion Status</TableHead>
-                            <TableHead className="px-4 py-3">Evaluated Performance Score</TableHead>
+                            <TableHead className="border border-[#4A7C3C] px-4 py-3">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("employee_name")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Employee Name
+                                    {renderSortIcon("employee_name")}
+                                </Button>
+                            </TableHead>
+                            <TableHead className="border border-[#4A7C3C] px-4 py-3">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("department_name")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Department
+                                    {renderSortIcon("department_name")}
+                                </Button>
+                            </TableHead>
+                            <TableHead className="border border-[#4A7C3C] px-4 py-3">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("year")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Year
+                                    {renderSortIcon("year")}
+                                </Button>
+                            </TableHead>
+                            <TableHead className="border border-[#4A7C3C] px-4 py-3">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("quarter")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Quarter
+                                    {renderSortIcon("quarter")}
+                                </Button>
+                            </TableHead>
+                            <TableHead className="border border-[#4A7C3C] px-4 py-3">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("attendance_punctuality_rate")} className="h-auto px-0 text-left text-white hover:bg-transparent hover:text-white">
+                                    Attendance and Punctuality Rate
+                                    {renderSortIcon("attendance_punctuality_rate")}
+                                </Button>
+                            </TableHead>
+                            <TableHead className="border border-[#4A7C3C] px-4 py-3">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("absenteeism_days")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Absenteeism Days
+                                    {renderSortIcon("absenteeism_days")}
+                                </Button>
+                            </TableHead>
+                            <TableHead className="border border-[#4A7C3C] px-4 py-3">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("tardiness_incidents")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Tardiness Incidents
+                                    {renderSortIcon("tardiness_incidents")}
+                                </Button>
+                            </TableHead>
+                            <TableHead className="border border-[#4A7C3C] px-4 py-3">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("training_completion_status")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Training Completion Status
+                                    {renderSortIcon("training_completion_status")}
+                                </Button>
+                            </TableHead>
+                            <TableHead className="border border-[#4A7C3C] px-4 py-3">
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("evaluated_performance_score")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Evaluated Performance Score
+                                    {renderSortIcon("evaluated_performance_score")}
+                                </Button>
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {historicalData.map((record, index) => (
+                        {groupedHistoricalData.map(({ record, employeeRowSpan, yearRowSpan, showEmployee, showDepartment, showYear }, index) => (
                             <TableRow
                                 key={record.id}
                                 style={{ animationDelay: `${index * 24}ms` }}
                                 className={`animate-fade-in-up text-sm font-semibold text-foreground ${index % 2 === 0 ? "bg-[#DDEFD7] dark:bg-[#345A34]/80" : "bg-[#BFDDB5] dark:bg-[#274827]/80"}`}
                             >
-                                <TableCell className="px-4 py-2">{record.employeeName}</TableCell>
-                                <TableCell className="px-4 py-2">{record.departmentName}</TableCell>
-                                <TableCell className="px-4 py-2">{record.year}</TableCell>
-                                <TableCell className="px-4 py-2">{record.quarter}</TableCell>
-                                <TableCell className="px-4 py-2 text-center">{record.attendancePunctualityRate}</TableCell>
-                                <TableCell className="px-4 py-2 text-center">{record.absenteeismDays}</TableCell>
-                                <TableCell className="px-4 py-2 text-center">{record.tardinessIncidents}</TableCell>
-                                <TableCell className="px-4 py-2 text-center">{record.trainingCompletionStatus}</TableCell>
-                                <TableCell className="px-4 py-2 text-center">{record.evaluatedPerformanceScore}</TableCell>
+                                {showEmployee && (
+                                    <TableCell rowSpan={employeeRowSpan} className="border border-[#4A7C3C] px-4 py-2 align-top font-bold">
+                                        {record.employeeName}
+                                    </TableCell>
+                                )}
+                                {showDepartment && (
+                                    <TableCell rowSpan={employeeRowSpan} className="border border-[#4A7C3C] px-4 py-2 align-top">
+                                        {record.departmentName}
+                                    </TableCell>
+                                )}
+                                {showYear && (
+                                    <TableCell rowSpan={yearRowSpan} className="border border-[#4A7C3C] px-4 py-2 align-top">
+                                        {record.year}
+                                    </TableCell>
+                                )}
+                                <TableCell className="border border-[#4A7C3C] px-4 py-2">{record.quarter}</TableCell>
+                                <TableCell className="border border-[#4A7C3C] px-4 py-2 text-center">{record.attendancePunctualityRate}</TableCell>
+                                <TableCell className="border border-[#4A7C3C] px-4 py-2 text-center">{record.absenteeismDays}</TableCell>
+                                <TableCell className="border border-[#4A7C3C] px-4 py-2 text-center">{record.tardinessIncidents}</TableCell>
+                                <TableCell className="border border-[#4A7C3C] px-4 py-2 text-center">{record.trainingCompletionStatus}</TableCell>
+                                <TableCell className="border border-[#4A7C3C] px-4 py-2 text-center">{record.evaluatedPerformanceScore}</TableCell>
                             </TableRow>
                         ))}
                         {historicalData.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={9} className="bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80">
+                                <TableCell colSpan={9} className="border border-[#4A7C3C] bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80">
                                     No matching historical records found.
                                 </TableCell>
                             </TableRow>

@@ -13,6 +13,24 @@ use Inertia\Response;
 
 class PaginationController extends Controller
 {
+    /**
+     * @param  array<string, string>  $allowedSorts
+     * @return array{sort: string, direction: string}
+     */
+    private function resolveSort(Request $request, array $allowedSorts, string $defaultSort, string $defaultDirection = 'asc'): array
+    {
+        $requestedSort = (string) $request->string('sort', $defaultSort);
+        $requestedDirection = strtolower((string) $request->string('direction', $defaultDirection));
+
+        $sort = array_key_exists($requestedSort, $allowedSorts) ? $requestedSort : $defaultSort;
+        $direction = in_array($requestedDirection, ['asc', 'desc'], true) ? $requestedDirection : $defaultDirection;
+
+        return [
+            'sort' => $sort,
+            'direction' => $direction,
+        ];
+    }
+
     public function attendanceManagement(Request $request): Response
     {
         $search = trim((string) $request->string('search'));
@@ -146,9 +164,18 @@ class PaginationController extends Controller
     {
         $search = trim((string) $request->string('search'));
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
+        $allowedSorts = [
+            'employee_id' => 'users.employee_id',
+            'name' => 'users.name',
+            'email' => 'users.email',
+            'position' => 'employees.job_title',
+        ];
+        ['sort' => $sort, 'direction' => $direction] = $this->resolveSort($request, $allowedSorts, 'name');
 
         $employees = User::query()
+            ->select('users.*')
             ->with(['employee', 'employee.latestSubmission'])
+            ->leftJoin('employees', 'users.employee_id', '=', 'employees.employee_id')
             ->where('role', User::ROLE_EMPLOYEE)
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
@@ -157,7 +184,10 @@ class PaginationController extends Controller
                         ->orWhere('email', 'like', '%'.$search.'%');
                 });
             })
-            ->orderBy('name')
+            ->orderBy($allowedSorts[$sort], $direction)
+            ->when($sort !== 'name', function ($query) use ($allowedSorts, $direction): void {
+                $query->orderBy($allowedSorts['name'], $direction);
+            })
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (User $user): array => [
@@ -176,6 +206,8 @@ class PaginationController extends Controller
 
         return Inertia::render('admin/employee-directory', [
             'search' => $search,
+            'sort' => $sort,
+            'direction' => $direction,
             'employees' => $employees->items(),
             'pagination' => [
                 'currentPage' => $employees->currentPage(),
@@ -198,7 +230,7 @@ class PaginationController extends Controller
             ->when($search !== '', function ($query) use ($search): void {
                 $query->whereHas('employee.user', function ($q) use ($search): void {
                     $q->where('name', 'like', '%'.$search.'%')
-                      ->orWhere('email', 'like', '%'.$search.'%');
+                        ->orWhere('email', 'like', '%'.$search.'%');
                 });
             })
             ->latest()
@@ -227,10 +259,22 @@ class PaginationController extends Controller
         ]);
     }
 
-    public function adminHistoricalManagement(): Response
+    public function adminHistoricalManagement(Request $request): Response
     {
-        $search = trim((string) request()->string('search'));
-        $perPage = max(1, min(50, (int) request()->integer('perPage', 10)));
+        $search = trim((string) $request->string('search'));
+        $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
+        $allowedSorts = [
+            'employee_name' => 'employee_name',
+            'department_name' => 'department_name',
+            'year' => 'year',
+            'quarter' => 'quarter',
+            'attendance_punctuality_rate' => 'attendance_punctuality_rate',
+            'absenteeism_days' => 'absenteeism_days',
+            'tardiness_incidents' => 'tardiness_incidents',
+            'training_completion_status' => 'training_completion_status',
+            'evaluated_performance_score' => 'evaluated_performance_score',
+        ];
+        ['sort' => $sort, 'direction' => $direction] = $this->resolveSort($request, $allowedSorts, 'year', 'asc');
 
         $historicalData = HistoricalDataRecord::query()
             ->when($search !== '', function ($query) use ($search): void {
@@ -243,7 +287,41 @@ class PaginationController extends Controller
                         ->orWhere('training_completion_status', 'like', '%'.$search.'%');
                 });
             })
-            ->latest()
+            ->orderBy('employee_name')
+            ->orderBy('department_name')
+            ->when($sort !== 'year', function ($query): void {
+                $query->orderBy('year', 'desc');
+            })
+            ->when($sort === 'year', function ($query) use ($direction): void {
+                $query->orderBy('year', $direction);
+            })
+            ->when($sort === 'quarter', function ($query) use ($direction): void {
+                $query->orderByRaw(
+                    "CASE quarter
+                        WHEN 'Q1' THEN 1
+                        WHEN 'Q2' THEN 2
+                        WHEN 'Q3' THEN 3
+                        WHEN 'Q4' THEN 4
+                        ELSE 5
+                    END {$direction}"
+                );
+            }, function ($query): void {
+                $query->orderByRaw(
+                    "CASE quarter
+                        WHEN 'Q1' THEN 1
+                        WHEN 'Q2' THEN 2
+                        WHEN 'Q3' THEN 3
+                        WHEN 'Q4' THEN 4
+                        ELSE 5
+                    END ASC"
+                );
+            })
+            ->when(
+                ! in_array($sort, ['employee_name', 'department_name', 'year', 'quarter'], true),
+                function ($query) use ($allowedSorts, $sort, $direction): void {
+                    $query->orderBy($allowedSorts[$sort], $direction);
+                }
+            )
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (HistoricalDataRecord $historicalDataRecord): array => [
@@ -261,6 +339,8 @@ class PaginationController extends Controller
 
         return Inertia::render('admin/historical-data', [
             'search' => $search,
+            'sort' => $sort,
+            'direction' => $direction,
             'historicalData' => $historicalData->items(),
             'pagination' => [
                 'currentPage' => $historicalData->currentPage(),

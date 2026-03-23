@@ -24,6 +24,17 @@ type PaginationMeta = {
     total: number;
 };
 
+type HistoricalSortKey =
+    | "employee_name"
+    | "department_name"
+    | "year"
+    | "quarter"
+    | "attendance_punctuality_rate"
+    | "absenteeism_days"
+    | "tardiness_incidents"
+    | "training_completion_status"
+    | "evaluated_performance_score";
+
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Historical Data Management',
@@ -34,17 +45,21 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function HistoricalData({
     historicalData,
     search,
+    sort,
+    direction,
     pagination,
 }: {
     historicalData: HistoricalDataRecord[];
     search: string;
+    sort: HistoricalSortKey;
+    direction: "asc" | "desc";
     pagination: PaginationMeta;
 }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Historical Data" />
             <div className="mx-auto flex w-full flex-col gap-6 p-4 lg:items-stretch">
-                <HistoricalDataTable historicalData={historicalData} search={search} pagination={pagination} />
+                <HistoricalDataTable historicalData={historicalData} search={search} sort={sort} direction={direction} pagination={pagination} />
             </div>
         </AppLayout>
     );

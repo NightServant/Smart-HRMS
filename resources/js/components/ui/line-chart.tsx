@@ -1,4 +1,3 @@
-import { faker } from '@faker-js/faker';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -21,40 +20,55 @@ ChartJS.register(
   Legend
 );
 
-export const options = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false,
-    },
-    title: {
-      display: false,
-    },
-  },
+type LineChartProps = {
+  labels?: string[];
+  data?: number[];
+  borderColor?: string;
+  backgroundColor?: string;
+  label?: string;
 };
 
-const labels = ['Q1', 'Q2', 'Q3', 'Q4'];
-
-export const data = {
-  labels,
-  datasets: [
-    {
-      label: 'Performance Score',
-      font: {
-        family: 'Montserrat, sans-serif',
+export function LineChart({
+  labels = [],
+  data = [],
+  borderColor = '#91C383',
+  backgroundColor = '#4A7C3C',
+  label = 'Performance Score',
+}: LineChartProps) {
+  const chartData = {
+    labels,
+    datasets: [
+      {
+        label,
+        font: { family: 'Montserrat, sans-serif' },
+        data,
+        borderColor,
+        backgroundColor,
+        tension: 0.3,
+        pointRadius: 3,
       },
-      data: labels.map(() => faker.number.int({ min: 0, max: 5 })),
-      borderColor: '#91C383',
-      backgroundColor: '#4A7C3C',
-    },
-  ],
-};
+    ],
+  };
 
-export function LineChart() {
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      title: { display: false },
+    },
+    scales: {
+      y: {
+        min: 1.0,
+        max: 5.0,
+        ticks: { stepSize: 0.5 },
+      },
+    },
+  };
+
   return (
     <div className="mx-auto h-36 w-full sm:h-40 md:h-44 lg:h-48">
-      <Line options={options} data={data} />
+      <Line options={chartOptions} data={chartData} />
     </div>
   );
 }

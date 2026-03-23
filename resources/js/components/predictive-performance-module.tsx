@@ -1,7 +1,6 @@
 import { usePage } from '@inertiajs/react';
-import { Briefcase, ChartLine, MessageSquare, TrendingUp, UserRound } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LineChart } from '@/components/ui/line-chart';
+import { Briefcase, ChartLine, MessageSquare, UserRound } from 'lucide-react';
+import PredictionDisplay, { type PredictionResult } from '@/components/prediction-display';
 
 type EmployeeProfile = {
     employee_id: string;
@@ -14,10 +13,11 @@ type EmployeeProfile = {
 
 type PageProps = {
     employeeProfile?: EmployeeProfile | null;
+    prediction?: PredictionResult | null;
 };
 
 export default function PredictivePerformance() {
-    const { employeeProfile } = usePage<PageProps>().props;
+    const { employeeProfile, prediction } = usePage<PageProps>().props;
 
     return (
         <div className="animate-fade-in col-span-2 flex w-full flex-col gap-4 rounded-xl border border-border bg-card/80 p-4 shadow-xl transition-shadow duration-300 hover:shadow-2xl sm:gap-5">
@@ -25,34 +25,7 @@ export default function PredictivePerformance() {
                 <ChartLine className="size-5 text-primary" />
                 Predictive Performance Analysis
             </h1>
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <Card className="h-full w-full min-w-0 bg-card transition-shadow duration-300 hover:shadow-lg">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2">
-                            <TrendingUp className="size-4 text-primary" />
-                            Historical Performance
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="min-w-0 pt-0">
-                        <div className="mx-auto w-full min-w-0">
-                            <LineChart />
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card className="h-full w-full min-w-0 bg-card transition-shadow duration-300 hover:shadow-lg">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="flex items-center gap-2">
-                            <ChartLine className="size-4 text-primary" />
-                            Projected Performance
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="min-w-0 pt-0">
-                        <div className="mx-auto w-full min-w-0">
-                            <LineChart />
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+            <PredictionDisplay prediction={prediction ?? null} loading={false} />
             <div className="grid grid-cols-1 gap-3 rounded-lg md:grid-cols-2">
                 <div className="space-y-1 text-sm text-muted-foreground">
                     <p className="flex items-center gap-2 font-semibold text-foreground">

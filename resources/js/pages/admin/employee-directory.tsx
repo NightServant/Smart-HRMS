@@ -25,6 +25,8 @@ type PaginationMeta = {
     total: number;
 };
 
+type EmployeeSortKey = "employee_id" | "name" | "email" | "position";
+
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Employee Directory',
@@ -34,17 +36,21 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function EmployeeDirectory({
     employees,
     search,
+    sort,
+    direction,
     pagination,
 }: {
     employees: Employee[];
     search: string;
+    sort: EmployeeSortKey;
+    direction: "asc" | "desc";
     pagination: PaginationMeta;
 }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Employee Directory" />
             <div className="mx-auto flex w-full flex-col gap-6 p-4 lg:items-stretch">
-                <EmployeesTable employees={employees} search={search} pagination={pagination} />
+                <EmployeesTable employees={employees} search={search} sort={sort} direction={direction} pagination={pagination} />
             </div>
         </AppLayout>
     );

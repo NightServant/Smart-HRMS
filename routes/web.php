@@ -7,6 +7,7 @@ use App\Http\Controllers\IwrController;
 use App\Http\Controllers\LeaveRequestController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PaginationController;
+use App\Http\Controllers\PredictionController;
 use App\Http\Controllers\SeminarsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -122,5 +123,10 @@ Route::get('admin/training-scheduling', [SeminarsController::class, 'adminTraini
 Route::resource('seminars', SeminarsController::class)
     ->only(['store', 'update', 'destroy'])
     ->middleware(['auth', 'verified', 'role:hr-personnel']);
+
+// PPE (Predictive Performance Evaluation) API
+Route::get('api/predict', [PredictionController::class, 'predict'])
+    ->middleware(['auth', 'verified', 'role:hr-personnel'])
+    ->name('api.predict');
 
 require __DIR__.'/settings.php';

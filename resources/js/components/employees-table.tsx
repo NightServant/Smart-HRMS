@@ -1,5 +1,5 @@
 import { router } from "@inertiajs/react";
-import { Search, UserSearch } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, UserSearch } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,44 +51,76 @@ type PaginationMeta = {
     total: number;
 };
 
+type EmployeeSortKey = "employee_id" | "name" | "email" | "position";
+type SortDirection = "asc" | "desc";
+
 export function EmployeesTable({
     employees,
     search,
+    sort,
+    direction,
     pagination,
 }: {
     employees: Employee[];
     search: string;
+    sort: EmployeeSortKey;
+    direction: SortDirection;
     pagination: PaginationMeta;
 }) {
     const [searchTerm, setSearchTerm] = useState(search);
     const [isPredictiveModalOpen, setIsPredictiveModalOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
-    const handleSearchChange = (value: string): void => {
-        setSearchTerm(value);
+    const visitEmployeesTable = (params: {
+        search?: string;
+        page?: number;
+        perPage?: number;
+        sort?: EmployeeSortKey;
+        direction?: SortDirection;
+    }): void => {
         router.get(
             admin.employeeDirectory().url,
-            { search: value, page: 1, perPage: pagination.perPage },
+            {
+                search: params.search ?? searchTerm,
+                page: params.page ?? pagination.currentPage,
+                perPage: params.perPage ?? pagination.perPage,
+                sort: params.sort ?? sort,
+                direction: params.direction ?? direction,
+            },
             {
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ["employees", "search", "pagination"],
+                only: ["employees", "search", "sort", "direction", "pagination"],
             }
         );
     };
 
+    const renderSortIcon = (column: EmployeeSortKey) => {
+        if (sort !== column) {
+            return <ArrowUpDown className="size-4" />;
+        }
+
+        return direction === "asc" ? <ArrowUp className="size-4" /> : <ArrowDown className="size-4" />;
+    };
+
+    const handleSortChange = (column: EmployeeSortKey): void => {
+        const nextDirection: SortDirection = sort === column && direction === "asc" ? "desc" : "asc";
+
+        visitEmployeesTable({
+            page: 1,
+            sort: column,
+            direction: nextDirection,
+        });
+    };
+
+    const handleSearchChange = (value: string): void => {
+        setSearchTerm(value);
+        visitEmployeesTable({ search: value, page: 1 });
+    };
+
     const handleRowsPerPageChange = (value: string): void => {
-        router.get(
-            admin.employeeDirectory().url,
-            { search: searchTerm, page: 1, perPage: Number(value) },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                replace: true,
-                only: ["employees", "search", "pagination"],
-            }
-        );
+        visitEmployeesTable({ page: 1, perPage: Number(value) });
     };
 
     const goToPreviousPage = (): void => {
@@ -96,16 +128,7 @@ export function EmployeesTable({
             return;
         }
 
-        router.get(
-            admin.employeeDirectory().url,
-            { search: searchTerm, page: pagination.currentPage - 1, perPage: pagination.perPage },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                replace: true,
-                only: ["employees", "search", "pagination"],
-            }
-        );
+        visitEmployeesTable({ page: pagination.currentPage - 1 });
     };
 
     const goToNextPage = (): void => {
@@ -113,16 +136,7 @@ export function EmployeesTable({
             return;
         }
 
-        router.get(
-            admin.employeeDirectory().url,
-            { search: searchTerm, page: pagination.currentPage + 1, perPage: pagination.perPage },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                replace: true,
-                only: ["employees", "search", "pagination"],
-            }
-        );
+        visitEmployeesTable({ page: pagination.currentPage + 1 });
     };
 
     const openPredictiveModal = (employee: Employee): void => {
@@ -162,10 +176,30 @@ export function EmployeesTable({
                 <Table className="w-full">
                     <TableHeader>
                         <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
-                            <TableHead>Name</TableHead>
-                            <TableHead>Email Address</TableHead>
-                            <TableHead>Position</TableHead>
-                            <TableHead>Date Hired</TableHead>
+                            <TableHead>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("employee_id")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Employee ID
+                                    {renderSortIcon("employee_id")}
+                                </Button>
+                            </TableHead>
+                            <TableHead>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("name")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Name
+                                    {renderSortIcon("name")}
+                                </Button>
+                            </TableHead>
+                            <TableHead>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("email")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Email Address
+                                    {renderSortIcon("email")}
+                                </Button>
+                            </TableHead>
+                            <TableHead>
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("position")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Position
+                                    {renderSortIcon("position")}
+                                </Button>
+                            </TableHead>
                             <TableHead>Age</TableHead>
                             <TableHead className="text-right">Performance Evaluation</TableHead>
                         </TableRow>
@@ -178,10 +212,10 @@ export function EmployeesTable({
                                 className={`text-sm font-semibold text-foreground ${index % 2 === 0 ? "bg-[#DDEFD7] dark:bg-[#345A34]/80" : "bg-[#BFDDB5] dark:bg-[#274827]/80"
                                     } animate-fade-in-up`}
                             >
+                                <TableCell>{employee.employee_id}</TableCell>
                                 <TableCell>{employee.name}</TableCell>
                                 <TableCell>{employee.email}</TableCell>
                                 <TableCell>{employee.position}</TableCell>
-                                <TableCell>{employee.date_hired}</TableCell>
                                 <TableCell>{employee.age}</TableCell>
                                 <TableCell className="text-right">
                                     <Button

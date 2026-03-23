@@ -18,9 +18,31 @@ export default function AuthSplitLayout({
                     href={home()}
                     className="relative z-20 flex items-center text-lg font-medium"
                 >
-                    <AppLogoIcon className="mr-2 size-20 fill-current text-white" />
+                    <AppLogoIcon className="mr-2 size-8 fill-current text-white" />
+                   <p className='text-foreground font-bold text-lg mt-2'>Smart Human Resource Management System</p>
                 </Link>
+                  <video
+                    className="absolute inset-0 h-full w-full object-cover bg-video__media"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                >
+                    <source src="/videos/background-video.mp4" type="video/mp4" />
+                </video>
+                <div className="bg-video__overlay"/>
+
+                <div className="absolute inset-0 bg-zinc-900/40" />
+                    <div className="relative z-20 mt-auto">
+                        <blockquote className="space-y-2">
+                            <p className="text-lg text-foreground">
+                                "Empowering organizations with intelligent HR solutions for a smarter workforce."
+                            </p>
+                            <footer className="text-sm text-foreground">- SHRMS Team</footer>
+                        </blockquote>
+                    </div>
             </div>
+
             <div className="w-full lg:p-8">
                 <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
                     <Link
