@@ -39,14 +39,21 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Dashboard({ recommendations = [], riskLevel, weakAreas = [] }: Props) {
+export default function Dashboard({ recommendations = [], riskLevel }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Personalized Dashboard" />
-            <div className="p-4 mx-auto flex w-full flex-col gap-6 xl:grid xl:grid-cols-2 xl:items-stretch">
-                <QuarterPerformanceTrends />
-                <TrainingRecommendations recommendations={recommendations} riskLevel={riskLevel} />
-                <PredictivePerformance />
+            <div className="w-full p-6">
+                <div className="grid gap-6 md:gap-6 xl:grid-cols-2">
+                    <QuarterPerformanceTrends />
+                    <TrainingRecommendations
+                        recommendations={recommendations}
+                        riskLevel={riskLevel}
+                    />
+                </div>
+                <div className="mt-6">
+                    <PredictivePerformance />
+                </div>
             </div>
         </AppLayout>
     );

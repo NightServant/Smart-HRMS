@@ -1,8 +1,26 @@
-import { CalendarDays, FileText, MessageSquareText, UserRound, Quote } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from './ui/carousel';
+import {
+    CalendarDays,
+    FileText,
+    MessageSquareText,
+    Quote,
+    UserRound,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from './ui/card';
+import {
+    Carousel,
+    CarouselContent,
+    CarouselItem,
+    CarouselNext,
+    CarouselPrevious,
+} from './ui/carousel';
 
 type Remark = {
     employeeId: string;
@@ -11,16 +29,24 @@ type Remark = {
     remark: string;
 };
 
-export default function EmployeeRemarks({ remarks = [] }: { remarks?: Remark[] }) {
+export default function EmployeeRemarks({
+    remarks = [],
+}: {
+    remarks?: Remark[];
+}) {
     return (
-        <div className="animate-fade-in-right flex h-full w-full min-w-0 flex-1 flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
-            <div className="flex items-center justify-between">
+        <div className="flex h-full w-full min-w-0 flex-1 animate-fade-in-right flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg">
                     <MessageSquareText className="size-5 text-primary" />
                     Employee Remarks
                 </h1>
-                <Badge variant="outline" className="border-primary/40 text-primary tabular-nums">
-                    {remarks.length} {remarks.length === 1 ? 'remark' : 'remarks'}
+                <Badge
+                    variant="outline"
+                    className="border-primary/40 text-primary tabular-nums"
+                >
+                    {remarks.length}{' '}
+                    {remarks.length === 1 ? 'remark' : 'remarks'}
                 </Badge>
             </div>
             <Separator />
@@ -31,18 +57,22 @@ export default function EmployeeRemarks({ remarks = [] }: { remarks?: Remark[] }
                         <p className="text-xs">No evaluator remarks yet.</p>
                     </div>
                 ) : (
-                    <Carousel className="w-full max-w-none px-2 sm:px-4 lg:px-6">
+                    <Carousel className="w-full max-w-none px-0 sm:px-4 lg:px-6">
                         <CarouselContent className="-ml-2 md:-ml-4">
                             {remarks.map((remark) => (
-                                <CarouselItem key={remark.employeeId} className="basis-1/2 xl:basis-full">
-                                    <Card className="h-full w-full min-w-0 border-border bg-muted/30 hover:shadow-sm transition-shadow">
+                                <CarouselItem
+                                    key={remark.employeeId}
+                                    className="basis-full 2xl:basis-full"
+                                >
+                                    <Card className="h-full w-full min-w-0 border-border bg-muted/30 transition-shadow hover:shadow-sm">
                                         <CardHeader className="p-3 pb-1.5">
                                             <div className="flex items-center justify-between">
                                                 <CardTitle className="flex items-center gap-2 text-sm">
                                                     <div className="flex size-6 items-center justify-center rounded-full bg-primary/10">
                                                         <UserRound className="size-3.5 text-primary" />
                                                     </div>
-                                                    {remark.employeeName || remark.employeeId}
+                                                    {remark.employeeName ||
+                                                        remark.employeeId}
                                                 </CardTitle>
                                             </div>
                                             <CardDescription className="ml-8 flex items-center gap-1.5 text-xs">
@@ -62,8 +92,8 @@ export default function EmployeeRemarks({ remarks = [] }: { remarks?: Remark[] }
                                 </CarouselItem>
                             ))}
                         </CarouselContent>
-                        <CarouselPrevious className="left-0 sm:-left-4" />
-                        <CarouselNext className="right-0 sm:-right-4" />
+                        <CarouselPrevious className="hidden sm:-left-4 sm:flex" />
+                        <CarouselNext className="hidden sm:-right-4 sm:flex" />
                     </Carousel>
                 )}
             </div>

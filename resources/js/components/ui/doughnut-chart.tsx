@@ -1,17 +1,15 @@
-import { ArcElement, Chart as ChartJS, Legend, Plugin, Tooltip } from 'chart.js';
+import { ArcElement, Chart as ChartJS, Legend, Tooltip } from 'chart.js';
+import type { Plugin } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 
 export const centerTextPlugin: Plugin<'doughnut'> = {
   id: 'centerText',
   afterDatasetsDraw(chart) {
-    const { chartArea, ctx } = chart;
+    const { ctx } = chart;
     const dataset = chart.data.datasets[0];
     const values = (dataset?.data ?? []).map((value) => Number(value) || 0);
     const total = values.reduce((sum, value) => sum + value, 0);
     const arcs = chart.getDatasetMeta(0).data as ArcElement[];
-
-    const centerX = (chartArea.left + chartArea.right) / 2;
-    const centerY = (chartArea.top + chartArea.bottom) / 2;
 
     if (total <= 0) {
       return;
@@ -81,7 +79,7 @@ export const data = {
  */
 export function DoughnutChart() {
   return (
-    <div className="relative mx-auto h-52 w-full max-w-xs sm:h-56 sm:max-w-sm md:h-60 md:max-w-md lg:h-64 lg:max-w-lg">
+    <div className="relative mx-auto h-40 w-full max-w-[15rem] sm:h-48 sm:max-w-sm md:h-56 md:max-w-md lg:h-64 lg:max-w-lg">
       <Doughnut options={options} data={data} />
     </div>
   );

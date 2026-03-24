@@ -50,17 +50,27 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function AdminPerformanceDashboard({ seminars, remarks, leaveOverview }: { seminars: Seminar[]; remarks?: Remark[]; leaveOverview?: LeaveOverviewData | null }) {
+export default function AdminPerformanceDashboard({
+    seminars,
+    remarks,
+    leaveOverview,
+}: {
+    seminars: Seminar[];
+    remarks?: Remark[];
+    leaveOverview?: LeaveOverviewData | null;
+}) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Performance Dashboard" />
-            <div className="mx-auto flex w-full flex-col gap-6 p-4 lg:grid lg:grid-cols-2 lg:items-stretch">
+            <div className="flex w-full flex-col gap-6 p-6 lg:grid lg:grid-cols-2 lg:items-start 2xl:grid-cols-2">
                 <QuarterPerformanceTrends />
                 <RiskEmployeeAlert />
-                <UpcomingSeminars seminars={seminars} />
-                <div className="col-span-2 grid max-h-[600px] grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
+                <div className="lg:col-span-2">
+                    <UpcomingSeminars seminars={seminars} />
+                </div>
+                <div className="grid grid-cols-1 gap-6 col-span-2 xl:grid-cols-[1.15fr_0.85fr] xl:items-start 2xl:col-span-2 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] 2xl:items-start">
                     <DailyAttendanceLogs />
-                    <div className="flex h-full min-h-0 flex-col gap-6">
+                    <div className="flex min-h-0 flex-col gap-6">
                         <LeaveOverview data={leaveOverview} />
                         <EmployeeRemarks remarks={remarks} />
                     </div>

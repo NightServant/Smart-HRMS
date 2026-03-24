@@ -1,6 +1,8 @@
 import { usePage } from '@inertiajs/react';
 import { Briefcase, ChartLine, MessageSquare, UserRound } from 'lucide-react';
-import PredictionDisplay, { type PredictionResult } from '@/components/prediction-display';
+import PredictionDisplay, {
+    type PredictionResult,
+} from '@/components/prediction-display';
 
 type EmployeeProfile = {
     employee_id: string;
@@ -20,12 +22,15 @@ export default function PredictivePerformance() {
     const { employeeProfile, prediction } = usePage<PageProps>().props;
 
     return (
-        <div className="animate-fade-in col-span-2 flex w-full flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow sm:gap-5">
-            <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg">
+        <div className="col-span-2 flex w-full min-w-0 animate-fade-in flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md sm:gap-5">
+            <h1 className="flex min-w-0 items-center gap-2 text-base font-bold sm:text-lg">
                 <ChartLine className="size-5 text-primary" />
                 Predictive Performance Analysis
             </h1>
-            <PredictionDisplay prediction={prediction ?? null} loading={false} />
+            <PredictionDisplay
+                prediction={prediction ?? null}
+                loading={false}
+            />
             <div className="grid grid-cols-1 gap-3 rounded-lg md:grid-cols-2">
                 <div className="space-y-1 text-sm text-muted-foreground">
                     <p className="flex items-center gap-2 font-semibold text-foreground">
