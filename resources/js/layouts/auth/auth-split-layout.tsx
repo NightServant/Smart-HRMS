@@ -36,7 +36,7 @@ export default function AuthSplitLayout({
                     <div className="relative z-20 mt-auto">
                         <blockquote className="space-y-2">
                             <p className="text-lg text-foreground">
-                                "Empowering organizations with intelligent HR solutions for a smarter workforce."
+                                "Simplifying HR operations for government institutions."
                             </p>
                             <footer className="text-sm text-foreground">- SHRMS Team</footer>
                         </blockquote>

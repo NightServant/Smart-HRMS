@@ -154,7 +154,7 @@ export default function LeaveRequestTable({
                 </div>
             </div>
 
-            <div className="animate-zoom-in-soft hover-lift-soft mx-auto w-full rounded-md border border-border bg-card/80 p-4 shadow-xl">
+            <div className="animate-zoom-in-soft mx-auto w-full rounded-md border border-border bg-card p-4 shadow-sm">
                 <div className="flex w-full items-center justify-between gap-4 py-6">
                     <div className="animate-fade-in-left relative w-full max-w-sm">
                         <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />

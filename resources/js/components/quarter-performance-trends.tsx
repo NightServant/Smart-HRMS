@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { QuarterBarChart, type Quarter } from '@/components/ui/quarter-bar-chart';
+import { Separator } from '@/components/ui/separator';
 
 export default function QuarterPerformanceTrends() {
     const [selectedQuarter, setSelectedQuarter] = useState<Quarter>('Q1');
@@ -19,7 +20,7 @@ export default function QuarterPerformanceTrends() {
     }, [selectedQuarter]);
 
     return (
-        <div className="animate-fade-in-left flex w-full flex-col gap-4 rounded-xl border border-border bg-card/80 p-4 shadow-xl transition-shadow duration-300 hover:shadow-2xl sm:gap-5">
+        <div className="animate-fade-in-left flex h-full w-full flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md sm:gap-5">
             <div className="flex flex-col gap-3">
                 <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg lg:whitespace-nowrap">
                     <BarChart3 className="size-5 text-primary" />
@@ -50,7 +51,7 @@ export default function QuarterPerformanceTrends() {
             <div className="mx-auto w-3/4 max-w-[22rem] sm:max-w-none sm:px-4">
                 <QuarterBarChart quarter={selectedQuarter} />
             </div>
-            <div className="mx-4 mt-2 h-1 rounded-full bg-gradient-to-r from-primary/40 via-secondary/80 to-primary/40 sm:mx-6" />
+            <Separator className="mt-2" />
             <p className="text-sm text-muted-foreground ml-6">
                 Performance scores for the selected quarter, showing strengths and areas that may need coaching.
             </p>

@@ -12,7 +12,7 @@ export default function NotificationsHeader({ unreadCount }: Props) {
     }
 
     return (
-        <div className="notif-header-shell flex flex-col gap-4 rounded-xl border border-border bg-card/80 p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+        <div className="notif-header-shell flex flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm md:flex-row md:items-center md:justify-between">
             <div>
                 <h1 className="flex items-center gap-2 text-2xl font-bold">
                     <Bell className="notif-header-icon size-6 text-primary" />

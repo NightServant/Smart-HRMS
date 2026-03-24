@@ -318,7 +318,7 @@ export default function LeaveRequestForm() {
                 </div>
             </div>
 
-            <Card className="animate-fade-in-up border-primary/20 bg-card/80 shadow-xl transition-shadow duration-300 hover:shadow-2xl">
+            <Card className="animate-fade-in-up border-primary/20 bg-card shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader className="space-y-3">
                     <CardTitle className="flex items-center gap-2">
                         <ShieldCheck className="h-5 w-5 text-primary" />

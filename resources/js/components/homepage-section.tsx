@@ -1,5 +1,5 @@
 import { dashboard, home, login, performanceDashboard, register } from '@/routes';
-import { BrainCircuit, LayoutDashboard, LogIn, Sparkles, UserPlus } from 'lucide-react';
+import { LayoutDashboard, LogIn, UserPlus } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as admin from '@/routes/admin';
 import { Link, usePage } from '@inertiajs/react';
@@ -19,7 +19,7 @@ const defaultTilt: TiltState = {
     glowY: 50,
 };
 
-const logoSideDepthLayers = Array.from({ length: 16 }, (_, index) => 44 + index * 1.6);
+const logoSideDepthLayers = Array.from({ length: 8 }, (_, index) => 44 + index * 3.2);
 
 export default function HomepageSection() {
     const { auth, canRegister } = usePage<{ auth: { user: User | null }; canRegister?: boolean }>().props;
@@ -47,7 +47,7 @@ export default function HomepageSection() {
 
     const glowStyle = useMemo(
         () => ({
-            background: `radial-gradient(circle at ${tilt.glowX}% ${tilt.glowY}%, rgb(145 195 131 / 0.45), rgb(74 124 60 / 0.08) 38%, transparent 70%)`,
+            background: `radial-gradient(circle at ${tilt.glowX}% ${tilt.glowY}%, rgb(145 195 131 / 0.25), rgb(74 124 60 / 0.08) 38%, transparent 70%)`,
         }),
         [tilt.glowX, tilt.glowY],
     );
@@ -141,23 +141,20 @@ export default function HomepageSection() {
             <div className="bg-video__overlay" />
             <div className="bg-video__content relative mx-auto grid w-full max-w-[1500px] grid-cols-1 items-center gap-10 px-6 md:px-10 xl:grid-cols-12">
                 <div className="xl:col-span-6">
-                    <span className="animate-fade-in-up inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/75 dark:bg-background/75 px-4 py-1 text-sm font-semibold text-white dark:text-primary">
-                        <Sparkles className="size-4" />
-                        Algorithmic Decision Support
+                    <span className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-primary">
+                        HR Decision Support
                     </span>
-                    <h1 className="animate-fade-in-down mx-auto w-full max-w-4xl py-4 text-center text-4xl font-bold tracking-tight sm:text-5xl xl:mx-0 xl:text-left xl:text-6xl">
+                    <h1 className="mx-auto w-full max-w-4xl py-4 text-center text-4xl font-bold tracking-tight sm:text-5xl xl:mx-0 xl:text-left xl:text-6xl">
                         Smart Human Resource Management System
                     </h1>
-                    <p className="animate-fade-in-down mx-auto text-primary flex max-w-2xl items-start gap-2 pb-2 pt-4 text-center text-lg font-bold text-primary md:text-xl xl:mx-0 xl:text-left">
-                        <BrainCircuit className="mt-1 hidden size-6 shrink-0 md:block" />
-                        Streamline your HR processes with our comprehensive Human Resource Management System powered by
-                        algorithmic approaches.
+                    <p className="mx-auto flex max-w-2xl items-start gap-2 pb-2 pt-4 text-center text-lg font-medium text-foreground/80 md:text-xl xl:mx-0 xl:text-left">
+                        Manage attendance, evaluations, leave requests, and training programs — all in one place, built for public sector institutions.
                     </p>
-                    <div className="animate-fade-in-down mx-auto my-6 flex w-full flex-col items-center justify-center gap-3 text-center sm:w-auto sm:flex-row sm:flex-wrap xl:items-start xl:justify-start xl:text-left">
+                    <div className="mx-auto my-6 flex w-full flex-col items-center justify-center gap-3 text-center sm:w-auto sm:flex-row sm:flex-wrap xl:items-start xl:justify-start xl:text-left">
                         {user ? (
                             <Link
                                 href={dashboardLink}
-                                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors duration-300 hover:bg-primary/90 sm:w-auto sm:min-w-[10rem] sm:text-base"
+                                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-md sm:w-auto sm:min-w-[10rem] sm:text-base"
                             >
                                 <LayoutDashboard className="size-4" />
                                 Dashboard
@@ -166,7 +163,7 @@ export default function HomepageSection() {
                             <>
                                 <Link
                                     href={login()}
-                                    className="inline-flex w-full animate-fade-in-right items-center justify-center gap-2 rounded-md border-2 border-primary bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground transition-colors duration-300 ease-in-out hover:bg-primary hover:text-primary-foreground sm:w-auto sm:min-w-[10rem] sm:text-base"
+                                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg border-2 border-primary bg-white/90 px-6 py-2.5 text-sm font-semibold text-primary shadow-sm transition-all duration-200 hover:bg-primary hover:text-primary-foreground hover:shadow-md dark:bg-background/90 sm:w-auto sm:min-w-[10rem] sm:text-base"
                                 >
                                     <LogIn className="size-4" />
                                     Login
@@ -174,7 +171,7 @@ export default function HomepageSection() {
                                 {registrationEnabled && (
                                     <Link
                                         href={register()}
-                                        className="inline-flex w-full animate-fade-in-right items-center justify-center gap-2 rounded-md border-2 border-primary-foreground bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors duration-300 ease-in-out hover:bg-primary/90 sm:w-auto sm:min-w-[10rem] sm:text-base"
+                                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-md sm:w-auto sm:min-w-[10rem] sm:text-base"
                                     >
                                         <UserPlus className="size-4" />
                                         Register
@@ -188,13 +185,13 @@ export default function HomepageSection() {
                 <div className="xl:col-span-6">
                     <div className="mx-auto max-w-[40rem] [perspective:1400px]">
                         <div
-                            className="group relative mx-auto aspect-square w-full max-w-[34rem] animate-float-calm cursor-grab active:cursor-grabbing"
+                            className="group relative mx-auto aspect-square w-full max-w-[34rem] cursor-grab active:cursor-grabbing"
                             onPointerDown={handlePointerDown}
                             onPointerMove={handlePointerMove}
                             onPointerUp={handlePointerUp}
                             onPointerLeave={handlePointerLeave}
                         >
-                            <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-br from-primary/30 via-secondary/15 to-transparent blur-3xl" />
+                            <div className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-br from-primary/15 via-secondary/8 to-transparent blur-3xl" />
 
                             <div className="relative h-full w-full [transform-style:preserve-3d]">
                                 <div

@@ -1,4 +1,4 @@
-import { ChartPie, Sparkles, Target, TrendingUpDown, Workflow } from 'lucide-react';
+import { ChartPie, Target, TrendingUpDown, Workflow } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -7,8 +7,7 @@ export default function HomepageCards() {
         <aside className="bg-secondary/80 p-6 dark:bg-background/80 md:p-10">
             <div className="mx-auto grid w-full max-w-[1500px] animate-fade-in-up grid-cols-1 items-start gap-8 xl:grid-cols-12 xl:gap-10">
                 <div className="xl:col-span-6 my-auto">
-                    <h2 className="inline-flex items-center gap-2 text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
-                        <Sparkles className="size-7 text-primary" />
+                    <h2 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">
                         System Purpose
                     </h2>
                     <p className="mt-6 max-w-3xl text-base leading-relaxed text-foreground sm:text-lg">
@@ -37,11 +36,11 @@ export default function HomepageCards() {
                     </TabsList>
 
                     <TabsContent value="routing" className="mt-4">
-                        <Card className="animate-card-pop w-full rounded-xl bg-card/80 transition-shadow duration-300 hover:shadow-lg">
-                            <Workflow className="animate-border-glow mx-auto mt-8 size-16 rounded-full bg-primary p-3 text-primary-foreground" />
+                        <Card className="animate-card-pop w-full rounded-xl bg-card transition-shadow duration-300 hover:shadow-md">
+                            <Workflow className="mx-auto mt-8 size-14 rounded-xl bg-primary/10 p-3 text-primary" />
                             <CardHeader className="px-6 pb-0 pt-6 text-center lg:px-10">
-                                <CardTitle className="text-lg sm:text-xl">Intelligent Workflow Routing System</CardTitle>
-                                <CardDescription>Rule-Based Workflow and Decision Tree</CardDescription>
+                                <CardTitle className="text-lg sm:text-xl">Workflow Routing</CardTitle>
+                                <CardDescription>Rule-based document processing and decision trees</CardDescription>
                             </CardHeader>
                             <CardContent className="px-6 pb-8 pt-6 text-base leading-relaxed lg:px-10">
                                 Streamlining document process flow, by automating Leave Application processing and routing the IPCR Form to the appropriate evaluator.
@@ -50,37 +49,37 @@ export default function HomepageCards() {
                     </TabsContent>
 
                     <TabsContent value="performance" className="mt-4">
-                        <Card className="animate-card-pop w-full rounded-xl bg-card/80 transition-shadow duration-300 hover:shadow-lg">
-                            <TrendingUpDown className="animate-border-glow mx-auto mt-8 size-16 rounded-full bg-primary p-3 text-primary-foreground" />
+                        <Card className="animate-card-pop w-full rounded-xl bg-card transition-shadow duration-300 hover:shadow-md">
+                            <TrendingUpDown className="mx-auto mt-8 size-14 rounded-xl bg-primary/10 p-3 text-primary" />
                             <CardHeader className="px-6 pb-0 pt-6 text-center lg:px-10">
-                                <CardTitle className="text-lg sm:text-xl">Predictive Performance Evaluation Module</CardTitle>
-                                <CardDescription>Linear Regression</CardDescription>
+                                <CardTitle className="text-lg sm:text-xl">Performance Prediction</CardTitle>
+                                <CardDescription>Trend analysis via linear regression</CardDescription>
                             </CardHeader>
                             <CardContent className="px-6 pb-8 pt-6 text-base leading-relaxed lg:px-10">
-                                Utilizing 3 years of employee data (Quarterly Performance and Performance Rating) to predict employee performance trends.
+                                Utilizing 3 to 5 years of employee data (Quarterly Performance and Performance Rating) to predict employee performance trends.
                             </CardContent>
                         </Card>
                     </TabsContent>
 
                     <TabsContent value="analytics" className="mt-4">
-                        <Card className="animate-card-pop w-full rounded-xl bg-card/80 transition-shadow duration-300 hover:shadow-lg">
-                            <ChartPie className="animate-border-glow mx-auto mt-8 size-16 rounded-full bg-primary p-3 text-primary-foreground" />
+                        <Card className="animate-card-pop w-full rounded-xl bg-card transition-shadow duration-300 hover:shadow-md">
+                            <ChartPie className="mx-auto mt-8 size-14 rounded-xl bg-primary/10 p-3 text-primary" />
                             <CardHeader className="px-6 pb-0 pt-6 text-center lg:px-10">
-                                <CardTitle className="text-lg sm:text-xl">Real-Time HR Analytics Dashboard</CardTitle>
-                                <CardDescription>FlatFAT Algorithm</CardDescription>
+                                <CardTitle className="text-lg sm:text-xl">HR Analytics Dashboard</CardTitle>
+                                <CardDescription>Live operational metrics via FlatFAT</CardDescription>
                             </CardHeader>
                             <CardContent className="px-6 pb-8 pt-6 text-base leading-relaxed lg:px-10">
-                                Displays live HR aggregated operational metrics  metrics, including Employee Attendance from the Biometrics System Database.
+                                Displays live HR aggregated operational metrics, including Employee Attendance from the Biometrics System Database.
                             </CardContent>
                         </Card>
                     </TabsContent>
 
                     <TabsContent value="training" className="mt-4">
-                        <Card className="animate-card-pop w-full rounded-xl bg-card/80 transition-shadow duration-300 hover:shadow-lg">
-                            <Target className="animate-border-glow mx-auto mt-8 size-16 rounded-full bg-primary p-3 text-primary-foreground" />
+                        <Card className="animate-card-pop w-full rounded-xl bg-card transition-shadow duration-300 hover:shadow-md">
+                            <Target className="mx-auto mt-8 size-14 rounded-xl bg-primary/10 p-3 text-primary" />
                             <CardHeader className="px-6 pb-0 pt-6 text-center lg:px-10">
-                                <CardTitle className="text-lg sm:text-xl">Automated Training Recommendation Engine</CardTitle>
-                                <CardDescription>Content-Based Filtering</CardDescription>
+                                <CardTitle className="text-lg sm:text-xl">Training Recommendations</CardTitle>
+                                <CardDescription>Content-based filtering for skill gaps</CardDescription>
                             </CardHeader>
                             <CardContent className="px-6 pb-8 pt-6 text-base leading-relaxed lg:px-10">
                                 Suggests relevant training programs based on competency gaps from specific areas derived from the evaluation form (IPCR).

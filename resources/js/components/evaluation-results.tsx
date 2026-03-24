@@ -100,7 +100,7 @@ export default function EvaluationResults({ employee, submission }: Props) {
     return (
         <div className="mx-auto w-full max-w-7xl space-y-6">
             {/* Header Card */}
-            <Card className="animate-fade-in-up border-primary/20 bg-card/80 shadow-xl">
+            <Card className="animate-fade-in-up border-primary/20 bg-card shadow-sm">
                 <CardHeader>
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
@@ -124,7 +124,7 @@ export default function EvaluationResults({ employee, submission }: Props) {
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <Card className="animate-fade-in-up border-emerald-500/20 bg-card/80 shadow-lg" style={{ animationDelay: "50ms" }}>
+                <Card className="animate-fade-in-up border-emerald-500/20 bg-card shadow-sm" style={{ animationDelay: "50ms" }}>
                     <CardContent className="flex items-start gap-3 pt-6">
                         <div className="rounded-full bg-emerald-500/10 p-2.5">
                             <TrendingUp className="size-5 text-emerald-500" />
@@ -136,7 +136,7 @@ export default function EvaluationResults({ employee, submission }: Props) {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="animate-fade-in-up border-amber-500/20 bg-card/80 shadow-lg" style={{ animationDelay: "100ms" }}>
+                <Card className="animate-fade-in-up border-amber-500/20 bg-card shadow-sm" style={{ animationDelay: "100ms" }}>
                     <CardContent className="flex items-start gap-3 pt-6">
                         <div className="rounded-full bg-amber-500/10 p-2.5">
                             <TrendingDown className="size-5 text-amber-500" />
@@ -148,7 +148,7 @@ export default function EvaluationResults({ employee, submission }: Props) {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="animate-fade-in-up border-primary/20 bg-card/80 shadow-lg" style={{ animationDelay: "150ms" }}>
+                <Card className="animate-fade-in-up border-primary/20 bg-card shadow-sm" style={{ animationDelay: "150ms" }}>
                     <CardContent className="flex items-start gap-3 pt-6">
                         <div className="rounded-full bg-primary/10 p-2.5">
                             <CheckCircle2 className="size-5 text-primary" />
@@ -166,7 +166,7 @@ export default function EvaluationResults({ employee, submission }: Props) {
             {categoryAverages.map(({ category, average, items }, catIndex) => (
                 <Card
                     key={category}
-                    className="animate-fade-in-up border-border bg-card/80 shadow-lg"
+                    className="animate-fade-in-up border-border bg-card shadow-sm"
                     style={{ animationDelay: `${200 + catIndex * 80}ms` }}
                 >
                     <CardHeader className="pb-3">
@@ -206,7 +206,7 @@ export default function EvaluationResults({ employee, submission }: Props) {
 
             {/* Remarks */}
             {submission.evaluator_gave_remarks && submission.remarks && (
-                <Card className="animate-fade-in-up border-amber-500/20 bg-card/80 shadow-lg">
+                <Card className="animate-fade-in-up border-amber-500/20 bg-card shadow-sm">
                     <CardHeader className="pb-3">
                         <CardTitle className="flex items-center gap-2 text-base">
                             <MessageSquareText className="size-4 text-amber-500" />

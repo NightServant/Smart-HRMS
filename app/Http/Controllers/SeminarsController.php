@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreSeminarsRequest;
 use App\Http\Requests\UpdateSeminarsRequest;
 use App\Models\IpcrSubmission;
+use App\Models\LeaveRequest;
 use App\Models\Seminars;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -61,6 +62,7 @@ class SeminarsController extends Controller
         return Inertia::render('performanceDashboard', [
             'seminars' => $this->seminarPayload(),
             'remarks' => $this->remarksPayload(),
+            'leaveOverview' => $this->leaveOverviewPayload(),
         ]);
     }
 
@@ -69,7 +71,33 @@ class SeminarsController extends Controller
         return Inertia::render('admin/performance-dashboard', [
             'seminars' => $this->seminarPayload(),
             'remarks' => $this->remarksPayload(),
+            'leaveOverview' => $this->leaveOverviewPayload(),
         ]);
+    }
+
+    private function leaveOverviewPayload(): array
+    {
+        $requests = LeaveRequest::query();
+
+        return [
+            'pending' => (clone $requests)->where('status', 'pending')->count(),
+            'completed' => (clone $requests)->where('status', 'completed')->count(),
+            'returned' => (clone $requests)->where('status', 'returned')->count(),
+            'routed' => (clone $requests)->where('status', 'routed')->count(),
+            'total' => (clone $requests)->count(),
+            'recentRequests' => LeaveRequest::with('user')
+                ->latest()
+                ->take(5)
+                ->get()
+                ->map(fn (LeaveRequest $lr) => [
+                    'id' => $lr->id,
+                    'name' => $lr->user?->name ?? 'Unknown',
+                    'leaveType' => $lr->leave_type,
+                    'startDate' => $lr->start_date?->format('M d, Y') ?? '-',
+                    'endDate' => $lr->end_date?->format('M d, Y') ?? '-',
+                    'status' => $lr->status ?? 'pending',
+                ]),
+        ];
     }
 
     /**

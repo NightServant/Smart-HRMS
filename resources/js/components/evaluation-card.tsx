@@ -153,7 +153,7 @@ export default function EvaluationCard({ employee, submission }: Props) {
     };
 
     return (
-        <Card className="animate-zoom-in-soft hover-lift-soft mx-auto w-full max-w-7xl rounded-xl border border-border bg-card/80 shadow-xl">
+        <Card className="animate-zoom-in-soft mx-auto w-full max-w-7xl rounded-xl border border-border bg-card shadow-sm">
             <CardHeader className="animate-slide-in-down">
                 <CardTitle>Individual Performance Commitment and Review</CardTitle>
                 <CardDescription>
@@ -248,7 +248,7 @@ export default function EvaluationCard({ employee, submission }: Props) {
                         <Button
                             type="button"
                             variant="default"
-                            className="animate-pulse-glow w-40"
+                            className="w-40"
                             disabled={!canSubmit}
                             onClick={handleSave}
                         >

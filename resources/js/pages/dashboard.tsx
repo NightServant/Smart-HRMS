@@ -43,7 +43,7 @@ export default function Dashboard({ recommendations = [], riskLevel, weakAreas =
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Personalized Dashboard" />
-            <div className="p-4 mx-auto flex w-full flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-stretch">
+            <div className="p-4 mx-auto flex w-full flex-col gap-6 xl:grid xl:grid-cols-2 xl:items-stretch">
                 <QuarterPerformanceTrends />
                 <TrainingRecommendations recommendations={recommendations} riskLevel={riskLevel} />
                 <PredictivePerformance />

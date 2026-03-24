@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import DailyAttendanceLogs from '@/components/daily-attendance-logs';
 import EmployeeRemarks from '@/components/employee-remarks';
+import LeaveOverview from '@/components/leave-overview';
 import QuarterPerformanceTrends from '@/components/quarter-performance-trends';
 import RiskEmployeeAlert from '@/components/risk-employee-alert';
 import UpcomingSeminars from '@/components/upcoming-seminars';
@@ -26,6 +27,22 @@ type Remark = {
     remark: string;
 };
 
+type LeaveOverviewData = {
+    pending: number;
+    completed: number;
+    returned: number;
+    routed: number;
+    total: number;
+    recentRequests: {
+        id: number;
+        name: string;
+        leaveType: string;
+        startDate: string;
+        endDate: string;
+        status: string;
+    }[];
+};
+
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Performance Dashboard',
@@ -33,16 +50,21 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function PerformanceDashboard({ seminars, remarks }: { seminars: Seminar[]; remarks?: Remark[] }) {
+export default function PerformanceDashboard({ seminars, remarks, leaveOverview }: { seminars: Seminar[]; remarks?: Remark[]; leaveOverview?: LeaveOverviewData | null }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Performance Dashboard" />
-            <div className="p-4 mx-auto flex w-full flex-col gap-6 lg:grid lg:grid-cols-2 lg:items-stretch">
+            <div className="mx-auto flex w-full flex-col gap-6 p-4 lg:grid lg:grid-cols-2 lg:items-stretch">
                 <QuarterPerformanceTrends />
                 <RiskEmployeeAlert />
                 <UpcomingSeminars seminars={seminars} />
-                <DailyAttendanceLogs />
-                <EmployeeRemarks remarks={remarks} />
+                <div className="col-span-2 grid max-h-[600px] grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
+                    <DailyAttendanceLogs />
+                    <div className="flex h-full min-h-0 flex-col gap-6">
+                        <LeaveOverview data={leaveOverview} />
+                        <EmployeeRemarks remarks={remarks} />
+                    </div>
+                </div>
             </div>
         </AppLayout>
     );

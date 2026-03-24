@@ -20,7 +20,7 @@ export default function PredictivePerformance() {
     const { employeeProfile, prediction } = usePage<PageProps>().props;
 
     return (
-        <div className="animate-fade-in col-span-2 flex w-full flex-col gap-4 rounded-xl border border-border bg-card/80 p-4 shadow-xl transition-shadow duration-300 hover:shadow-2xl sm:gap-5">
+        <div className="animate-fade-in col-span-2 flex w-full flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm hover:shadow-md transition-shadow sm:gap-5">
             <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg">
                 <ChartLine className="size-5 text-primary" />
                 Predictive Performance Analysis

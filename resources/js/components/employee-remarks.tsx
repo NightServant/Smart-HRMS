@@ -1,6 +1,8 @@
-import { CalendarDays, FileText, MessageSquareText, UserRound } from 'lucide-react';
+import { CalendarDays, FileText, MessageSquareText, UserRound, Quote } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from './ui/carousel';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 type Remark = {
     employeeId: string;
@@ -11,38 +13,50 @@ type Remark = {
 
 export default function EmployeeRemarks({ remarks = [] }: { remarks?: Remark[] }) {
     return (
-        <div className="animate-fade-in-right flex w-full min-w-0 flex-1 flex-col gap-4 rounded-xl border border-border bg-card/80 p-4 shadow-xl transition-shadow duration-300 hover:shadow-2xl sm:gap-5">
-            <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg">
-                <MessageSquareText className="size-5 text-primary" />
-                Employee Remarks
-            </h1>
-            <p className="text-sm text-muted-foreground">
-                Recent evaluator comments that highlight behavior, output quality, and follow-up coaching needs.
-            </p>
-            <div className="relative">
+        <div className="animate-fade-in-right flex h-full w-full min-w-0 flex-1 flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
+            <div className="flex items-center justify-between">
+                <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg">
+                    <MessageSquareText className="size-5 text-primary" />
+                    Employee Remarks
+                </h1>
+                <Badge variant="outline" className="border-primary/40 text-primary tabular-nums">
+                    {remarks.length} {remarks.length === 1 ? 'remark' : 'remarks'}
+                </Badge>
+            </div>
+            <Separator />
+            <div className="relative flex-1">
                 {remarks.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-muted-foreground">No remarks yet.</p>
+                    <div className="flex flex-col items-center gap-2 py-6 text-muted-foreground">
+                        <Quote className="size-8 opacity-30" />
+                        <p className="text-xs">No evaluator remarks yet.</p>
+                    </div>
                 ) : (
                     <Carousel className="w-full max-w-none px-2 sm:px-4 lg:px-6">
                         <CarouselContent className="-ml-2 md:-ml-4">
                             {remarks.map((remark) => (
-                                <CarouselItem key={remark.employeeId} className="basis-full">
-                                    <Card className="h-full w-full min-w-0 bg-card/80 transition-shadow duration-300 hover:shadow-lg">
-                                        <CardHeader>
-                                            <CardTitle className="flex items-center gap-2">
-                                                <UserRound className="size-4 text-primary" />
-                                                {remark.employeeName || remark.employeeId}
-                                            </CardTitle>
-                                            <CardDescription className="flex items-center gap-2">
-                                                <CalendarDays className="size-4 text-muted-foreground" />
+                                <CarouselItem key={remark.employeeId} className="basis-1/2 xl:basis-full">
+                                    <Card className="h-full w-full min-w-0 border-border bg-muted/30 hover:shadow-sm transition-shadow">
+                                        <CardHeader className="p-3 pb-1.5">
+                                            <div className="flex items-center justify-between">
+                                                <CardTitle className="flex items-center gap-2 text-sm">
+                                                    <div className="flex size-6 items-center justify-center rounded-full bg-primary/10">
+                                                        <UserRound className="size-3.5 text-primary" />
+                                                    </div>
+                                                    {remark.employeeName || remark.employeeId}
+                                                </CardTitle>
+                                            </div>
+                                            <CardDescription className="ml-8 flex items-center gap-1.5 text-xs">
+                                                <CalendarDays className="size-3 text-muted-foreground" />
                                                 {remark.date}
                                             </CardDescription>
                                         </CardHeader>
-                                        <CardContent>
-                                            <p className="flex items-start gap-2">
-                                                <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                                                {remark.remark}
-                                            </p>
+                                        <CardContent className="p-3">
+                                            <div className="ml-8 rounded-md border-l-2 border-primary/30 bg-primary/5 px-3 py-2">
+                                                <p className="flex items-start text-xs leading-relaxed">
+                                                    <FileText className="mt-0.5 size-3.5 shrink-0 text-primary/60" />
+                                                    {remark.remark}
+                                                </p>
+                                            </div>
                                         </CardContent>
                                     </Card>
                                 </CarouselItem>
@@ -53,9 +67,6 @@ export default function EmployeeRemarks({ remarks = [] }: { remarks?: Remark[] }
                     </Carousel>
                 )}
             </div>
-            <p className="text-sm text-muted-foreground">
-                Use these notes to guide one-on-one coaching plans and next-cycle development targets.
-            </p>
         </div>
     );
 }

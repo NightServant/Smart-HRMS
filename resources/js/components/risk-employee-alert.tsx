@@ -1,10 +1,11 @@
 import { ShieldAlert, TriangleAlert } from 'lucide-react';
 import { DoughnutChart } from '@/components/ui/doughnut-chart';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
 export default function RiskEmployeeAlert() {
     return (
-        <div className="animate-fade-in-right flex w-full min-w-0 flex-1 flex-col gap-4 rounded-xl border border-border bg-card/80 p-4 shadow-xl transition-shadow duration-300 hover:shadow-2xl sm:gap-5">
+        <div className="animate-fade-in-right flex h-full w-full min-w-0 flex-1 flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md sm:gap-5">
             <div className="flex flex-col gap-3">
                 <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg lg:whitespace-nowrap">
                     <ShieldAlert className="size-5 text-primary" />
@@ -23,7 +24,7 @@ export default function RiskEmployeeAlert() {
             <div className="mx-auto w-full max-w-[22rem] sm:max-w-none sm:px-4">
                 <DoughnutChart />
             </div>
-            <div className="mx-6 mt-2 h-1 rounded-full bg-gradient-to-r from-primary/40 via-secondary/80 to-primary/40" />
+            <Separator className="mt-2" />
             <div className="ml-6 flex items-start gap-2 text-sm text-muted-foreground sm:text-left">
                 <TriangleAlert className="mt-0.5 size-4 shrink-0" />
                 Snapshot of employees who may need immediate support based on recent performance patterns.

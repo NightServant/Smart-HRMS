@@ -17,7 +17,7 @@ export default function UpcomingSeminars({ seminars }: { seminars: Seminar[] }) 
     const upcomingSeminars = seminars.slice(0, 10);
 
     return (
-        <div className="animate-fade-in col-span-2 col-start-1 col-end-3 flex w-full flex-col gap-3 overflow-hidden rounded-xl border border-border bg-background/80 p-4 shadow-xl transition-shadow duration-300 hover:shadow-2xl sm:gap-4">
+        <div className="animate-fade-in col-span-2 col-start-1 col-end-3 flex w-full flex-col gap-3 overflow-hidden rounded-xl border border-border bg-background p-4 shadow-sm hover:shadow-md transition-shadow sm:gap-4">
             <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg">
                 <CalendarDays className="size-5 text-primary" />
                 Upcoming Seminars and Trainings
@@ -29,7 +29,7 @@ export default function UpcomingSeminars({ seminars }: { seminars: Seminar[] }) 
                     <CarouselContent className="-ml-2 md:-ml-4">
                         {upcomingSeminars.length === 0 && (
                             <CarouselItem className="basis-full">
-                                <Card className="h-full bg-card/80">
+                                <Card className="h-full bg-card">
                                     <CardHeader>
                                         <CardTitle>No upcoming seminars</CardTitle>
                                         <CardDescription>Create seminar entries in Training Scheduling to populate this list.</CardDescription>
@@ -39,8 +39,8 @@ export default function UpcomingSeminars({ seminars }: { seminars: Seminar[] }) 
                         )}
 
                         {upcomingSeminars.map((seminar) => (
-                            <CarouselItem key={seminar.id} className="basis-full md:basis-1/2 lg:basis-1/3">
-                                <Card className="group h-full bg-card/80 transition-shadow duration-300 hover:shadow-lg">
+                            <CarouselItem key={seminar.id} className="basis-full md:basis-full lg:basis-1/2 xl:basis-1/3">
+                                <Card className="group h-full bg-card hover:shadow-sm transition-shadow">
                                     <CardHeader>
                                         <CardTitle>{seminar.title}</CardTitle>
                                         <CardDescription className="flex items-center gap-2">
