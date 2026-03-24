@@ -20,8 +20,10 @@ type LeaveOverviewData = {
 
 export default function LeaveOverview({
     data,
+    userRole = 'hr',
 }: {
     data?: LeaveOverviewData | null;
+    userRole?: 'hr' | 'evaluator';
 }) {
     const overview = data ?? {
         pending: 0,
@@ -30,6 +32,11 @@ export default function LeaveOverview({
         routed: 0,
         total: 0,
     };
+
+    const leaveManagementUrl =
+        userRole === 'evaluator'
+            ? admin.leaveManagement().url
+            : admin.hrLeaveManagement().url;
 
     const stats = [
         {
@@ -74,7 +81,7 @@ export default function LeaveOverview({
                     Leave Overview
                 </h1>
                 <Link
-                    href={admin.hrLeaveManagement().url}
+                    href={leaveManagementUrl}
                     className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
                 >
                     View all

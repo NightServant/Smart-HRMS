@@ -71,7 +71,7 @@ export default function AdminPerformanceDashboard({
                 <div className="grid grid-cols-1 gap-6 col-span-2 xl:grid-cols-[1.15fr_0.85fr] xl:items-start 2xl:col-span-2 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] 2xl:items-start">
                     <DailyAttendanceLogs />
                     <div className="flex min-h-0 flex-col gap-6">
-                        <LeaveOverview data={leaveOverview} />
+                        <LeaveOverview data={leaveOverview} userRole='hr'/>
                         <EmployeeRemarks remarks={remarks} />
                     </div>
                 </div>

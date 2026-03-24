@@ -49,7 +49,7 @@ export const data = {
 
 export function DailyAttendanceBarChart() {
   return (
-    <div className="mx-auto h-64 w-full sm:h-72 md:h-80">
+    <div className="mx-auto h-64 w-3/4 sm:h-72 md:h-80">
       <Bar options={options} data={data} />
     </div>
   );
