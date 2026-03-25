@@ -136,7 +136,7 @@ export default function HomepageSection() {
                 loop
                 playsInline
             >
-                <source src="/videos/background-video.mp4" type="video/mp4" />
+                <source src="/videos/background_video.mp4" type="video/mp4" />
             </video>
             <div className="bg-video__overlay" />
             <div className="bg-video__content relative mx-auto grid w-full max-w-[1500px] grid-cols-1 items-center gap-10 px-6 md:px-10 xl:grid-cols-12">
