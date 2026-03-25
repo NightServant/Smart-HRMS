@@ -62,13 +62,13 @@ export default function PerformanceDashboard({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Performance Dashboard" />
-            <div className="flex w-full flex-col gap-6 p-6 lg:grid lg:grid-cols-2 lg:items-start 2xl:grid-cols-2">
+            <div className="flex w-full flex-col gap-6 p-6 xl:grid xl:grid-cols-2 xl:items-stretch">
                 <QuarterPerformanceTrends />
                 <RiskEmployeeAlert />
                 <div className="lg:col-span-2">
                     <UpcomingSeminars seminars={seminars} />
                 </div>
-                <div className="grid grid-cols-1 gap-6 col-span-2 xl:grid-cols-[1.15fr_0.85fr] xl:items-start 2xl:col-span-2 2xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] 2xl:items-start">
+                <div className="grid grid-cols-1 items-stretch gap-6 lg:col-span-2 xl:grid-cols-[1.15fr_0.85fr]">
                     <DailyAttendanceLogs />
                     <div className="flex min-h-0 flex-col gap-6">
                         <LeaveOverview data={leaveOverview} userRole='evaluator'/>

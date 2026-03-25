@@ -37,50 +37,53 @@ export const centerTextPlugin: Plugin<'doughnut'> = {
 
 ChartJS.register(ArcElement, Tooltip, Legend, centerTextPlugin);
 
-export const options = {
-  responsive: true,
-  maintainAspectRatio: false,
-  cutout: '62%',
-  plugins: {
-    legend: {
-      display: false,
-    },
-    title: {
-      display: false,
-    },
-  },
+type DoughnutChartProps = {
+  data?: { lowRisk: number; highRisk: number } | null;
 };
 
-export const data = {
-  labels: ['Low Risk', 'High Risk'],
-  datasets: [
-    {
-      label: 'Performance Data',
-      data: [70, 30],
-      backgroundColor: [
-        '#4A7C3C',
-        '#EE4B2B',
-      ],
-      borderColor: [
-        '#345A2A',
-        '#EE4B2B',
-      ],
-      borderWidth: 1,
-      offset: 5,
-      borderRadius: 20,
-    },
-  ],
-};
+export function DoughnutChart({ data }: DoughnutChartProps) {
+  const lowRisk = data?.lowRisk ?? 0;
+  const highRisk = data?.highRisk ?? 0;
+  const hasData = lowRisk > 0 || highRisk > 0;
+  const chartKey = `${lowRisk}-${highRisk}`;
 
-/**
- * A doughnut chart component.
- *
- * @returns {JSX.Element} A JSX element representing the doughnut chart.
- */
-export function DoughnutChart() {
+  const chartData = {
+    labels: ['Low Risk', 'High Risk'],
+    datasets: [
+      {
+        label: 'Performance Data',
+        data: hasData ? [lowRisk, highRisk] : [1, 0],
+        backgroundColor: ['#4A7C3C', '#EE4B2B'],
+        borderColor: ['#345A2A', '#EE4B2B'],
+        borderRadius: 0,
+        borderWidth: 0,
+        hoverBorderWidth: 0,
+        hoverOffset: 0,
+        spacing: 0,
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: true,
+    aspectRatio: 1,
+    cutout: '62%',
+    plugins: {
+      legend: { display: false },
+      title: { display: false },
+    },
+    elements: {
+      arc: {
+        borderRadius: 0,
+        borderWidth: 0,
+      },
+    },
+  };
+
   return (
-    <div className="relative mx-auto h-40 w-full max-w-[15rem] sm:h-48 sm:max-w-sm md:h-56 md:max-w-md lg:h-64 lg:max-w-lg">
-      <Doughnut options={options} data={data} />
+    <div className="relative mx-auto aspect-square w-full max-w-[15rem] [&>canvas]:!rounded-none sm:max-w-48 md:max-w-56 lg:max-w-64">
+      <Doughnut key={chartKey} redraw options={options} data={chartData} />
     </div>
   );
 }

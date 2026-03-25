@@ -100,7 +100,7 @@ export default function EvaluationResults({ employee, submission }: Props) {
     return (
         <div className="mx-auto w-full max-w-7xl space-y-6">
             {/* Header Card */}
-            <Card className="animate-fade-in-up border-primary/20 bg-card shadow-sm">
+            <Card className="glass-card animate-fade-in-up border-primary/20 bg-card shadow-sm">
                 <CardHeader>
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>

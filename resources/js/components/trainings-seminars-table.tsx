@@ -169,7 +169,7 @@ export const TrainingsSeminarsTable = ({ seminars }: { seminars: Seminar[] }) =>
                         <p className="mt-1 text-muted-foreground">Schedule seminars and trainings with the form below.</p>
                     </div>
                 </div>
-                <div className="animate-zoom-in-soft mx-auto w-full rounded-xl border border-border bg-card p-4 shadow-sm">
+                <div className="glass-card animate-zoom-in-soft mx-auto w-full rounded-xl border border-border bg-card p-4 shadow-sm">
                     <h2 className="mb-4 text-lg font-semibold">Training & Seminar List</h2>
 
                     <form onSubmit={submitForm} className="animate-fade-in-left mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">

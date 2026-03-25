@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\AttendanceImportController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Export_CSV_Controller;
+use App\Http\Controllers\FlatFatController;
 use App\Http\Controllers\Import_CSV_Controller;
 use App\Http\Controllers\IwrController;
 use App\Http\Controllers\LeaveRequestController;
@@ -22,10 +24,6 @@ Route::get('/', function () {
 Route::get('dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified', 'role:employee'])
     ->name('dashboard');
-
-Route::get('attendance', function () {
-    return Inertia::render('attendance');
-})->middleware(['auth', 'verified', 'role:employee'])->name('attendance');
 
 Route::get('leave-application', [LeaveRequestController::class, 'create'])
     ->middleware(['auth', 'verified', 'role:employee'])
@@ -80,9 +78,32 @@ Route::delete('admin/historical-data/clear-imported', [Import_CSV_Controller::cl
 Route::get('admin/attendance-management', [PaginationController::class, 'attendanceManagement'])
     ->middleware(['auth', 'verified', 'role:hr-personnel'])
     ->name('admin.attendance-management');
+Route::post('admin/attendance-management/import-csv', [AttendanceImportController::class, 'store'])
+    ->middleware(['auth', 'verified', 'role:hr-personnel'])
+    ->name('admin.attendance-management.import-csv');
 Route::get('admin/attendance-management/export-csv', [Export_CSV_Controller::class, 'index'])
     ->middleware(['auth', 'verified', 'role:hr-personnel'])
     ->name('admin.attendance-management.export-csv');
+Route::delete('admin/attendance-management/clear', [AttendanceImportController::class, 'destroy'])
+    ->middleware(['auth', 'verified', 'role:hr-personnel'])
+    ->name('admin.attendance-management.clear');
+
+// FlatFAT Real-Time Dashboard APIs
+Route::get('api/flatfat/organization-aggregate', [FlatFatController::class, 'organizationAggregate'])
+    ->middleware(['auth', 'verified', 'role:employee,evaluator,hr-personnel'])
+    ->name('api.flatfat.organization-aggregate');
+Route::get('api/flatfat/employee/{employeeId}', [FlatFatController::class, 'employeeScore'])
+    ->middleware(['auth', 'verified', 'role:employee,evaluator,hr-personnel'])
+    ->name('api.flatfat.employee-score');
+Route::get('api/flatfat/attendance-metrics', [FlatFatController::class, 'attendanceMetrics'])
+    ->middleware(['auth', 'verified', 'role:employee,evaluator,hr-personnel'])
+    ->name('api.flatfat.attendance-metrics');
+Route::get('api/flatfat/quarter-scores', [FlatFatController::class, 'quarterScores'])
+    ->middleware(['auth', 'verified', 'role:employee,evaluator,hr-personnel'])
+    ->name('api.flatfat.quarter-scores');
+Route::get('api/flatfat/employee-quarter-scores', [FlatFatController::class, 'employeeQuarterScores'])
+    ->middleware(['auth', 'verified', 'role:employee'])
+    ->name('api.flatfat.employee-quarter-scores');
 
 Route::get('admin/leave-management', [PaginationController::class, 'leaveManagement'])
     ->middleware(['auth', 'verified', 'role:evaluator'])

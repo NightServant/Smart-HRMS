@@ -6,10 +6,9 @@ import type { BreadcrumbItem } from '@/types';
 
 type AttendanceRecord = {
     id: number;
-    name: string;
+    employee_name: string;
     date: string;
-    clock_in: string;
-    clock_out: string;
+    punch_time: string;
     status: string;
 };
 

@@ -8,7 +8,7 @@ export default function HomepageHeader() {
         <>
             <Head title='Smart HRMS' />
             <header className="overflow-x-hidden">
-                <nav className="fixed inset-x-0 top-0 z-50 flex items-center justify-between bg-secondary/80 px-6 py-4 backdrop-blur-md dark:bg-background/80">
+                <nav className="fixed inset-x-0 top-0 z-50 flex items-center justify-between bg-secondary/80 px-6 py-4 backdrop-blur-md dark:bg-background/80 homepage-glass-card">
                     <Link
                         href={home()}
                         className="relative z-10 inline-flex items-center gap-2.5 text-xl font-bold tracking-tight text-foreground"

@@ -1,6 +1,6 @@
 import { router } from "@inertiajs/react";
-import { Search, UserSearch, Download } from "lucide-react";
-import { useState } from "react";
+import { Search, UserSearch, Download, Upload, Trash2 } from "lucide-react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,10 +31,9 @@ import * as admin from "@/routes/admin";
 
 type Attendance = {
     id: number;
-    name: string;
+    employee_name: string;
     date: string;
-    clock_in: string;
-    clock_out: string;
+    punch_time: string;
     status: string;
 };
 
@@ -55,6 +54,8 @@ export function AttendanceTable({
     pagination: PaginationMeta;
 }) {
     const [searchTerm, setSearchTerm] = useState(search);
+    const [isImporting, setIsImporting] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleSearchChange = (value: string): void => {
         setSearchTerm(value);
@@ -84,10 +85,7 @@ export function AttendanceTable({
     };
 
     const goToPreviousPage = (): void => {
-        if (pagination.currentPage <= 1) {
-            return;
-        }
-
+        if (pagination.currentPage <= 1) return;
         router.get(
             admin.attendanceManagement().url,
             { search: searchTerm, page: pagination.currentPage - 1, perPage: pagination.perPage },
@@ -101,10 +99,7 @@ export function AttendanceTable({
     };
 
     const goToNextPage = (): void => {
-        if (pagination.currentPage >= pagination.lastPage) {
-            return;
-        }
-
+        if (pagination.currentPage >= pagination.lastPage) return;
         router.get(
             admin.attendanceManagement().url,
             { search: searchTerm, page: pagination.currentPage + 1, perPage: pagination.perPage },
@@ -122,6 +117,34 @@ export function AttendanceTable({
         window.location.href = `/admin/attendance-management/export-csv?search=${searchParam}`;
     };
 
+    const handleImportClick = (): void => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        router.post('/admin/attendance-management/import-csv', { file }, {
+            forceFormData: true,
+            onStart: () => setIsImporting(true),
+            onFinish: () => setIsImporting(false),
+        });
+
+        // Reset file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
+
+    const handleClearImport = (): void => {
+        if (!confirm('Are you sure you want to clear all attendance records? This action cannot be undone.')) {
+            return;
+        }
+
+        router.delete('/admin/attendance-management/clear');
+    };
+
     return (
         <>
             <div className="animate-slide-in-down top">
@@ -131,12 +154,12 @@ export function AttendanceTable({
                             <UserSearch className="h-8 w-8" />
                             Daily Attendance Records
                         </h1>
-                        <p className="mt-1 text-muted-foreground">List of all daily attendance records for the adminstrative office of the government.</p>
+                        <p className="mt-1 text-muted-foreground">List of all daily attendance records for the administrative office of the government.</p>
                     </div>
                 </div>
             </div>
-            <div className="animate-zoom-in-soft mx-auto w-full rounded-md border border-border bg-card p-4 shadow-sm">
-                <div className="flex w-full items-center justify-between gap-4 py-6">
+            <div className="glass-card animate-zoom-in-soft mx-auto w-full rounded-md border border-border bg-card p-4 shadow-sm">
+                <div className="flex w-full flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
                     <div className="animate-fade-in-left relative w-full max-w-sm">
                         <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
                         <Input
@@ -150,10 +173,38 @@ export function AttendanceTable({
                             className="bg-card px-4 py-2 pl-9"
                         />
                     </div>
-                    <div className="flex flex-row animate-fade-in-right items-center gap-2">
+                    <div className="flex flex-wrap animate-fade-in-right items-center gap-2">
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".csv,.txt,.xlsx,.xls"
+                            onChange={handleFileChange}
+                            className="hidden"
+                            disabled={isImporting}
+                        />
+                        <Button
+                            variant="outline"
+                            className="w-fit px-4 py-2"
+                            type="button"
+                            onClick={handleImportClick}
+                            disabled={isImporting}
+                        >
+                            <Upload className="mr-2 h-4 w-4" />
+                            {isImporting ? 'Importing...' : 'Import File'}
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            className="w-fit px-4 py-2"
+                            type="button"
+                            onClick={handleClearImport}
+                            disabled={pagination.total === 0}
+                        >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Clear Import
+                        </Button>
                         <Button
                             variant="default"
-                            className="animate-fade-in-right w-fit px-4 py-2"
+                            className="w-fit px-4 py-2"
                             type="button"
                             onClick={handleExportClick}
                         >
@@ -166,12 +217,10 @@ export function AttendanceTable({
                 <Table className="w-full">
                     <TableHeader>
                         <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
-                            <TableHead className="px-4 py-3">Name</TableHead>
+                            <TableHead className="px-4 py-3">Employee Name</TableHead>
                             <TableHead className="px-4 py-3">Date</TableHead>
-                            <TableHead className="px-4 py-3">Clock In</TableHead>
-                            <TableHead className="px-4 py-3">Clock Out</TableHead>
+                            <TableHead className="px-4 py-3">Punch Time</TableHead>
                             <TableHead className="px-4 py-3">Status</TableHead>
-                            <TableHead className="w-56 px-4 py-3 text-center">Action</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -182,23 +231,23 @@ export function AttendanceTable({
                                 className={`animate-fade-in-up text-sm font-semibold text-foreground ${index % 2 === 0 ? "bg-[#DDEFD7] dark:bg-[#345A34]/80" : "bg-[#BFDDB5] dark:bg-[#274827]/80"
                                     }`}
                             >
-                                <TableCell className="px-4 py-2">{attendance.name}</TableCell>
+                                <TableCell className="px-4 py-2">{attendance.employee_name}</TableCell>
                                 <TableCell className="px-4 py-2">{attendance.date}</TableCell>
-                                <TableCell className="px-4 py-2">{attendance.clock_in}</TableCell>
-                                <TableCell className="px-4 py-2">{attendance.clock_out}</TableCell>
-                                <TableCell className="px-4 py-2">{attendance.status}</TableCell>
+                                <TableCell className="px-4 py-2">{attendance.punch_time}</TableCell>
                                 <TableCell className="px-4 py-2">
-                                    <Button
-                                        type="button"
-                                        className="mx-auto block w-full max-w-48 rounded-md bg-destructive px-4 py-2 font-bold text-white shadow-sm transition-colors hover:bg-destructive/90"
-                                    > Mark as Late
-                                    </Button>
+                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                        attendance.status === 'Present'
+                                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                                    }`}>
+                                        {attendance.status}
+                                    </span>
                                 </TableCell>
                             </TableRow>
                         ))}
                         {attendances.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={6} className="bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80">
+                                <TableCell colSpan={4} className="bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80">
                                     No matching attendance records found.
                                 </TableCell>
                             </TableRow>
@@ -206,7 +255,7 @@ export function AttendanceTable({
                     </TableBody>
                     <TableFooter>
                         <TableRow className="bg-[#E8F4E4] text-sm font-semibold text-foreground dark:bg-[#1A2F1A] dark:text-[#EAF7E6]">
-                            <TableCell colSpan={7} className="px-4 py-3">
+                            <TableCell colSpan={4} className="px-4 py-3">
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-2">
                                         <span>Rows per page</span>

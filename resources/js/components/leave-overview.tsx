@@ -74,7 +74,7 @@ export default function LeaveOverview({
     ];
 
     return (
-        <div className="flex h-full w-full min-w-0 flex-1 animate-fade-in-left flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
+        <div className="glass-card flex h-full w-full min-w-0 flex-1 animate-fade-in-left flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg">
                     <ClipboardList className="size-5 text-primary" />

@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
+import EmployeeQuarterTrends from '@/components/employee-quarter-trends';
 import PredictivePerformance from '@/components/predictive-performance-module';
-import QuarterPerformanceTrends from '@/components/quarter-performance-trends';
 import TrainingRecommendations from '@/components/training-recos';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
@@ -44,8 +44,8 @@ export default function Dashboard({ recommendations = [], riskLevel }: Props) {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Personalized Dashboard" />
             <div className="w-full p-6">
-                <div className="grid gap-6 md:gap-6 xl:grid-cols-2">
-                    <QuarterPerformanceTrends />
+                <div className="grid items-stretch gap-6 xl:grid-cols-2">
+                    <EmployeeQuarterTrends />
                     <TrainingRecommendations
                         recommendations={recommendations}
                         riskLevel={riskLevel}

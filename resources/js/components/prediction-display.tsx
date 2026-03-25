@@ -51,7 +51,7 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
     return (
         <div className="space-y-4">
             <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <Card className="h-full w-full min-w-0 bg-card hover:shadow-sm transition-shadow">
+                <Card className="glass-card h-full w-full min-w-0 bg-card hover:shadow-sm transition-shadow">
                     <CardHeader className="pb-2">
                         <CardTitle className="flex items-center gap-2 text-sm">
                             <TrendingUp className="size-4 text-primary" />
@@ -69,7 +69,7 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
                         </div>
                     </CardContent>
                 </Card>
-                <Card className="h-full w-full min-w-0 bg-card hover:shadow-sm transition-shadow">
+                <Card className="glass-card h-full w-full min-w-0 bg-card hover:shadow-sm transition-shadow">
                     <CardHeader className="pb-2">
                         <CardTitle className="flex items-center gap-2 text-sm">
                             <ChartLine className="size-4 text-primary" />

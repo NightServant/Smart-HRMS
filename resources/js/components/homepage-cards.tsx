@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function HomepageCards() {
     return (
-        <aside className="bg-secondary/80 p-6 dark:bg-background/80 md:p-10">
+        <aside className="bg-secondary/80 p-6 dark:bg-background/80 md:p-10 homepage-glass-card">
             <div className="mx-auto grid w-full max-w-[1500px] animate-fade-in-up grid-cols-1 items-start gap-8 xl:grid-cols-12 xl:gap-10">
                 <div className="xl:col-span-6 my-auto">
                     <h2 className="text-3xl font-bold tracking-tight sm:text-4xl lg:text-5xl">

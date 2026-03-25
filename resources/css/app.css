@@ -384,6 +384,30 @@
         z-index: 2;
     }
 
+    .glass-card {
+        background: rgb(251 251 254 / 0.65);
+        backdrop-filter: blur(12px) saturate(120%);
+        border-color: rgb(201 211 195 / 0.5);
+    }
+
+    .homepage-glass-card {
+        background: rgb(145 195 131 / 0.65);
+        backdrop-filter: blur(12px) saturate(120%);
+        border-color: rgb(201 211 195 / 0.5);
+    }
+
+    .dark .glass-card {
+        background: rgb(14 27 58 / 0.6);
+        backdrop-filter: blur(12px) saturate(120%);
+        border-color: rgb(30 51 80 / 0.5);
+    }
+
+    .dark .homepage-glass-card {
+        background: rgb(14 27 58 / 0.6);
+        backdrop-filter: blur(12px) saturate(120%);
+        border-color: rgb(30 51 80 / 0.5);
+    }
+
     @media (prefers-reduced-motion: reduce) {
         .anim-stagger-1,
         .anim-stagger-2,
@@ -395,6 +419,10 @@
         .notif-delay-2 {
             animation: none !important;
             transition: none !important;
+        }
+
+        .glass-card {
+            backdrop-filter: none;
         }
     }
 }

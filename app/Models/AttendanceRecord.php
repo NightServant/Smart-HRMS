@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AttendanceRecord extends Model
 {
@@ -13,10 +14,9 @@ class AttendanceRecord extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'name',
+        'employee_id',
         'date',
-        'clock_in',
-        'clock_out',
+        'punch_time',
         'status',
     ];
 
@@ -27,6 +27,12 @@ class AttendanceRecord extends Model
     {
         return [
             'date' => 'date',
+            'punch_time' => 'datetime',
         ];
+    }
+
+    public function employee(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'employee_id', 'employee_id');
     }
 }

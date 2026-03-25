@@ -11,7 +11,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard, attendance, leaveApplication, documentManagement, performanceDashboard, notifications, submitEvaluation } from '@/routes';
+import { dashboard, leaveApplication, documentManagement, performanceDashboard, notifications, submitEvaluation } from '@/routes';
 import * as admin from '@/routes/admin';
 import type { Auth, NavItem } from '@/types';
 import AppLogo from './app-logo';
@@ -26,11 +26,6 @@ const employeeNavItems: NavItem[] = [
         title: 'Leave Application',
         href: leaveApplication().url,
         icon: FileUser,
-    },
-    {
-        title:'Attendance',
-        href: attendance(),
-        icon: ClipboardCheck,
     },
     {
         title: 'Form Submission',

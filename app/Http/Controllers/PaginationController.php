@@ -37,26 +37,24 @@ class PaginationController extends Controller
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
 
         $attendances = AttendanceRecord::query()
+            ->with('employee')
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
                     $subQuery
-                        ->where('name', 'like', '%'.$search.'%')
+                        ->whereHas('employee', fn ($q) => $q->where('name', 'like', '%'.$search.'%'))
                         ->orWhere('date', 'like', '%'.$search.'%')
-                        ->orWhere('clock_in', 'like', '%'.$search.'%')
-                        ->orWhere('clock_out', 'like', '%'.$search.'%')
                         ->orWhere('status', 'like', '%'.$search.'%');
                 });
             })
             ->latest('date')
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn (AttendanceRecord $attendanceRecord): array => [
-                'id' => $attendanceRecord->id,
-                'name' => $attendanceRecord->name,
-                'date' => $attendanceRecord->date?->format('Y-m-d') ?? '-',
-                'clock_in' => $attendanceRecord->clock_in ?? '-',
-                'clock_out' => $attendanceRecord->clock_out ?? '-',
-                'status' => $attendanceRecord->status,
+            ->through(fn (AttendanceRecord $record): array => [
+                'id' => $record->id,
+                'employee_name' => $record->employee?->name ?? 'Unknown',
+                'date' => $record->date?->format('Y-m-d') ?? '-',
+                'punch_time' => $record->punch_time?->format('H:i:s') ?? '-',
+                'status' => $record->status,
             ]);
 
         return Inertia::render('admin/attendance-management', [

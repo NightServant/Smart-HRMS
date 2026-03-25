@@ -1,0 +1,18 @@
+# FlatFAT Algorithm Dependencies
+# Install with: pip install -r requirements.txt
+
+# Core dependencies (minimal, as FlatFAT uses only Python stdlib)
+# Listed here for future extensibility
+
+# Optional: If adding database queries later
+# SQLAlchemy==2.0.0
+# PyMySQL==1.1.0
+# python-dotenv==1.0.0
+
+# Optional: If adding caching later
+# redis==5.0.0
+# cachetools==5.3.0
+
+# Development/Testing (optional)
+# pytest==7.4.0
+# pytest-cov==4.1.0

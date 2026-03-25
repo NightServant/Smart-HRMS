@@ -51,7 +51,7 @@ function priorityBadge(priority: string) {
 
 export default function TrainingRecommendations({ recommendations }: Props) {
     return (
-        <div className="flex w-full min-w-0 animate-fade-in-right flex-col gap-3 overflow-hidden rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md sm:gap-4">
+        <div className="glass-card flex w-full min-w-0 animate-fade-in-right flex-col gap-3 overflow-hidden rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md sm:gap-4">
             <h1 className="flex min-w-0 items-center gap-2 text-base font-bold sm:text-lg">
                 <BookOpen className="size-5 text-primary" />
                 Training Recommendations

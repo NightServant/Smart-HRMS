@@ -18,39 +18,57 @@ ChartJS.register(
   Legend
 );
 
-export const options = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false,
-    },
-    title: {
-      display: false,
-    },
-  },
+type AttendanceBreakdown = {
+  late: number;
+  absent: number;
+  onLeave: number;
+  present: number;
 };
 
-export const data = {
-  labels: ['Late', 'Absentees', 'On leave', 'Present'],
-  datasets: [
-    {
-      label: 'Daily Logs',
-      data: [10, 50, 30, 90],
-      backgroundColor: [
-        '#C89C3D',
-        '#FF0056',
-        '#808080',
-        '#4A7C3C',
-      ],
-    },
-  ],
+type Props = {
+  data?: AttendanceBreakdown | null;
 };
 
-export function DailyAttendanceBarChart() {
+export function DailyAttendanceBarChart({ data }: Props) {
+  const chartData = {
+    labels: ['Late', 'Absentees', 'On Leave', 'Present'],
+    datasets: [
+      {
+        label: 'Daily Logs',
+        data: [
+          data?.late ?? 0,
+          data?.absent ?? 0,
+          data?.onLeave ?? 0,
+          data?.present ?? 0,
+        ],
+        backgroundColor: [
+          '#C89C3D',
+          '#FF0056',
+          '#808080',
+          '#4A7C3C',
+        ],
+      },
+    ],
+  };
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      title: { display: false },
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        ticks: { stepSize: 1 },
+      },
+    },
+  };
+
   return (
     <div className="mx-auto h-64 w-3/4 sm:h-72 md:h-80">
-      <Bar options={options} data={data} />
+      <Bar options={options} data={chartData} />
     </div>
   );
 }

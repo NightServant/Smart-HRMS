@@ -153,7 +153,7 @@ export default function EvaluationCard({ employee, submission }: Props) {
     };
 
     return (
-        <Card className="animate-zoom-in-soft mx-auto w-full max-w-7xl rounded-xl border border-border bg-card shadow-sm">
+        <Card className="glass-card animate-zoom-in-soft mx-auto w-full max-w-7xl rounded-xl border border-border bg-card shadow-sm">
             <CardHeader className="animate-slide-in-down">
                 <CardTitle>Individual Performance Commitment and Review</CardTitle>
                 <CardDescription>

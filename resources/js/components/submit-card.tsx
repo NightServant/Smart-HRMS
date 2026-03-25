@@ -30,7 +30,7 @@ export default function SubmitCard() {
 
     return (
         <div className="mt-6 grid gap-6 animate-fade-in-up">
-            <Card className='bg-card shadow-sm border border-border'>
+            <Card className='glass-card bg-card shadow-sm border border-border'>
                 <CardHeader>
                     <CardTitle>Evaluation Form Details</CardTitle>
                     <CardDescription>Select the appropriate semester before submitting the evaluation form.</CardDescription>

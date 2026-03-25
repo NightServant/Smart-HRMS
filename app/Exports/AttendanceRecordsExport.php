@@ -19,26 +19,23 @@ class AttendanceRecordsExport implements FromCollection, WithHeadings
     public function collection(): Collection
     {
         return AttendanceRecord::query()
+            ->with('employee')
             ->when(trim($this->search) !== '', function ($query): void {
                 $query->where(function ($subQuery): void {
                     $subQuery
-                        ->where('name', 'like', '%'.trim($this->search).'%')
+                        ->whereHas('employee', fn ($q) => $q->where('name', 'like', '%'.trim($this->search).'%'))
                         ->orWhere('date', 'like', '%'.trim($this->search).'%')
-                        ->orWhere('clock_in', 'like', '%'.trim($this->search).'%')
-                        ->orWhere('clock_out', 'like', '%'.trim($this->search).'%')
                         ->orWhere('status', 'like', '%'.trim($this->search).'%');
                 });
             })
             ->orderByDesc('date')
-            ->orderBy('name')
             ->get()
-            ->map(fn (AttendanceRecord $attendanceRecord): array => [
-                'id' => $attendanceRecord->id,
-                'name' => $attendanceRecord->name,
-                'date' => $attendanceRecord->date?->format('Y-m-d') ?? '',
-                'clock_in' => $attendanceRecord->clock_in,
-                'clock_out' => $attendanceRecord->clock_out,
-                'status' => $attendanceRecord->status,
+            ->map(fn (AttendanceRecord $record): array => [
+                'id' => $record->id,
+                'employee_name' => $record->employee?->name ?? 'Unknown',
+                'date' => $record->date?->format('Y-m-d') ?? '',
+                'punch_time' => $record->punch_time?->format('H:i:s') ?? '',
+                'status' => $record->status,
             ]);
     }
 
@@ -47,6 +44,6 @@ class AttendanceRecordsExport implements FromCollection, WithHeadings
      */
     public function headings(): array
     {
-        return ['id', 'name', 'date', 'clock_in', 'clock_out', 'status'];
+        return ['ID', 'Employee Name', 'Date', 'Punch Time', 'Status'];
     }
 }
