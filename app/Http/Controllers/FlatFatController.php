@@ -13,6 +13,11 @@ use Illuminate\Http\Request;
 
 class FlatFatController extends Controller
 {
+    /**
+     * @var list<string>
+     */
+    private const EXCLUDED_EMPLOYEE_IDS = ['EMP-001'];
+
     public function __construct(private FlatFatService $flatFatService) {}
 
     /**
@@ -22,7 +27,9 @@ class FlatFatController extends Controller
     {
         try {
             $quarter = $request->query('quarter');
-            $employees = Employee::all();
+            $employees = Employee::query()
+                ->whereNotIn('employee_id', self::EXCLUDED_EMPLOYEE_IDS)
+                ->get();
 
             if ($employees->isEmpty()) {
                 return response()->json([
@@ -165,7 +172,9 @@ class FlatFatController extends Controller
     {
         try {
             $quarter = $request->query('quarter');
-            $employees = Employee::all();
+            $employees = Employee::query()
+                ->whereNotIn('employee_id', self::EXCLUDED_EMPLOYEE_IDS)
+                ->get();
 
             if ($employees->isEmpty()) {
                 return response()->json([
