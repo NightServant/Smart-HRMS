@@ -18,10 +18,10 @@ type LeaveOverviewData = {
 
 export default function LeaveOverview({
     data,
-    userRole = 'hr',
+    userRole,
 }: {
     data?: LeaveOverviewData | null;
-    userRole?: 'hr' | 'evaluator';
+    userRole: 'hr' | 'evaluator';
 }) {
     const overview = data ?? {
         approved: 0,

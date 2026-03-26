@@ -27,6 +27,17 @@ const quarterLabels: Record<Quarter, string[]> = {
 
 export type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
 
+const employeeBarPalette = [
+  { background: '#4A7C3C', border: '#4A7C3C' },
+  { background: '#2A6F97', border: '#2A6F97' },
+  { background: '#FF0056', border: '#FF0056' },
+  { background: '#C89C3D', border: '#C89C3D' },
+  { background: '#6B5BDB', border: '#6B5BDB' },
+  { background: '#009688', border: '#009688' },
+  { background: '#F97316', border: '#F97316' },
+  { background: '#808080', border: '#808080' },
+];
+
 type EmployeeScore = {
   employee_name: string;
   final_rating: number;
@@ -50,6 +61,7 @@ type Props = {
 
 export function QuarterBarChart({ quarter = 'Q1', data }: Props) {
   const employeeScores = data?.employee_scores ?? [];
+  const employeeBarColors = employeeScores.map((_, index) => employeeBarPalette[index % employeeBarPalette.length]);
 
   const chartData = employeeScores.length > 0
     ? {
@@ -58,7 +70,12 @@ export function QuarterBarChart({ quarter = 'Q1', data }: Props) {
           {
             label: 'Performance Score',
             data: employeeScores.map((s) => s.final_rating),
-            backgroundColor: '#4A7C3C',
+            backgroundColor: employeeBarColors.map((color) => color.background),
+            borderColor: employeeBarColors.map((color) => color.border),
+            borderWidth: 0,
+            borderRadius: 0,
+            hoverBackgroundColor: employeeBarColors.map((color) => color.background),
+            hoverBorderColor: employeeBarColors.map((color) => color.border),
           },
         ],
       }
@@ -69,6 +86,9 @@ export function QuarterBarChart({ quarter = 'Q1', data }: Props) {
             label: 'Performance Score',
             data: [0, 0, 0],
             backgroundColor: '#4A7C3C',
+            borderColor: '#4A7C3C',
+            borderWidth: 0,
+            borderRadius: 0,
           },
         ],
       };
