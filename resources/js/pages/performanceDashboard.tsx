@@ -28,9 +28,8 @@ type Remark = {
 };
 
 type LeaveOverviewData = {
-    pending: number;
-    completed: number;
-    returned: number;
+    approved: number;
+    rejected: number;
     routed: number;
     total: number;
     recentRequests: {
@@ -68,10 +67,12 @@ export default function PerformanceDashboard({
                 <div className="lg:col-span-2">
                     <UpcomingSeminars seminars={seminars} />
                 </div>
-                <div className="grid grid-cols-1 items-stretch gap-6 lg:col-span-2 xl:grid-cols-[1.15fr_0.85fr]">
-                    <DailyAttendanceLogs />
-                    <div className="flex min-h-0 flex-col gap-6">
-                        <LeaveOverview data={leaveOverview} userRole='evaluator'/>
+                <div className="grid grid-cols-1 items-stretch gap-6 xl:flex flex-row xl:col-span-2">
+                    <div className='gap-6 w-full xl:w-1/2'>
+                        <DailyAttendanceLogs />
+                    </div>
+                    <div className="flex min-h-0 flex-col gap-6 w-full xl:w-1/2">
+                        <LeaveOverview data={leaveOverview} userRole='evaluator' />
                         <EmployeeRemarks remarks={remarks} />
                     </div>
                 </div>

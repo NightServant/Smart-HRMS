@@ -35,6 +35,7 @@ type Attendance = {
     date: string;
     punch_time: string;
     status: string;
+    source: string;
 };
 
 type PaginationMeta = {
@@ -221,6 +222,7 @@ export function AttendanceTable({
                             <TableHead className="px-4 py-3">Date</TableHead>
                             <TableHead className="px-4 py-3">Punch Time</TableHead>
                             <TableHead className="px-4 py-3">Status</TableHead>
+                            <TableHead className="px-4 py-3">Source</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -243,11 +245,20 @@ export function AttendanceTable({
                                         {attendance.status}
                                     </span>
                                 </TableCell>
+                                <TableCell className="px-4 py-2">
+                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                        attendance.source === 'manual'
+                                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+                                    }`}>
+                                        {attendance.source === 'manual' ? 'Manual' : 'Import'}
+                                    </span>
+                                </TableCell>
                             </TableRow>
                         ))}
                         {attendances.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={4} className="bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80">
+                                <TableCell colSpan={5} className="bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80">
                                     No matching attendance records found.
                                 </TableCell>
                             </TableRow>
@@ -255,7 +266,7 @@ export function AttendanceTable({
                     </TableBody>
                     <TableFooter>
                         <TableRow className="bg-[#E8F4E4] text-sm font-semibold text-foreground dark:bg-[#1A2F1A] dark:text-[#EAF7E6]">
-                            <TableCell colSpan={4} className="px-4 py-3">
+                            <TableCell colSpan={5} className="px-4 py-3">
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-2">
                                         <span>Rows per page</span>

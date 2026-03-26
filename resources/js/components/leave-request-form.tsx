@@ -70,6 +70,7 @@ const leaveRequirements: Record<string, string[]> = {
     ],
     'maternity-leave': [
         'Submit 1 month before expected delivery date.',
+        'Required document: Marriage Certificate.',
     ],
     'paternity-leave': [
         'Submit 1 month before or after expected delivery date.',
@@ -175,7 +176,7 @@ export default function LeaveRequestForm() {
     }, [endDate, maxDays, maximumEndDate, startDate, totalLeaveDays]);
 
     const shouldUploadMedicalCertificate = selectedLeaveType === 'sick-leave' && (totalLeaveDays ?? 0) > 6;
-    const shouldUploadMarriageCertificate = selectedLeaveType === 'paternity-leave';
+    const shouldUploadMarriageCertificate = selectedLeaveType === 'paternity-leave' || selectedLeaveType === 'maternity-leave';
     const shouldUploadSoloParentId = selectedLeaveType === 'solo-parent-leave';
     const shouldShowSupportingDocuments =
         shouldUploadMedicalCertificate || shouldUploadMarriageCertificate || shouldUploadSoloParentId;
@@ -412,7 +413,7 @@ export default function LeaveRequestForm() {
                                                     name="medicalCertificate"
                                                     type="file"
                                                     required
-                                                    accept=".pdf,.jpg,.jpeg,.png"
+                                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                                                     onChange={(event) => {
                                                         setData('medicalCertificate', event.target.files?.[0] ?? null);
                                                     }}
@@ -431,7 +432,7 @@ export default function LeaveRequestForm() {
                                                     name="marriageCertificate"
                                                     type="file"
                                                     required
-                                                    accept=".pdf,.jpg,.jpeg,.png"
+                                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                                                     onChange={(event) => {
                                                         setData('marriageCertificate', event.target.files?.[0] ?? null);
                                                     }}
@@ -450,7 +451,7 @@ export default function LeaveRequestForm() {
                                                     name="soloParentId"
                                                     type="file"
                                                     required
-                                                    accept=".pdf,.jpg,.jpeg,.png"
+                                                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                                                     onChange={(event) => {
                                                         setData('soloParentId', event.target.files?.[0] ?? null);
                                                     }}
@@ -461,6 +462,7 @@ export default function LeaveRequestForm() {
                                     </div>
                                 </div>
                             )}
+
                         </div>
 
                         <Separator />

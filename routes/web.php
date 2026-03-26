@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AttendanceImportController;
+use App\Http\Controllers\AttendanceRecordController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Export_CSV_Controller;
 use App\Http\Controllers\FlatFatController;
@@ -35,6 +36,13 @@ Route::post('leave-application', [LeaveRequestController::class, 'store'])
 Route::get('submit-evaluation', function () {
     return Inertia::render('submit-evaluation');
 })->middleware(['auth', 'verified', 'role:employee'])->name('submit-evaluation');
+
+Route::get('attendance', [AttendanceRecordController::class, 'index'])
+    ->middleware(['auth', 'verified', 'role:employee'])
+    ->name('attendance');
+Route::post('attendance/punch', [AttendanceRecordController::class, 'punch'])
+    ->middleware(['auth', 'verified', 'role:employee'])
+    ->name('attendance.punch');
 
 Route::get('notifications', [NotificationController::class, 'index'])
     ->middleware(['auth', 'verified', 'role:employee,evaluator,hr-personnel'])
@@ -128,6 +136,9 @@ Route::post('leave/{leaveRequest}/approve', [IwrController::class, 'approveLeave
 Route::post('leave/{leaveRequest}/reject', [IwrController::class, 'rejectLeave'])
     ->middleware(['auth', 'verified', 'role:evaluator,hr-personnel'])
     ->name('leave.reject');
+Route::get('leave/{leaveRequest}/document/{type}', [LeaveRequestController::class, 'downloadDocument'])
+    ->middleware(['auth', 'verified', 'role:evaluator,hr-personnel'])
+    ->name('leave.document');
 
 Route::get('evaluation-page', [IwrController::class, 'evaluationPage'])
     ->middleware(['auth', 'verified', 'role:evaluator'])

@@ -28,9 +28,9 @@ class StoreLeaveRequestRequest extends FormRequest
             'startDate' => ['required', 'date'],
             'endDate' => ['required', 'date', 'after_or_equal:startDate'],
             'reason' => ['required', 'string', 'max:1000'],
-            'medicalCertificate' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
-            'marriageCertificate' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
-            'soloParentId' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'medicalCertificate' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:5120'],
+            'marriageCertificate' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:5120'],
+            'soloParentId' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:5120'],
         ];
     }
 
@@ -64,6 +64,10 @@ class StoreLeaveRequestRequest extends FormRequest
 
             if ($leaveType === 'sick-leave' && $totalDays > 6 && ! $this->hasFile('medicalCertificate')) {
                 $validator->errors()->add('medicalCertificate', 'A medical certificate is required for sick leave longer than 6 days.');
+            }
+
+            if ($leaveType === 'maternity-leave' && ! $this->hasFile('marriageCertificate')) {
+                $validator->errors()->add('marriageCertificate', 'A marriage certificate is required for maternity leave.');
             }
 
             if ($leaveType === 'paternity-leave' && ! $this->hasFile('marriageCertificate')) {

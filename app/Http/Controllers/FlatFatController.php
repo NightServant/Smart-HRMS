@@ -346,9 +346,10 @@ class FlatFatController extends Controller
     private function getEmployeeMetrics(string $employeeId, string $employeeName = '', ?string $quarter = null): ?array
     {
         try {
-            // Get latest performance rating from IPCR submission
+            // Get latest evaluated performance rating from IPCR submission
             $ipcr = IpcrSubmission::where('employee_id', $employeeId)
-                ->orderBy('created_at', 'desc')
+                ->whereNotNull('performance_rating')
+                ->orderBy('updated_at', 'desc')
                 ->first();
 
             $performanceRating = $ipcr?->performance_rating ?? null;

@@ -3,17 +3,15 @@ import {
     ArrowRight,
     CheckCircle2,
     ClipboardList,
-    Clock,
-    RotateCcw,
     Send,
+    XCircle,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import * as admin from '@/routes/admin';
 
 type LeaveOverviewData = {
-    pending: number;
-    completed: number;
-    returned: number;
+    approved: number;
+    rejected: number;
     routed: number;
     total: number;
 };
@@ -26,9 +24,8 @@ export default function LeaveOverview({
     userRole?: 'hr' | 'evaluator';
 }) {
     const overview = data ?? {
-        pending: 0,
-        completed: 0,
-        returned: 0,
+        approved: 0,
+        rejected: 0,
         routed: 0,
         total: 0,
     };
@@ -40,25 +37,17 @@ export default function LeaveOverview({
 
     const stats = [
         {
-            label: 'Pending',
-            value: overview.pending,
-            icon: Clock,
-            color: 'text-amber-600 dark:text-amber-400',
-            bg: 'bg-amber-50 dark:bg-amber-950/30',
-            border: 'border-amber-200 dark:border-amber-800',
-        },
-        {
             label: 'Approved',
-            value: overview.completed,
+            value: overview.approved,
             icon: CheckCircle2,
             color: 'text-emerald-600 dark:text-emerald-400',
             bg: 'bg-emerald-50 dark:bg-emerald-950/30',
             border: 'border-emerald-200 dark:border-emerald-800',
         },
         {
-            label: 'Returned',
-            value: overview.returned,
-            icon: RotateCcw,
+            label: 'Rejected',
+            value: overview.rejected,
+            icon: XCircle,
             color: 'text-red-600 dark:text-red-400',
             bg: 'bg-red-50 dark:bg-red-950/30',
             border: 'border-red-200 dark:border-red-800',
@@ -89,7 +78,7 @@ export default function LeaveOverview({
                 </Link>
             </div>
             <Separator />
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-3 gap-2">
                 {stats.map((stat) => (
                     <div
                         key={stat.label}
@@ -105,6 +94,14 @@ export default function LeaveOverview({
                     </div>
                 ))}
             </div>
+            <Separator />
+                <div className="text-sm text-muted-foreground">
+                    <b>Total Leave Requests: {overview.total}</b>
+                    <br />
+                    {userRole === 'evaluator'
+                        ? 'As an evaluator, you can review and approve or return leave requests submitted by employees.'
+                        : 'As an HR personnel, you can review and approve or reject leave requests routed by evaluators.'}
+                </div>
         </div>
     );
 }

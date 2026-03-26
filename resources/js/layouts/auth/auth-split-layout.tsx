@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { ArrowLeft } from 'lucide-react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { home } from '@/routes';
 import type { AuthLayoutProps } from '@/types';
@@ -45,6 +46,13 @@ export default function AuthSplitLayout({
 
             <div className="w-full lg:p-8">
                 <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+                    <Link
+                        href={home()}
+                        className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                        <ArrowLeft className="size-4" />
+                        Back to Home
+                    </Link>
                     <Link
                         href={home()}
                         className="relative z-20 flex items-center justify-center lg:hidden"

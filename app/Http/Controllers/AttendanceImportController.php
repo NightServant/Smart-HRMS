@@ -103,6 +103,7 @@ class AttendanceImportController extends Controller
                         'date' => $date,
                         'punch_time' => $punchDateTime->format('Y-m-d H:i:s'),
                         'status' => $status,
+                        'source' => 'import',
                         'created_at' => $now,
                         'updated_at' => $now,
                     ];
@@ -153,8 +154,8 @@ class AttendanceImportController extends Controller
     public function destroy(): RedirectResponse
     {
         try {
-            $count = AttendanceRecord::count();
-            AttendanceRecord::truncate();
+            $count = AttendanceRecord::where('source', 'import')->count();
+            AttendanceRecord::where('source', 'import')->delete();
 
             return redirect()
                 ->route('admin.attendance-management')

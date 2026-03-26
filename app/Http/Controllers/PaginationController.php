@@ -55,6 +55,7 @@ class PaginationController extends Controller
                 'date' => $record->date?->format('Y-m-d') ?? '-',
                 'punch_time' => $record->punch_time?->format('H:i:s') ?? '-',
                 'status' => $record->status,
+                'source' => $record->source ?? 'import',
             ]);
 
         return Inertia::render('admin/attendance-management', [
@@ -99,6 +100,9 @@ class PaginationController extends Controller
                 'reason' => $leaveRequest->reason,
                 'status' => $leaveRequest->status ?? 'pending',
                 'stage' => $leaveRequest->stage,
+                'hasMedicalCertificate' => (bool) $leaveRequest->medical_certificate_path,
+                'hasMarriageCertificate' => (bool) $leaveRequest->marriage_certificate_path,
+                'hasSoloParentId' => (bool) $leaveRequest->solo_parent_id_path,
             ]);
 
         return Inertia::render('admin/leave-management', [
@@ -144,6 +148,9 @@ class PaginationController extends Controller
                 'status' => $leaveRequest->status ?? 'pending',
                 'stage' => $leaveRequest->stage,
                 'dhDecision' => $leaveRequest->dh_decision,
+                'hasMedicalCertificate' => (bool) $leaveRequest->medical_certificate_path,
+                'hasMarriageCertificate' => (bool) $leaveRequest->marriage_certificate_path,
+                'hasSoloParentId' => (bool) $leaveRequest->solo_parent_id_path,
             ]);
 
         return Inertia::render('admin/hr-leave-management', [
@@ -178,8 +185,8 @@ class PaginationController extends Controller
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
                     $subQuery
-                        ->where('name', 'like', '%'.$search.'%')
-                        ->orWhere('email', 'like', '%'.$search.'%');
+                        ->where('users.name', 'like', '%'.$search.'%')
+                        ->orWhere('users.email', 'like', '%'.$search.'%');
                 });
             })
             ->orderBy($allowedSorts[$sort], $direction)
@@ -196,7 +203,7 @@ class PaginationController extends Controller
                 'employee_id' => $user->employee_id ?? '',
                 'position' => $user->employee?->job_title ?? 'Employee',
                 'date_hired' => $user->created_at?->format('Y-m-d') ?? '-',
-                'age' => 'N/A',
+
                 'performance_rating' => $user->employee?->latestSubmission?->performance_rating,
                 'remarks' => $user->employee?->latestSubmission?->rejection_reason,
                 'notification' => $user->employee?->latestSubmission?->notification,

@@ -1,0 +1,62 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\AttendanceRecord;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class AttendanceRecordController extends Controller
+{
+    public function index(Request $request): Response
+    {
+        $employeeId = $request->user()->employee_id;
+
+        $records = AttendanceRecord::query()
+            ->where('employee_id', $employeeId)
+            ->orderBy('punch_time', 'desc')
+            ->take(50)
+            ->get()
+            ->map(fn (AttendanceRecord $record) => [
+                'id' => $record->id,
+                'date' => $record->date,
+                'punchTime' => $record->punch_time?->format('Y-m-d H:i:s') ?? $record->punch_time,
+                'status' => $record->status,
+            ]);
+
+        return Inertia::render('attendance', [
+            'records' => $records,
+            'employeeId' => $employeeId ?? '',
+        ]);
+    }
+
+    public function punch(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'employee_id' => ['required', 'string'],
+        ]);
+
+        $user = $request->user();
+        $inputEmployeeId = $request->string('employee_id')->toString();
+
+        // Ensure the employee ID matches the logged-in user
+        if ($user->employee_id !== $inputEmployeeId) {
+            return back()->withErrors(['employee_id' => 'Employee ID does not match your account.']);
+        }
+
+        $now = Carbon::now();
+
+        AttendanceRecord::query()->create([
+            'employee_id' => $inputEmployeeId,
+            'date' => $now->toDateString(),
+            'punch_time' => $now,
+            'status' => 'Present',
+            'source' => 'manual',
+        ]);
+
+        return back()->with('success', 'Attendance recorded successfully at ' . $now->format('h:i A') . '.');
+    }
+}

@@ -38,7 +38,6 @@ type Employee = {
     employee_id: string;
     position: string;
     date_hired: string;
-    age: string;
     performance_rating?: string | null;
     remarks?: string | null;
     notification?: string | null;
@@ -200,7 +199,6 @@ export function EmployeesTable({
                                     {renderSortIcon("position")}
                                 </Button>
                             </TableHead>
-                            <TableHead>Age</TableHead>
                             <TableHead className="text-right">Performance Evaluation</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -216,7 +214,6 @@ export function EmployeesTable({
                                 <TableCell>{employee.name}</TableCell>
                                 <TableCell>{employee.email}</TableCell>
                                 <TableCell>{employee.position}</TableCell>
-                                <TableCell>{employee.age}</TableCell>
                                 <TableCell className="text-right">
                                     <Button
                                         type="button"
@@ -230,7 +227,7 @@ export function EmployeesTable({
                         ))}
                         {employees.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={6} className="bg-[#DDEFD7] text-center dark:bg-[#345A34]/80">
+                                <TableCell colSpan={5} className="bg-[#DDEFD7] text-center dark:bg-[#345A34]/80">
                                     No matching employees found.
                                 </TableCell>
                             </TableRow>
@@ -238,7 +235,7 @@ export function EmployeesTable({
                     </TableBody>
                     <TableFooter>
                         <TableRow className="bg-[#E8F4E4] text-sm font-semibold text-foreground dark:bg-[#1A2F1A] dark:text-[#EAF7E6]">
-                            <TableCell colSpan={6}>
+                            <TableCell colSpan={5}>
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-2">
                                         <span>Rows per page</span>

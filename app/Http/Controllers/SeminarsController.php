@@ -80,9 +80,16 @@ class SeminarsController extends Controller
         $requests = LeaveRequest::query();
 
         return [
-            'pending' => (clone $requests)->where('status', 'pending')->count(),
-            'completed' => (clone $requests)->where('status', 'completed')->count(),
-            'returned' => (clone $requests)->where('status', 'returned')->count(),
+            'approved' => (clone $requests)->where('status', 'completed')
+                ->where('has_rejection_reason', false)
+                ->where('dh_decision', '!=', 2)
+                ->where('hr_decision', '!=', 2)
+                ->count(),
+            'rejected' => (clone $requests)->where('status', 'completed')
+                ->where(fn ($q) => $q->where('has_rejection_reason', true)
+                    ->orWhere('dh_decision', 2)
+                    ->orWhere('hr_decision', 2))
+                ->count(),
             'routed' => (clone $requests)->where('status', 'routed')->count(),
             'total' => (clone $requests)->count(),
             'recentRequests' => LeaveRequest::with('user')

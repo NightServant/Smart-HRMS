@@ -1,5 +1,6 @@
-import { Link, usePage } from '@inertiajs/react';
-import { Bell, CalendarClock, ClipboardCheck, FileStack, FileUser, Grid, PieChart, Send, Users } from 'lucide-react';
+import { Link, router, usePage } from '@inertiajs/react';
+import { Bell, CalendarClock, ClipboardCheck, FileStack, FileUser, Fingerprint, Grid, PieChart, Send, Users } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -11,7 +12,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard, leaveApplication, documentManagement, performanceDashboard, notifications, submitEvaluation } from '@/routes';
+import { attendance, dashboard, leaveApplication, documentManagement, performanceDashboard, notifications, submitEvaluation } from '@/routes';
 import * as admin from '@/routes/admin';
 import type { Auth, NavItem } from '@/types';
 import AppLogo from './app-logo';
@@ -31,6 +32,11 @@ const employeeNavItems: NavItem[] = [
         title: 'Form Submission',
         href: submitEvaluation(),
         icon: Send,
+    },
+    {
+        title: 'Attendance',
+        href: attendance(),
+        icon: Fingerprint,
     },
     {
         title: 'Notifications',
@@ -93,16 +99,35 @@ const hrPersonnelNavItems: NavItem[] = [
         href: admin.trainingScheduling(),
         icon: CalendarClock,
     },
+    {
+        title: 'Notifications',
+        href: notifications(),
+        icon: Bell,
+    },
 ];
 
 export function AppSidebar() {
-    const { auth } = usePage<{ auth: Auth }>().props;
+    const { auth, unreadNotificationCount } = usePage<{ auth: Auth; unreadNotificationCount: number }>().props;
+
+    // Poll for unread notification count every 15 seconds
+    useEffect(() => {
+        const interval = setInterval(() => {
+            router.reload({ only: ['unreadNotificationCount'] });
+        }, 15000);
+        return () => clearInterval(interval);
+    }, []);
 
     const mainNavItems = auth.user.role === 'evaluator'
         ? evaluatorNavItems
         : auth.user.role === 'hr-personnel'
             ? hrPersonnelNavItems
             : employeeNavItems;
+
+    const itemsWithBadge = useMemo(() => {
+        return mainNavItems.map(item =>
+            item.title === 'Notifications' ? { ...item, badge: unreadNotificationCount } : item
+        );
+    }, [mainNavItems, unreadNotificationCount]);
 
     const homeLink = auth.user.role === 'hr-personnel'
         ? admin.performanceDashboard()
@@ -125,7 +150,7 @@ export function AppSidebar() {
             </SidebarHeader>
 
             <SidebarContent>
-                <NavMain items={mainNavItems} />
+                <NavMain items={itemsWithBadge} />
             </SidebarContent>
 
             <SidebarFooter>

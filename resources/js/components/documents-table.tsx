@@ -1,4 +1,4 @@
-import { router, usePage } from "@inertiajs/react";
+import { Link, router, usePage } from "@inertiajs/react";
 import { FileText, Search } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -183,15 +183,15 @@ export default function DocumentsTable({
                                 <TableCell className="text-center">
                                     {employee.submissionStatus === 'completed' || employee.submissionStage === 'evaluation_saved' ? (
                                         <Button asChild type="button" variant="outline" className="bg-secondary px-3 py-2 w-1/2 text-xs font-bold shadow-md transition-colors">
-                                            <a href={evaluationPage({ query: { employee_id: employee.employeeId ?? '' } }).url} target="_blank" rel="noopener noreferrer">
+                                            <Link href={evaluationPage({ query: { employee_id: employee.employeeId ?? '' } }).url}>
                                                View Results
-                                            </a>
+                                            </Link>
                                         </Button>
                                     ) : (
                                         <Button asChild type="button" className="bg-secondary px-3 py-2 w-1/2 text-xs font-bold text-foreground shadow-md transition-colors hover:bg-secondary/90">
-                                            <a href={evaluationPage({ query: { employee_id: employee.employeeId ?? '' } }).url} target="_blank" rel="noopener noreferrer">
+                                            <Link href={evaluationPage({ query: { employee_id: employee.employeeId ?? '' } }).url}>
                                                Evaluate
-                                            </a>
+                                            </Link>
                                         </Button>
                                     )}
                                 </TableCell>

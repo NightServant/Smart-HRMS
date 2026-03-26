@@ -6,8 +6,10 @@ use App\Http\Requests\StoreLeaveRequestRequest;
 use App\Models\LeaveRequest;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LeaveRequestController extends Controller
 {
@@ -69,5 +71,26 @@ class LeaveRequestController extends Controller
         }
 
         return to_route('leave-application')->with('success', $message);
+    }
+
+    public function downloadDocument(LeaveRequest $leaveRequest, string $type): StreamedResponse
+    {
+        $pathMap = [
+            'medical_certificate' => 'medical_certificate_path',
+            'marriage_certificate' => 'marriage_certificate_path',
+            'solo_parent_id' => 'solo_parent_id_path',
+        ];
+
+        if (! isset($pathMap[$type])) {
+            abort(404, 'Invalid document type.');
+        }
+
+        $path = $leaveRequest->{$pathMap[$type]};
+
+        if (! $path || ! Storage::disk('public')->exists($path)) {
+            abort(404, 'Document not found.');
+        }
+
+        return Storage::disk('public')->download($path);
     }
 }

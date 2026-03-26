@@ -18,6 +18,7 @@ class AttendanceRecord extends Model
         'date',
         'punch_time',
         'status',
+        'source',
     ];
 
     /**

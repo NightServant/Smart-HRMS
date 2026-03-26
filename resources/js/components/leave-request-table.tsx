@@ -1,5 +1,5 @@
 import { router } from "@inertiajs/react";
-import { Search, UserSearch } from "lucide-react";
+import { FileDown, Search, UserSearch } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,9 @@ type LeaveRequest = {
     reason: string;
     status?: string;
     stage?: string;
+    hasMedicalCertificate?: boolean;
+    hasMarriageCertificate?: boolean;
+    hasSoloParentId?: boolean;
 };
 
 type PaginationMeta = {
@@ -178,6 +181,7 @@ export default function LeaveRequestTable({
                             <TableHead className="px-4 py-3">Start Date</TableHead>
                             <TableHead className="px-4 py-3">End Date</TableHead>
                             <TableHead className="px-4 py-3">Reason</TableHead>
+                            <TableHead className="px-4 py-3 text-center">Documents</TableHead>
                             <TableHead className="px-4 py-3 text-center">Status</TableHead>
                             <TableHead className="px-4 py-3 text-center">Action 1</TableHead>
                             <TableHead className="px-4 py-3 text-center">Action 2</TableHead>
@@ -199,6 +203,28 @@ export default function LeaveRequestTable({
                                     <TableCell className="px-4 py-2">{leaveRequest.startDate}</TableCell>
                                     <TableCell className="px-4 py-2">{leaveRequest.endDate}</TableCell>
                                     <TableCell className="px-4 py-2">{leaveRequest.reason}</TableCell>
+                                    <TableCell className="px-4 py-2">
+                                        <div className="flex flex-wrap justify-center gap-1">
+                                            {leaveRequest.hasMedicalCertificate && (
+                                                <a href={`/leave/${leaveRequest.id}/document/medical_certificate`} target="_blank" rel="noopener noreferrer" title="Medical Certificate" className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300">
+                                                    <FileDown className="size-3" /> Medical
+                                                </a>
+                                            )}
+                                            {leaveRequest.hasMarriageCertificate && (
+                                                <a href={`/leave/${leaveRequest.id}/document/marriage_certificate`} target="_blank" rel="noopener noreferrer" title="Marriage Certificate" className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300">
+                                                    <FileDown className="size-3" /> Marriage
+                                                </a>
+                                            )}
+                                            {leaveRequest.hasSoloParentId && (
+                                                <a href={`/leave/${leaveRequest.id}/document/solo_parent_id`} target="_blank" rel="noopener noreferrer" title="Solo Parent ID" className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300">
+                                                    <FileDown className="size-3" /> Solo Parent
+                                                </a>
+                                            )}
+                                            {!leaveRequest.hasMedicalCertificate && !leaveRequest.hasMarriageCertificate && !leaveRequest.hasSoloParentId && (
+                                                <span className="text-xs text-muted-foreground">&mdash;</span>
+                                            )}
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="px-4 py-2 text-center">
                                         <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold ${
                                             leaveRequest.status === 'completed' ? 'bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-200' :
@@ -247,7 +273,7 @@ export default function LeaveRequestTable({
                                 </TableRow>
                                 {rejectingRowId === leaveRequest.id && isActionable(leaveRequest) && (
                                     <TableRow key={`reject-${leaveRequest.id}`} className="bg-red-50 dark:bg-red-950/30">
-                                        <TableCell colSpan={9} className="px-4 py-3">
+                                        <TableCell colSpan={10} className="px-4 py-3">
                                             <div className="flex items-end gap-3">
                                                 <div className="flex-1">
                                                     <label className="mb-1 block text-sm font-semibold text-foreground">
@@ -288,7 +314,7 @@ export default function LeaveRequestTable({
                         ))}
                         {leaveRequests.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={9} className="bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80">
+                                <TableCell colSpan={10} className="bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80">
                                     No matching leave requests found.
                                 </TableCell>
                             </TableRow>
@@ -296,7 +322,7 @@ export default function LeaveRequestTable({
                     </TableBody>
                     <TableFooter>
                         <TableRow className="bg-[#E8F4E4] text-sm font-semibold text-foreground dark:bg-[#1A2F1A] dark:text-[#EAF7E6]">
-                            <TableCell colSpan={9} className="px-4 py-3">
+                            <TableCell colSpan={10} className="px-4 py-3">
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-2">
                                         <span>Rows per page</span>
