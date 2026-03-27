@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\ProfileDeleteRequest;
 use App\Http\Requests\Settings\ProfileUpdateRequest;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,8 +19,25 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        $user = $request->user()->loadMissing('employee');
+        $shouldShowEmployeeProfile = in_array($user->role, [User::ROLE_EMPLOYEE, User::ROLE_EVALUATOR], true);
+        $employee = $shouldShowEmployeeProfile ? $user->employee : null;
+
         return Inertia::render('settings/profile', [
             'status' => $request->session()->get('status'),
+            'canEditProfile' => $user->isAdministrator(),
+            'accountProfile' => [
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'employeeId' => $user->employee_id,
+            ],
+            'employeeProfile' => $employee ? [
+                'employee_id' => $employee->employee_id,
+                'name' => $employee->name,
+                'job_title' => $employee->job_title,
+                'supervisor_id' => $employee->supervisor_id,
+            ] : null,
         ]);
     }
 

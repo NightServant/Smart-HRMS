@@ -2,7 +2,6 @@ import { Link } from '@inertiajs/react';
 import type { PropsWithChildren } from 'react';
 import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { useCurrentUrl } from '@/hooks/use-current-url';
 import { cn, toUrl } from '@/lib/utils';
 import { edit } from '@/routes/profile';
@@ -28,7 +27,12 @@ const sidebarNavItems: NavItem[] = [
     },
 ];
 
-export default function SettingsLayout({ children }: PropsWithChildren) {
+export default function SettingsLayout({
+    children,
+    contentClassName,
+}: PropsWithChildren<{
+    contentClassName?: string;
+}>) {
     const { isCurrentUrl } = useCurrentUrl();
 
     // When server-side rendering, we only render the layout on the client...
@@ -43,10 +47,10 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                 description="Manage your profile and account settings"
             />
 
-            <div className="flex flex-col lg:flex-row lg:space-x-12">
-                <aside className="w-full max-w-xl lg:w-48">
+            <div className="flex flex-col gap-6 xl:flex-row xl:gap-12">
+                <aside className="w-full xl:w-52 xl:flex-none">
                     <nav
-                        className="flex flex-col space-y-1 space-x-0"
+                        className="grid gap-2 sm:grid-cols-3 xl:flex xl:flex-col xl:space-y-1 xl:space-x-0"
                         aria-label="Settings"
                     >
                         {sidebarNavItems.map((item, index) => (
@@ -70,10 +74,8 @@ export default function SettingsLayout({ children }: PropsWithChildren) {
                     </nav>
                 </aside>
 
-                <Separator className="my-6 lg:hidden" />
-
-                <div className="flex-1 md:max-w-2xl">
-                    <section className="max-w-xl space-y-12">
+                <div className="min-w-0 flex-1">
+                    <section className={cn('max-w-xl space-y-12', contentClassName)}>
                         {children}
                     </section>
                 </div>
