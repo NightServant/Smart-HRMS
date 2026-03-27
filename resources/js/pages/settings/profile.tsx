@@ -1,5 +1,5 @@
 import { Form, Head, usePage } from '@inertiajs/react';
-import { BriefcaseBusiness, IdCard, LockKeyhole, Mail, PencilOff, ShieldCheck, UserRound } from 'lucide-react';
+import { BriefcaseBusiness, IdCard, LockKeyhole, Mail, PencilOff, ShieldCheck, UserRound, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
@@ -13,6 +13,7 @@ import SettingsLayout from '@/layouts/settings/layout';
 import { edit } from '@/routes/profile';
 import type { Auth } from '@/types/auth';
 import type { BreadcrumbItem } from '@/types';
+import { Separator } from 'radix-ui';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -112,11 +113,12 @@ const handleClick = () => {
 export default function Profile() {
     const { auth, canEditProfile, accountProfile, employeeProfile } = usePage<PageProps>().props;
     const roleLabel = formatRoleLabel(accountProfile.role);
+    const shouldShowAccountManagementField = auth.user.role === 'employee' || auth.user.role === 'evaluator' || auth.user.role === 'hr-personnel';
     const shouldShowEmployeeProfile = auth.user.role === 'employee' || auth.user.role === 'evaluator';
-    const shouldStackSections = canEditProfile || auth.user.role === 'hr-personnel';
+    const shouldStackSections = canEditProfile || auth.user.role === 'hr-personnel' || auth.user.role === 'employee';
     const shouldShowSupervisorId = auth.user.role !== 'evaluator';
     const linkedRecordNameDiffers = employeeProfile?.name && employeeProfile.name !== accountProfile.name;
-    const shouldShowLinkedEmployeeIdOutsideEmployeeProfile = canEditProfile || !shouldShowEmployeeProfile;
+    const shouldShowLinkedEmployeeIdOutsideEmployeeProfile = canEditProfile;
     const heroSubtitle = shouldShowEmployeeProfile
         ? employeeProfile?.job_title ?? 'Linked employee account'
         : canEditProfile
@@ -183,51 +185,79 @@ export default function Profile() {
                 </section>
 
                 {canEditProfile ? (
-                    <div className="grid gap-6">
+                    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,0.85fr)]">
                         <SectionCard
-                            title="Account details"
-                            description="Edit the core account information shown throughout the system."
+                            title="Profile details"
+                            description="Maintain the administrator identity shown across Smart HRMS."
                         >
+                            <div className="grid gap-4 sm:grid-cols-3">
+                                <div className="rounded-2xl border border-border/70 bg-muted/10 p-4">
+                                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Role</p>
+                                    <p className="mt-2 text-sm font-medium text-foreground">{roleLabel}</p>
+                                </div>
+                                <div className="rounded-2xl border border-border/70 bg-muted/10 p-4">
+                                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Management</p>
+                                    <p className="mt-2 text-sm font-medium text-foreground">Self-managed</p>
+                                </div>
+                                <div className="rounded-2xl border border-border/70 bg-muted/10 p-4">
+                                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Employee link</p>
+                                    <p className="mt-2 text-sm font-medium text-foreground">{accountProfile.employeeId ?? 'Not linked'}</p>
+                                </div>
+                            </div>
+
                             <Form
                                 action={ProfileController.update().url}
                                 method={ProfileController.update().method}
                                 options={{
                                     preserveScroll: true,
                                 }}
-                                className="space-y-6"
+                                className="mt-6 space-y-6"
                             >
                                 {({ processing, errors }) => (
                                     <>
-                                        <div className="grid gap-5 md:grid-cols-2">
-                                            <div className="space-y-2 md:col-span-2">
-                                                <Label htmlFor="name">Name</Label>
-                                                <Input
-                                                    id="name"
-                                                    defaultValue={accountProfile.name}
-                                                    name="name"
-                                                    required
-                                                    autoComplete="name"
-                                                    placeholder="Full name"
-                                                />
-                                                <InputError className="mt-2" message={errors.name} />
+                                        <div className="rounded-[24px] border border-border/70 bg-muted/5 p-5">
+                                            <div className="mb-5 space-y-1">
+                                                <h3 className="text-base font-semibold text-foreground">Edit public account information</h3>
+                                                <p className="text-sm text-muted-foreground">
+                                                    Update the core details that identify this administrator account throughout the system.
+                                                </p>
                                             </div>
 
-                                            <div className="space-y-2 md:col-span-2">
-                                                <Label htmlFor="email">Email address</Label>
-                                                <Input
-                                                    id="email"
-                                                    type="email"
-                                                    defaultValue={accountProfile.email}
-                                                    name="email"
-                                                    required
-                                                    autoComplete="username"
-                                                    placeholder="Email address"
-                                                />
-                                                <InputError className="mt-2" message={errors.email} />
+                                            <div className="grid gap-5 md:grid-cols-2">
+                                                <div className="space-y-2 md:col-span-2">
+                                                    <Label htmlFor="name">Name</Label>
+                                                    <Input
+                                                        id="name"
+                                                        defaultValue={accountProfile.name}
+                                                        name="name"
+                                                        required
+                                                        autoComplete="name"
+                                                        placeholder="Full name"
+                                                    />
+                                                    <InputError className="mt-2" message={errors.name} />
+                                                </div>
+
+                                                <div className="space-y-2 md:col-span-2">
+                                                    <Label htmlFor="email">Email address</Label>
+                                                    <Input
+                                                        id="email"
+                                                        type="email"
+                                                        defaultValue={accountProfile.email}
+                                                        name="email"
+                                                        required
+                                                        autoComplete="username"
+                                                        placeholder="Email address"
+                                                    />
+                                                    <InputError className="mt-2" message={errors.email} />
+                                                </div>
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex flex-col gap-3 border-t border-border/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
+                                            <p className="text-sm text-muted-foreground">
+                                                Administrative role access is managed elsewhere and is not changed from this page.
+                                            </p>
+
                                             <Button
                                                 type="submit"
                                                 disabled={processing}
@@ -244,29 +274,24 @@ export default function Profile() {
 
                         <div className="grid gap-6">
                             <SectionCard
-                                title="Profile summary"
-                                description="A quick overview of what this settings page controls."
+                                title="Security & access"
+                                description="Other security settings remain available from their dedicated pages."
                             >
-                                <div className="grid gap-4">
-                                    <ReadOnlyField label="Account role" value={roleLabel} />
-                                    <ReadOnlyField label="Linked employee ID" value={accountProfile.employeeId} />
-                                </div>
-                            </SectionCard>
-
-                            <SectionCard
-                                title="Security"
-                                description="Password and two-factor authentication continue to live in their own settings pages."
-                            >
-                                <div className="space-y-3">
-                                    <SidebarNote icon={LockKeyhole}>
-                                        Use the Password section to change your credentials.
-                                    </SidebarNote>
-                                    <SidebarNote icon={ShieldCheck}>
-                                        Use the Two-Factor Auth section to manage recovery and verification settings.
-                                    </SidebarNote>
-                                    <SidebarNote icon={PencilOff}>
-                                        Role, activation status, and employee linkage remain managed from administrator user management.
-                                    </SidebarNote>
+                                <div className="border-t border-b border/60 py-5">
+                                    <div className="space-y-3">
+                                        <SidebarNote icon={LockKeyhole}>
+                                            Use the Password section to change your credentials.
+                                        </SidebarNote>
+                                        <SidebarNote icon={ShieldCheck}>
+                                            Use the Two-Factor Auth section to manage recovery and verification settings.
+                                        </SidebarNote>
+                                        <SidebarNote icon={PencilOff}>
+                                            Role, activation status, and employee linkage remain managed from your account page.
+                                        </SidebarNote>
+                                        <SidebarNote icon={Users}>
+                                            For users with linked employee records, account profile details are synced from the linked employee record for reference.
+                                        </SidebarNote>
+                                    </div>
                                 </div>
                             </SectionCard>
                         </div>
@@ -280,6 +305,7 @@ export default function Profile() {
                             >
                                 <div className="grid gap-4 md:grid-cols-2">
                                     <ReadOnlyField label="Email address" value={accountProfile.email} />
+                                    {shouldShowAccountManagementField && <ReadOnlyField label="Account management" value="Admin-managed" />}
                                     {shouldShowLinkedEmployeeIdOutsideEmployeeProfile && (
                                         <ReadOnlyField label="Linked employee ID" value={accountProfile.employeeId} />
                                     )}
