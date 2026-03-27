@@ -18,7 +18,6 @@ type Props = {
             update: string;
             activate: string;
             deactivate: string;
-            passwordReset: string;
         };
     }[];
     roles: string[];

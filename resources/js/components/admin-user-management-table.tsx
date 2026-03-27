@@ -1,5 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
-import { ArrowDown, ArrowUp, ArrowUpDown, KeyRound, Pencil, Plus, Power, Search, ShieldPlus, UserCog } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Pencil, Plus, Power, Search, ShieldPlus, UserCog } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -45,7 +45,6 @@ type ManagedUser = {
         update: string;
         activate: string;
         deactivate: string;
-        passwordReset: string;
     };
 };
 
@@ -362,15 +361,6 @@ export function AdminUserManagementTable({
                                         <Button
                                             type="button"
                                             size="sm"
-                                            variant="outline"
-                                            onClick={() => triggerAccountAction(user.links.passwordReset, 'Password reset link sent successfully.')}
-                                        >
-                                            <KeyRound className="mr-2 size-4" />
-                                            Reset
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            size="sm"
                                             variant={user.isActive ? 'destructive' : 'outline'}
                                             onClick={() => triggerAccountAction(user.isActive ? user.links.deactivate : user.links.activate, user.isActive ? 'User account deactivated successfully.' : 'User account activated successfully.')}
                                             disabled={user.email === auth.user.email && user.isActive}
@@ -521,7 +511,7 @@ export function AdminUserManagementTable({
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>Edit Account</DialogTitle>
-                        <DialogDescription>Update role, employee link, password, and account state without exposing the internal user ID.</DialogDescription>
+                        <DialogDescription>Update role, employee link, and account state without exposing the internal user ID.</DialogDescription>
                     </DialogHeader>
                     <form className="grid gap-4" onSubmit={submitUpdate}>
                         <div className="grid gap-4 md:grid-cols-2">
@@ -557,15 +547,6 @@ export function AdminUserManagementTable({
                                 <Label htmlFor="edit-employee-id">Employee ID</Label>
                                 <Input id="edit-employee-id" value={editForm.employee_id} onChange={(event) => setEditForm((current) => ({ ...current, employee_id: event.target.value }))} />
                                 {errors.employee_id && <p className="text-sm text-destructive">{errors.employee_id}</p>}
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="edit-password">New Password</Label>
-                                <Input id="edit-password" type="password" value={editForm.password} onChange={(event) => setEditForm((current) => ({ ...current, password: event.target.value }))} placeholder="Leave blank to keep current password" />
-                                {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="edit-password-confirmation">Confirm New Password</Label>
-                                <Input id="edit-password-confirmation" type="password" value={editForm.password_confirmation} onChange={(event) => setEditForm((current) => ({ ...current, password_confirmation: event.target.value }))} />
                             </div>
                         </div>
                         <div className="flex items-center gap-3">

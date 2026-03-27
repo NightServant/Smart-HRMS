@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -17,7 +16,8 @@ test('administrator can view all account roles in user management', function () 
             ->component('admin/user-management')
             ->has('users', 4)
             ->where('users.0.role', User::ROLE_ADMINISTRATOR)
-            ->missing('users.0.id'));
+            ->missing('users.0.id')
+            ->missing('users.0.links.passwordReset'));
 });
 
 test('administrator can create user accounts', function () {
@@ -41,19 +41,6 @@ test('administrator can create user accounts', function () {
         'role' => User::ROLE_HR_PERSONNEL,
         'is_active' => true,
     ]);
-});
-
-test('administrator can trigger password reset actions', function () {
-    Notification::fake();
-
-    $admin = User::factory()->asAdministrator()->create();
-    $user = User::factory()->create();
-
-    $this->actingAs($admin)
-        ->post(route('admin.user-management.password-reset', $user))
-        ->assertRedirect();
-
-    Notification::assertSentTo($user, ResetPassword::class);
 });
 
 test('administrator cannot deactivate own account', function () {

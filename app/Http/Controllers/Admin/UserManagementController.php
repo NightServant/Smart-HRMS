@@ -78,7 +78,6 @@ class UserManagementController extends Controller
                     'update' => "/admin/user-management/{$user->id}",
                     'activate' => "/admin/user-management/{$user->id}/activate",
                     'deactivate' => "/admin/user-management/{$user->id}/deactivate",
-                    'passwordReset' => "/admin/user-management/{$user->id}/password-reset",
                 ],
             ]);
 
