@@ -39,7 +39,7 @@ export default function Notifications() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Notifications" />
 
-            <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4">
+            <div className="flex w-full flex-col gap-6 p-4 md:p-6 xl:p-8">
                 <NotificationsHeader unreadCount={unreadCount} />
                 <NotificationsSummaryCards
                     unreadCount={unreadCount}

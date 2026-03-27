@@ -11,6 +11,8 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 
 class User extends Authenticatable
 {
+    public const ROLE_ADMINISTRATOR = 'administrator';
+
     public const ROLE_EMPLOYEE = 'employee';
 
     public const ROLE_EVALUATOR = 'evaluator';
@@ -25,13 +27,14 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
-
     protected $fillable = [
         'name',
         'email',
+        'email_verified_at',
         'password',
         'role',
         'employee_id',
+        'is_active',
     ];
 
     /**
@@ -57,6 +60,7 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -66,6 +70,7 @@ class User extends Authenticatable
     public static function roles(): array
     {
         return [
+            self::ROLE_ADMINISTRATOR,
             self::ROLE_EMPLOYEE,
             self::ROLE_EVALUATOR,
             self::ROLE_HR_PERSONNEL,
@@ -77,8 +82,17 @@ class User extends Authenticatable
         return $this->role === $role;
     }
 
+    public function isAdministrator(): bool
+    {
+        return $this->role === self::ROLE_ADMINISTRATOR;
+    }
+
     public function homeRouteName(): string
     {
+        if ($this->role === self::ROLE_ADMINISTRATOR) {
+            return 'admin.system-dashboard';
+        }
+
         if ($this->role === self::ROLE_HR_PERSONNEL) {
             return 'admin.performance-dashboard';
         }

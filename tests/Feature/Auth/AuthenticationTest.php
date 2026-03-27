@@ -34,6 +34,33 @@ test('hr personnel are redirected to hr dashboard after login', function () {
     $response->assertRedirect(route('admin.performance-dashboard', absolute: false));
 });
 
+test('administrators are redirected to system dashboard after login', function () {
+    $user = User::factory()->asAdministrator()->create();
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('admin.system-dashboard', absolute: false));
+});
+
+test('deactivated users cannot authenticate', function () {
+    $user = User::factory()->create([
+        'is_active' => false,
+    ]);
+
+    $response = $this->from(route('login'))->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $response->assertRedirect(route('login'));
+    $response->assertSessionHasErrors('email');
+    $this->assertGuest();
+});
+
 test('users with two factor enabled are redirected to two factor challenge', function () {
     if (! Features::canManageTwoFactorAuthentication()) {
         $this->markTestSkipped('Two-factor authentication is not enabled.');

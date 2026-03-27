@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Bell, CalendarClock, ClipboardCheck, FileStack, FileUser, Fingerprint, Grid, PieChart, Send, Users } from 'lucide-react';
+import { Bell, CalendarClock, ClipboardCheck, FileStack, FileUser, Fingerprint, Grid, LayoutDashboard, PieChart, ScrollText, Send, ShieldPlus, Users } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -106,6 +106,29 @@ const hrPersonnelNavItems: NavItem[] = [
     },
 ];
 
+const administratorNavItems: NavItem[] = [
+    {
+        title: 'System Dashboard',
+        href: admin.systemDashboard(),
+        icon: LayoutDashboard,
+    },
+    {
+        title: 'User Management',
+        href: admin.userManagement(),
+        icon: ShieldPlus,
+    },
+    {
+        title: 'Audit Logs',
+        href: admin.auditLogs(),
+        icon: ScrollText,
+    },
+    {
+        title: 'Notifications',
+        href: notifications(),
+        icon: Bell,
+    },
+];
+
 export function AppSidebar() {
     const { auth, unreadNotificationCount } = usePage<{ auth: Auth; unreadNotificationCount: number }>().props;
 
@@ -117,7 +140,9 @@ export function AppSidebar() {
         return () => clearInterval(interval);
     }, []);
 
-    const mainNavItems = auth.user.role === 'evaluator'
+    const mainNavItems = auth.user.role === 'administrator'
+        ? administratorNavItems
+        : auth.user.role === 'evaluator'
         ? evaluatorNavItems
         : auth.user.role === 'hr-personnel'
             ? hrPersonnelNavItems
@@ -129,7 +154,9 @@ export function AppSidebar() {
         );
     }, [mainNavItems, unreadNotificationCount]);
 
-    const homeLink = auth.user.role === 'hr-personnel'
+    const homeLink = auth.user.role === 'administrator'
+        ? admin.systemDashboard()
+        : auth.user.role === 'hr-personnel'
         ? admin.performanceDashboard()
         : auth.user.role === 'evaluator'
             ? performanceDashboard()

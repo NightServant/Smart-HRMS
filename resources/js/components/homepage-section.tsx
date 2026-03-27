@@ -1,5 +1,5 @@
-import { dashboard, home, login, performanceDashboard, register } from '@/routes';
-import { LayoutDashboard, LogIn, UserPlus } from 'lucide-react';
+import { dashboard, login, performanceDashboard } from '@/routes';
+import { LayoutDashboard, LogIn } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as admin from '@/routes/admin';
 import { Link, usePage } from '@inertiajs/react';
@@ -22,11 +22,11 @@ const defaultTilt: TiltState = {
 const logoSideDepthLayers = Array.from({ length: 8 }, (_, index) => 44 + index * 3.2);
 
 export default function HomepageSection() {
-    const { auth, canRegister } = usePage<{ auth: { user: User | null }; canRegister?: boolean }>().props;
+    const { auth } = usePage<{ auth: { user: User | null }; canRegister?: boolean }>().props;
     const user = auth?.user ?? null;
-    const registrationEnabled = canRegister ?? false;
-
-    const dashboardLink = user?.role === 'hr-personnel'
+    const dashboardLink = user?.role === 'administrator'
+        ? admin.systemDashboard()
+        : user?.role === 'hr-personnel'
         ? admin.performanceDashboard()
         : user?.role === 'evaluator'
             ? performanceDashboard()
@@ -168,15 +168,6 @@ export default function HomepageSection() {
                                     <LogIn className="size-4" />
                                     Login
                                 </Link>
-                                {registrationEnabled && (
-                                    <Link
-                                        href={register()}
-                                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-md sm:w-auto sm:min-w-[10rem] sm:text-base"
-                                    >
-                                        <UserPlus className="size-4" />
-                                        Register
-                                    </Link>
-                                )}
                             </>
                         )}
                     </div>

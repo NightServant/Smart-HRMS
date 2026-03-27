@@ -42,7 +42,7 @@ export default function HrLeaveManagement({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="HR Leave Management" />
-            <div className="p-4 mx-auto flex w-full flex-col gap-6 lg:items-stretch">
+            <div className="flex w-full flex-col gap-6 p-4 md:p-6 xl:p-8 lg:items-stretch">
                 <HrLeaveManagementTable leaveRequests={leaveRequests} search={search} pagination={pagination} />
             </div>
         </AppLayout>

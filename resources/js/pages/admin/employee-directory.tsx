@@ -49,7 +49,7 @@ export default function EmployeeDirectory({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Employee Directory" />
-            <div className="mx-auto flex w-full flex-col gap-6 p-4 lg:items-stretch">
+            <div className="flex w-full flex-col gap-6 p-4 md:p-6 xl:p-8 lg:items-stretch">
                 <EmployeesTable employees={employees} search={search} sort={sort} direction={direction} pagination={pagination} />
             </div>
         </AppLayout>

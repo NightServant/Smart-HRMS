@@ -10,6 +10,7 @@ type AttendanceRecord = {
     date: string;
     punch_time: string;
     status: string;
+    source: string;
 };
 
 type PaginationMeta = {
@@ -38,7 +39,7 @@ export default function AttendanceManagement({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Attendance Management" />
-            <div className="p-4 mx-auto flex w-full flex-col gap-6 lg:items-stretch">
+            <div className="flex w-full flex-col gap-6 p-4 md:p-6 xl:p-8 lg:items-stretch">
                 <AttendanceTable attendances={attendances} search={search} pagination={pagination} />
             </div>
         </AppLayout>

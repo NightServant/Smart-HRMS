@@ -22,7 +22,9 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
     const page = usePage();
     const { auth } = page.props;
     const getInitials = useInitials();
-    const homeLink = auth.user.role === 'hr-personnel'
+    const homeLink = auth.user.role === 'administrator'
+        ? admin.systemDashboard()
+        : auth.user.role === 'hr-personnel'
         ? admin.performanceDashboard()
         : auth.user.role === 'evaluator'
             ? performanceDashboard()

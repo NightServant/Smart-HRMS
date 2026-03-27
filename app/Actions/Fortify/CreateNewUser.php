@@ -4,10 +4,8 @@ namespace App\Actions\Fortify;
 
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\ProfileValidationRules;
-use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
 
 class CreateNewUser implements CreatesNewUsers
@@ -24,7 +22,6 @@ class CreateNewUser implements CreatesNewUsers
         Validator::make($input, [
             ...$this->profileRules(),
             'password' => $this->passwordRules(),
-            'role' => ['required', 'string', Rule::in(User::roles())],
             'employee_id' => ['nullable', 'string', 'exists:employees,employee_id'],
         ])->validate();
 
@@ -42,8 +39,10 @@ class CreateNewUser implements CreatesNewUsers
             'name' => $input['name'],
             'email' => $input['email'],
             'password' => $input['password'],
-            'role' => $input['role'],
+            'role' => User::ROLE_EMPLOYEE,
             'employee_id' => $employeeId,
+            'email_verified_at' => now(),
+            'is_active' => true,
         ]);
     }
 }
