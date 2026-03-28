@@ -8,16 +8,8 @@ export default function AppHeaderLayout({
     breadcrumbs = [],
 }: AppLayoutProps) {
     return (
-        <div className="bg-video min-h-svh w-full">
-            <video
-                className="bg-video__media"
-                autoPlay
-                muted
-                loop
-                playsInline
-            >
-                <source src="/videos/background_video.mp4" type="video/mp4" />
-            </video>
+        <div className="bg-static-image min-h-svh w-full">
+            <img src="/images/static-main-background.jpg" className="bg-static-image__media" alt="" />
             <div className="bg-video__overlay" />
             <div className="bg-video__content min-h-svh">
 

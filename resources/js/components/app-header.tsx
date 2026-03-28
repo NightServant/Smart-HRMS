@@ -32,7 +32,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
 
     return (
         <>
-            <div className="border-b border-sidebar-border/80 bg-sidebar">
+            <div className="border-b border-sidebar-border/80 homepage-glass-card">
                 <div className="flex h-16 w-full items-center px-4 md:px-6">
                     <Link
                         href={homeLink}
@@ -68,7 +68,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                 </div>
             </div>
             {breadcrumbs.length > 1 && (
-                <div className="flex w-full border-b border-sidebar-border/70 bg-sidebar">
+                <div className="flex w-full border-b border-sidebar-border/70 homepage-glass-card">
                     <div className="flex h-12 w-full items-center justify-start px-4 text-neutral-500 md:px-6">
                         <Breadcrumbs breadcrumbs={breadcrumbs} />
                     </div>

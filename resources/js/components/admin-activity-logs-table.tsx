@@ -147,7 +147,6 @@ export function AdminActivityLogsTable({
                         <TableHead>User</TableHead>
                         <TableHead>Action Type</TableHead>
                         <TableHead>Description</TableHead>
-                        <TableHead>IP Address</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -175,7 +174,6 @@ export function AdminActivityLogsTable({
                                 </Badge>
                             </TableCell>
                             <TableCell>{log.description}</TableCell>
-                            <TableCell className="font-mono text-xs">{log.ipAddress ?? '-'}</TableCell>
                         </TableRow>
                     ))}
                     {logs.length === 0 && (
