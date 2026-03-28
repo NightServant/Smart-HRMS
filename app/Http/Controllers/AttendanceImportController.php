@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ImportAttendanceRequest;
 use App\Models\AttendanceRecord;
+use App\Services\ActivityLogger;
 use App\Models\Employee;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -128,6 +129,8 @@ class AttendanceImportController extends Controller
 
             @unlink($filePath);
 
+            ActivityLogger::logDataImport('attendance', $successCount, $request);
+
             $message = "Import completed: {$successCount} records imported";
             if ($errorCount > 0) {
                 $message .= ", {$errorCount} errors";
@@ -156,6 +159,8 @@ class AttendanceImportController extends Controller
         try {
             $count = AttendanceRecord::where('source', 'import')->count();
             AttendanceRecord::where('source', 'import')->delete();
+
+            ActivityLogger::logDataImport('attendance-clear', $count, request());
 
             return redirect()
                 ->route('admin.attendance-management')

@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\ReportsDashboardController;
 use App\Http\Controllers\Admin\SystemDashboardController;
+use App\Http\Controllers\Admin\SystemSettingController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\Api\AdmsController;
 use App\Http\Controllers\AttendanceImportController;
@@ -25,6 +28,21 @@ Route::get('/', function () {
         'canRegister' => Features::enabled(Features::registration()),
     ]);
 })->name('home');
+
+Route::get('/maintenance', function () {
+    $maintenanceMode = \App\Models\SystemSetting::get('maintenance_mode', false);
+
+    if (! $maintenanceMode) {
+        return redirect('/dashboard');
+    }
+
+    $message = \App\Models\SystemSetting::get('maintenance_message')
+        ?? 'The system is currently undergoing maintenance. Please try again later.';
+
+    return Inertia::render('maintenance', [
+        'message' => $message,
+    ]);
+})->middleware('auth')->name('maintenance');
 
 Route::get('dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'role:employee'])
@@ -168,6 +186,12 @@ Route::prefix('admin')->middleware(['auth', 'role:administrator'])->name('admin.
     Route::post('user-management/{user}/deactivate', [UserManagementController::class, 'deactivate'])->name('user-management.deactivate');
     Route::post('user-management/{user}/password-reset', [UserManagementController::class, 'sendPasswordReset'])->name('user-management.password-reset');
     Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs');
+    Route::get('system-settings', [SystemSettingController::class, 'index'])->name('system-settings');
+    Route::put('system-settings', [SystemSettingController::class, 'update'])->name('system-settings.update');
+    Route::put('system-settings/devices/{device}', [SystemSettingController::class, 'updateDevice'])->name('system-settings.update-device');
+    Route::get('reports', [ReportsDashboardController::class, 'index'])->name('reports');
+    Route::get('reports/export', [ReportsDashboardController::class, 'export'])->name('reports.export');
+    Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs');
 });
 
 Route::resource('seminars', SeminarsController::class)

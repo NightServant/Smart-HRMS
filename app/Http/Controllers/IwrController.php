@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\IpcrSubmission;
 use App\Models\IwrAuditLog;
 use App\Models\LeaveRequest;
+use App\Services\ActivityLogger;
 use App\Services\IwrService;
 use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
@@ -84,6 +85,8 @@ class IwrController extends Controller
 
         $this->logAudit($employeeId, 'ipcr', $submission->id, $iwrResult);
 
+        ActivityLogger::logIpcrSubmission($submission, $request);
+
         $this->notificationService->createFromIwrResult(
             $iwrResult, 'ipcr', $submission->id, $employeeId,
         );
@@ -147,6 +150,8 @@ class IwrController extends Controller
 
         $this->logAudit($employeeId, 'ipcr', $submission->id, $iwrResult);
 
+        ActivityLogger::logIpcrEvaluation($submission, $request);
+
         $this->notificationService->createFromIwrResult(
             $iwrResult, 'ipcr', $submission->id, $employeeId,
         );
@@ -167,6 +172,8 @@ class IwrController extends Controller
         }
 
         $iwrResult = $this->routeLeaveRequest($leaveRequest);
+
+        ActivityLogger::logLeaveApproval($leaveRequest, $request);
 
         $message = $iwrResult['notification'] ?? 'Leave application approved.';
 
@@ -199,6 +206,8 @@ class IwrController extends Controller
 
         $rejectionReason = $request->string('rejection_reason')->toString();
         $iwrResult = $this->routeLeaveRequest($leaveRequest);
+
+        ActivityLogger::logLeaveRejection($leaveRequest, $request);
 
         $iwrNotification = $iwrResult['notification'] ?? 'Leave application rejected.';
         $message = $iwrNotification.' Reason: "'.$rejectionReason.'"';

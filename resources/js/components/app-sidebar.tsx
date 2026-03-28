@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { Bell, CalendarClock, ClipboardCheck, FileStack, FileUser, Fingerprint, Grid, LayoutDashboard, PieChart, ScrollText, Send, ShieldPlus, Users } from 'lucide-react';
+import { Activity, BarChart3, Bell, CalendarClock, ClipboardCheck, FileStack, FileUser, Fingerprint, Grid, LayoutDashboard, PieChart, ScrollText, Send, Settings, ShieldPlus, Users } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -128,9 +128,24 @@ const administratorNavItems: NavItem[] = [
         icon: ShieldPlus,
     },
     {
+        title: 'System Settings',
+        href: admin.systemSettings(),
+        icon: Settings,
+    },
+    {
+        title: 'Reports',
+        href: admin.reports(),
+        icon: BarChart3,
+    },
+    {
         title: 'Audit Logs',
         href: admin.auditLogs(),
         icon: ScrollText,
+    },
+    {
+        title: 'Activity Logs',
+        href: admin.activityLogs(),
+        icon: Activity,
     },
 ];
 

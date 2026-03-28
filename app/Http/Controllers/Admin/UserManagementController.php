@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateAdminUserRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use App\Services\ActivityLogger;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
@@ -113,6 +114,8 @@ class UserManagementController extends Controller
             'is_active' => $request->boolean('is_active'),
         ]);
 
+        ActivityLogger::logUserCreated($user, $request);
+
         return back()->with('success', 'User account created successfully.');
     }
 
@@ -137,6 +140,8 @@ class UserManagementController extends Controller
 
         $user->update($payload);
 
+        ActivityLogger::logUserUpdated($user, $request);
+
         return back()->with('success', 'User account updated successfully.');
     }
 
@@ -145,6 +150,8 @@ class UserManagementController extends Controller
         $this->assertAdministrator($request);
 
         $user->update(['is_active' => true]);
+
+        ActivityLogger::logUserActivated($user, $request);
 
         return back()->with('success', 'User account activated successfully.');
     }
@@ -156,6 +163,8 @@ class UserManagementController extends Controller
 
         $user->update(['is_active' => false]);
 
+        ActivityLogger::logUserDeactivated($user, $request);
+
         return back()->with('success', 'User account deactivated successfully.');
     }
 
@@ -166,6 +175,8 @@ class UserManagementController extends Controller
         Password::broker()->sendResetLink([
             'email' => $user->email,
         ]);
+
+        ActivityLogger::logPasswordReset($user, $request);
 
         return back()->with('success', 'Password reset link sent successfully.');
     }
