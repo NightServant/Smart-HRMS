@@ -52,7 +52,7 @@ Route::post('attendance/biometric-punch', [AdmsController::class, 'simulate'])
     ->name('attendance.biometric-punch');
 
 Route::get('notifications', [NotificationController::class, 'index'])
-    ->middleware(['auth', 'role:administrator,employee,evaluator,hr-personnel'])
+    ->middleware(['auth', 'role:employee,evaluator,hr-personnel'])
     ->name('notifications');
 Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
     ->middleware(['auth'])
@@ -73,7 +73,7 @@ Route::get('admin/performance-dashboard', [SeminarsController::class, 'adminPerf
     ->name('admin.performance-dashboard');
 
 Route::get('admin/employee-directory', [PaginationController::class, 'employeeDirectory'])
-    ->middleware(['auth', 'role:hr-personnel'])
+    ->middleware(['auth', 'role:evaluator,hr-personnel'])
     ->name('admin.employee-directory');
 
 Route::get('document-management', [PaginationController::class, 'documentManagement'])
@@ -91,7 +91,7 @@ Route::delete('admin/historical-data/clear-imported', [Import_CSV_Controller::cl
     ->name('admin.historical-data.clear-imported');
 
 Route::get('admin/attendance-management', [PaginationController::class, 'attendanceManagement'])
-    ->middleware(['auth', 'role:hr-personnel'])
+    ->middleware(['auth', 'role:evaluator,hr-personnel'])
     ->name('admin.attendance-management');
 Route::post('admin/attendance-management/import-csv', [AttendanceImportController::class, 'store'])
     ->middleware(['auth', 'role:hr-personnel'])
@@ -176,7 +176,7 @@ Route::resource('seminars', SeminarsController::class)
 
 // PPE (Predictive Performance Evaluation) API
 Route::get('api/predict', [PredictionController::class, 'predict'])
-    ->middleware(['auth', 'role:hr-personnel'])
+    ->middleware(['auth', 'role:evaluator,hr-personnel'])
     ->name('api.predict');
 
 require __DIR__.'/settings.php';

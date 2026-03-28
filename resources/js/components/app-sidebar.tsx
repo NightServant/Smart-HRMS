@@ -52,6 +52,16 @@ const evaluatorNavItems: NavItem[] = [
         icon: Grid,
     },
     {
+        title: 'Employee Directory',
+        href: admin.employeeDirectory(),
+        icon: Users,
+    },
+    {
+        title: 'Attendance Management',
+        href: admin.attendanceManagement(),
+        icon: ClipboardCheck,
+    },
+    {
         title: 'Documents',
         href: documentManagement(),
         icon: FileStack,
@@ -121,11 +131,6 @@ const administratorNavItems: NavItem[] = [
         title: 'Audit Logs',
         href: admin.auditLogs(),
         icon: ScrollText,
-    },
-    {
-        title: 'Notifications',
-        href: notifications(),
-        icon: Bell,
     },
 ];
 

@@ -1,4 +1,4 @@
-import { router } from "@inertiajs/react";
+import { router, usePage } from "@inertiajs/react";
 import { Search, UserSearch, Download, Upload, Trash2 } from "lucide-react";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import * as admin from "@/routes/admin";
+import type { Auth } from "@/types";
 
 type Attendance = {
     id: number;
@@ -54,9 +55,11 @@ export function AttendanceTable({
     search: string;
     pagination: PaginationMeta;
 }) {
+    const { auth } = usePage<{ auth: Auth }>().props;
     const [searchTerm, setSearchTerm] = useState(search);
     const [isImporting, setIsImporting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const canManageAttendance = auth.user.role === "hr-personnel";
 
     const handleSearchChange = (value: string): void => {
         setSearchTerm(value);
@@ -174,45 +177,47 @@ export function AttendanceTable({
                             className="bg-card px-4 py-2 pl-9"
                         />
                     </div>
-                    <div className="flex flex-wrap animate-fade-in-right items-center gap-2">
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".csv,.txt,.xlsx,.xls"
-                            onChange={handleFileChange}
-                            className="hidden"
-                            disabled={isImporting}
-                        />
-                        <Button
-                            variant="outline"
-                            className="w-fit px-4 py-2"
-                            type="button"
-                            onClick={handleImportClick}
-                            disabled={isImporting}
-                        >
-                            <Upload className="mr-2 h-4 w-4" />
-                            {isImporting ? 'Importing...' : 'Import File'}
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            className="w-fit px-4 py-2"
-                            type="button"
-                            onClick={handleClearImport}
-                            disabled={pagination.total === 0}
-                        >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Clear Import
-                        </Button>
-                        <Button
-                            variant="default"
-                            className="w-fit px-4 py-2"
-                            type="button"
-                            onClick={handleExportClick}
-                        >
-                            <Download className="mr-2 h-4 w-4" />
-                            Export to CSV
-                        </Button>
-                    </div>
+                    {canManageAttendance && (
+                        <div className="flex flex-wrap animate-fade-in-right items-center gap-2">
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".csv,.txt,.xlsx,.xls"
+                                onChange={handleFileChange}
+                                className="hidden"
+                                disabled={isImporting}
+                            />
+                            <Button
+                                variant="outline"
+                                className="w-fit px-4 py-2"
+                                type="button"
+                                onClick={handleImportClick}
+                                disabled={isImporting}
+                            >
+                                <Upload className="mr-2 h-4 w-4" />
+                                {isImporting ? 'Importing...' : 'Import File'}
+                            </Button>
+                            <Button
+                                variant="destructive"
+                                className="w-fit px-4 py-2"
+                                type="button"
+                                onClick={handleClearImport}
+                                disabled={pagination.total === 0}
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Clear Import
+                            </Button>
+                            <Button
+                                variant="default"
+                                className="w-fit px-4 py-2"
+                                type="button"
+                                onClick={handleExportClick}
+                            >
+                                <Download className="mr-2 h-4 w-4" />
+                                Export to CSV
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 <Table className="w-full">

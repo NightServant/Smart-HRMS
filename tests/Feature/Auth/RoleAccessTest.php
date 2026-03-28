@@ -23,6 +23,8 @@ dataset('employee-forbidden-routes', [
 
 dataset('evaluator-allowed-routes', [
     'performanceDashboard',
+    'admin.employee-directory',
+    'admin.attendance-management',
     'document-management',
     'admin.leave-management',
 ]);
@@ -32,8 +34,6 @@ dataset('evaluator-forbidden-routes', [
     'admin.system-dashboard',
     'admin.user-management',
     'admin.audit-logs',
-    'admin.employee-directory',
-    'admin.attendance-management',
     'dashboard',
     'leave-application',
     'training-scheduling',
@@ -63,7 +63,6 @@ dataset('administrator-allowed-routes', [
     'admin.system-dashboard',
     'admin.user-management',
     'admin.audit-logs',
-    'notifications',
 ]);
 
 dataset('administrator-forbidden-routes', [
@@ -76,6 +75,7 @@ dataset('administrator-forbidden-routes', [
     'admin.attendance-management',
     'admin.hr-leave-management',
     'admin.leave-management',
+    'notifications',
     'training-scheduling',
     'admin.training-scheduling',
 ]);
