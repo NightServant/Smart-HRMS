@@ -1,6 +1,16 @@
-import { BarChart3, CalendarRange, ChevronDown, Users, AlertTriangle, CheckCircle2, TrendingUp } from 'lucide-react';
-import { useMemo, useState, useEffect } from 'react';
-import { DashboardChartSurface, dashboardGlassCardClassName } from '@/components/admin-system-dashboard-cards';
+import {
+    AlertTriangle,
+    CalendarRange,
+    CheckCircle2,
+    ChevronDown,
+    TrendingUp,
+    Users,
+} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+    DashboardChartSurface,
+    DashboardPanelCard,
+} from '@/components/admin-system-dashboard-cards';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -12,7 +22,6 @@ import {
     QuarterBarChart,
     type Quarter,
 } from '@/components/ui/quarter-bar-chart';
-import { Separator } from '@/components/ui/separator';
 
 type QuarterScoresData = {
     quarter: string;
@@ -26,7 +35,9 @@ type QuarterScoresData = {
 
 export default function QuarterPerformanceTrends() {
     const [selectedQuarter, setSelectedQuarter] = useState<Quarter>('Q1');
-    const [quarterData, setQuarterData] = useState<QuarterScoresData | null>(null);
+    const [quarterData, setQuarterData] = useState<QuarterScoresData | null>(
+        null,
+    );
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -53,9 +64,9 @@ export default function QuarterPerformanceTrends() {
                         method: 'GET',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Accept': 'application/json',
+                            Accept: 'application/json',
                         },
-                    }
+                    },
                 );
 
                 if (!response.ok) {
@@ -67,7 +78,9 @@ export default function QuarterPerformanceTrends() {
                 if (result.status === 'success' && result.data) {
                     setQuarterData(result.data);
                 } else {
-                    throw new Error(result.message || 'Failed to fetch quarter scores');
+                    throw new Error(
+                        result.message || 'Failed to fetch quarter scores',
+                    );
                 }
             } catch (err) {
                 console.error('Error fetching quarter scores:', err);
@@ -82,12 +95,13 @@ export default function QuarterPerformanceTrends() {
     }, [selectedQuarter]);
 
     return (
-        <div className={`${dashboardGlassCardClassName} flex h-full w-full min-w-0 animate-fade-in-left flex-col gap-4 rounded-xl p-4 transition-shadow hover:shadow-md sm:gap-5`}>
-            <div className="flex flex-col gap-3">
-                <h1 className="flex min-w-0 items-center gap-2 text-base font-bold sm:text-lg lg:whitespace-nowrap">
-                    <BarChart3 className="size-5 text-primary" />
-                    Quarterly Performance Trends
-                </h1>
+        <DashboardPanelCard
+            title="Quarterly Performance Trends"
+            description="Performance scores for the selected quarter, showing strengths and areas that may need coaching."
+            accentClassName="-left-10 top-10 size-28 rounded-full bg-brand-300/20 blur-3xl dark:bg-brand-500/10"
+            className="gap-4"
+            contentClassName="gap-3"
+            headerExtras={
                 <div className="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center">
                     <label className="flex items-center gap-1 text-sm text-muted-foreground sm:whitespace-nowrap">
                         <CalendarRange className="size-4 text-primary" />
@@ -130,76 +144,107 @@ export default function QuarterPerformanceTrends() {
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
-            </div>
-
-            <div className="mx-auto w-full max-w-full px-1 sm:max-w-none sm:px-4">
-                {isLoading ? (
-                    <DashboardChartSurface className="mt-2">
-                        <div className="flex h-40 items-center justify-center">
-                            <div className="h-32 w-full animate-pulse rounded bg-muted"></div>
-                        </div>
-                    </DashboardChartSurface>
-                ) : error ? (
-                    <DashboardChartSurface className="mt-2">
-                        <div className="flex items-center justify-center rounded bg-muted/50 p-4 text-sm text-muted-foreground">
-                            Error loading quarter scores: {error}
-                        </div>
-                    </DashboardChartSurface>
-                ) : (
-                    <>
-                        {quarterData && quarterData.aggregate && (
-                            <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-muted/20 p-3">
-                                    <TrendingUp className={`size-5 ${
-                                        quarterData.average_rating >= 4.0 ? 'text-emerald-600 dark:text-emerald-400' :
-                                        quarterData.average_rating >= 3.0 ? 'text-amber-600 dark:text-amber-400' :
-                                        'text-red-600 dark:text-red-400'
-                                    }`} />
-                                    <span className={`text-xl font-bold ${
-                                        quarterData.average_rating >= 4.0 ? 'text-emerald-600 dark:text-emerald-400' :
-                                        quarterData.average_rating >= 3.0 ? 'text-amber-600 dark:text-amber-400' :
-                                        'text-red-600 dark:text-red-400'
-                                    }`}>
-                                        {quarterData.average_rating.toFixed(2)}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">Avg Rating</span>
-                                </div>
-                                <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-muted/20 p-3">
-                                    <Users className="size-5 text-primary" />
-                                    <span className="text-xl font-bold">{quarterData.aggregate.total_employees}</span>
-                                    <span className="text-xs text-muted-foreground">Employees</span>
-                                </div>
-                                <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-muted/20 p-3">
-                                    <AlertTriangle className={`size-5 ${
-                                        quarterData.aggregate.high_risk_count > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
-                                    }`} />
-                                    <span className={`text-xl font-bold ${
-                                        quarterData.aggregate.high_risk_count > 0 ? 'text-red-600 dark:text-red-400' : ''
-                                    }`}>
-                                        {quarterData.aggregate.high_risk_count}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">High Risk</span>
-                                </div>
-                                <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-muted/20 p-3">
-                                    <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
-                                    <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
-                                        {quarterData.aggregate.satisfactory_count}
-                                    </span>
-                                    <span className="text-xs text-muted-foreground">Satisfactory</span>
-                                </div>
+            }
+        >
+            {isLoading ? (
+                <DashboardChartSurface>
+                    <div className="flex h-40 items-center justify-center">
+                        <div className="h-32 w-full animate-pulse rounded bg-muted"></div>
+                    </div>
+                </DashboardChartSurface>
+            ) : error ? (
+                <DashboardChartSurface>
+                    <div className="flex items-center justify-center rounded bg-muted/50 p-4 text-sm text-muted-foreground">
+                        Error loading quarter scores: {error}
+                    </div>
+                </DashboardChartSurface>
+            ) : (
+                <>
+                    {quarterData && quarterData.aggregate && (
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+                            <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-2.5 text-center shadow-sm backdrop-blur-md sm:p-3 dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
+                                <TrendingUp
+                                    className={`size-4 sm:size-5 ${
+                                        quarterData.average_rating >= 4.0
+                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                            : quarterData.average_rating >= 3.0
+                                              ? 'text-amber-600 dark:text-amber-400'
+                                              : 'text-red-600 dark:text-red-400'
+                                    }`}
+                                />
+                                <span
+                                    className={`text-lg font-bold sm:text-xl ${
+                                        quarterData.average_rating >= 4.0
+                                            ? 'text-emerald-600 dark:text-emerald-400'
+                                            : quarterData.average_rating >= 3.0
+                                              ? 'text-amber-600 dark:text-amber-400'
+                                              : 'text-red-600 dark:text-red-400'
+                                    }`}
+                                >
+                                    {quarterData.average_rating.toFixed(2)}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground sm:text-xs">
+                                    Avg Rating
+                                </span>
                             </div>
-                        )}
-                        <DashboardChartSurface>
-                            <QuarterBarChart quarter={selectedQuarter} data={quarterData} />
-                        </DashboardChartSurface>
-                    </>
-                )}
-            </div>
-            <Separator className="mt-2" />
-            <p className="text-sm text-muted-foreground sm:ml-6">
-                Performance scores for the selected quarter, showing strengths
-                and areas that may need coaching.
-            </p>
-        </div>
+                            <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-2.5 text-center shadow-sm backdrop-blur-md sm:p-3 dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
+                                <Users className="size-4 text-primary sm:size-5" />
+                                <span className="text-lg font-bold sm:text-xl">
+                                    {quarterData.aggregate.total_employees}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground sm:text-xs">
+                                    Employees
+                                </span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-2.5 text-center shadow-sm backdrop-blur-md sm:p-3 dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
+                                <AlertTriangle
+                                    className={`size-4 sm:size-5 ${
+                                        quarterData.aggregate.high_risk_count >
+                                        0
+                                            ? 'text-red-600 dark:text-red-400'
+                                            : 'text-muted-foreground'
+                                    }`}
+                                />
+                                <span
+                                    className={`text-lg font-bold sm:text-xl ${
+                                        quarterData.aggregate.high_risk_count >
+                                        0
+                                            ? 'text-red-600 dark:text-red-400'
+                                            : ''
+                                    }`}
+                                >
+                                    {quarterData.aggregate.high_risk_count}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground sm:text-xs">
+                                    High Risk
+                                </span>
+                            </div>
+                            <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-2.5 text-center shadow-sm backdrop-blur-md sm:p-3 dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
+                                <CheckCircle2 className="size-4 text-emerald-600 sm:size-5 dark:text-emerald-400" />
+                                <span className="text-lg font-bold text-emerald-600 sm:text-xl dark:text-emerald-400">
+                                    {quarterData.aggregate.satisfactory_count}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground sm:text-xs">
+                                    Satisfactory
+                                </span>
+                            </div>
+                        </div>
+                    )}
+                    <DashboardChartSurface className="sm:hidden">
+                        <div className="flex min-h-[7rem] items-center justify-center rounded-2xl bg-muted/10 px-4 text-center text-sm text-muted-foreground">
+                            Detailed quarter chart is available on larger
+                            screens.
+                        </div>
+                    </DashboardChartSurface>
+                    <DashboardChartSurface className="hidden sm:block">
+                        <QuarterBarChart
+                            quarter={selectedQuarter}
+                            data={quarterData}
+                            className="h-48 sm:h-72"
+                        />
+                    </DashboardChartSurface>
+                </>
+            )}
+        </DashboardPanelCard>
     );
 }

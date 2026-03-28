@@ -378,7 +378,7 @@ export default function SystemPerformanceDashboard({
                                                         className={cn(
                                                             'flex h-full flex-col justify-between rounded-[24px] border p-4 shadow-sm backdrop-blur-md',
                                                             log.compliancePassed
-                                                                ? 'border-brand-200/70 bg-gradient-to-br from-white via-brand-50/65 to-brand-100/45 dark:border-brand-800/60 dark:from-white/[0.06] dark:via-brand-900/20 dark:to-brand-800/10'
+                                                                ? 'border-brand-300 bg-gradient-to-br from-white via-brand-50/65 to-brand-100/45 dark:border-brand-800/60 dark:from-white/[0.06] dark:via-brand-900/20 dark:to-brand-800/10'
                                                                 : 'border-rose-200/70 bg-gradient-to-br from-white via-rose-50/70 to-orange-50/60 dark:border-rose-900/60 dark:from-white/[0.06] dark:via-rose-950/30 dark:to-orange-950/10',
                                                         )}
                                                     >
@@ -393,7 +393,7 @@ export default function SystemPerformanceDashboard({
                                                             </Badge>
                                                         </div>
                                                         <div className="mt-4 space-y-3">
-                                                            <div className="rounded-xl border border-white/60 bg-white/65 px-3 py-2 text-sm font-medium text-foreground backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.08]">
+                                                            <div className="rounded-xl border border-brand-300 bg-white/65 px-3 py-2 text-sm font-medium text-foreground shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-white/[0.08] dark:shadow-none">
                                                                 {log.routingAction}
                                                             </div>
                                                             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -441,12 +441,12 @@ export default function SystemPerformanceDashboard({
                         ) : undefined}
                     >
                         <div className="grid gap-3 md:grid-cols-2">
-                            <div className="rounded-2xl border border-white/60 bg-white/75 p-4 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06]">
+                            <div className="rounded-2xl border border-brand-300 bg-white/75 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                                 <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Scheduled seminars</p>
                                 <p className="mt-2 text-3xl font-bold">{trainingMetrics.scheduledCount}</p>
                                 <p className="mt-1 text-sm text-muted-foreground">Current development sessions prepared</p>
                             </div>
-                            <div className="rounded-2xl border border-white/60 bg-white/75 p-4 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06]">
+                            <div className="rounded-2xl border border-brand-300 bg-white/75 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                                 <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Primary focus</p>
                                 <p className="mt-2 text-xl font-semibold">{topTrainingArea?.area ?? 'No focus area yet'}</p>
                                 <p className="mt-1 text-sm text-muted-foreground">{topTrainingArea?.total ?? 0} scheduled seminar touchpoints</p>
@@ -482,17 +482,17 @@ export default function SystemPerformanceDashboard({
                                 className="mx-auto h-[14rem] max-w-[15rem] sm:h-[15rem] lg:h-[16rem]"
                             />
                             <div className="my-3 grid gap-3 sm:grid-cols-3">
-                                <div className="rounded-2xl border border-white/60 bg-white/70 p-4 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06]">
+                                <div className="rounded-2xl border border-brand-300 bg-white/70 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Primary source</p>
                                     <p className="mt-2 text-lg font-semibold">{dominantAuditMixLabel}</p>
                                     <p className="mt-1 text-sm text-muted-foreground">{dominantAuditMixValue} events</p>
                                 </div>
-                                <div className="rounded-2xl border border-white/60 bg-white/70 p-4 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06]">
+                                <div className="rounded-2xl border border-brand-300 bg-white/70 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Share of total</p>
                                     <p className="mt-2 text-lg font-semibold">{dominantAuditMixShare.toFixed(1)}%</p>
                                     <p className="mt-1 text-sm text-muted-foreground">Largest document contribution</p>
                                 </div>
-                                <div className="rounded-2xl border border-white/60 bg-white/70 p-4 backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06]">
+                                <div className="rounded-2xl border border-brand-300 bg-white/70 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                                     <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Coverage</p>
                                     <p className="mt-2 text-lg font-semibold">{auditMixLegendItems.length} types</p>
                                     <p className="mt-1 text-sm text-muted-foreground">Tracked in the audit trail</p>

@@ -10,10 +10,10 @@ type DashboardStatChipItem = {
 };
 
 export const dashboardGlassCardClassName =
-    'glass-card border border-white/70 bg-gradient-to-br from-white/95 via-white/90 to-brand-100/55 shadow-[0_24px_55px_-28px_rgba(148,163,184,0.45)] backdrop-blur-xl dark:border-border/60 dark:bg-card/85 dark:shadow-sm';
+    'glass-card border border-brand-300 bg-gradient-to-br from-white/95 via-white/90 to-brand-100/55 shadow-[0_24px_55px_-28px_rgba(148,163,184,0.45)] backdrop-blur-xl dark:border-border/60 dark:bg-card/85 dark:shadow-sm';
 
 export const dashboardChartSurfaceClassName =
-    'relative min-w-0 overflow-hidden rounded-[26px] border border-white/70 bg-gradient-to-br from-white/95 via-white/90 to-brand-100/50 p-3 shadow-[0_18px_40px_-28px_rgba(31,41,55,0.4)] backdrop-blur-md sm:p-4 dark:border-white/10 dark:from-white/[0.06] dark:via-white/5 dark:to-brand-500/10';
+    'relative min-w-0 overflow-hidden rounded-[26px] border border-brand-300 bg-gradient-to-br from-white/95 via-white/90 to-brand-100/50 p-3 shadow-[0_18px_40px_-28px_rgba(31,41,55,0.4)] backdrop-blur-md sm:p-4 dark:border-white/10 dark:from-white/[0.06] dark:via-white/5 dark:to-brand-500/10';
 
 export function DashboardChartSurfaceGlow() {
     return (
@@ -39,7 +39,7 @@ export function DashboardStatChipGrid({
                 <div
                     key={item.label}
                     className={cn(
-                        'inline-flex min-w-0 w-full items-center justify-between gap-3 rounded-full border border-white/70 bg-white/88 px-4 py-2 text-sm shadow-sm backdrop-blur-md sm:w-auto sm:justify-start dark:border-white/10 dark:bg-white/[0.06]',
+                        'inline-flex min-w-0 w-full items-center justify-between gap-3 rounded-full border border-brand-300 bg-white/88 px-4 py-2 text-sm shadow-sm backdrop-blur-md sm:w-auto sm:justify-start dark:border-white/10 dark:bg-white/[0.06]',
                         itemClassName,
                     )}
                 >

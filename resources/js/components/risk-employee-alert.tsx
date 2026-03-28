@@ -1,9 +1,8 @@
-import { ShieldAlert, TriangleAlert, Users, AlertTriangle, TrendingUp } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, TrendingUp, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { DashboardChartSurface, dashboardGlassCardClassName } from '@/components/admin-system-dashboard-cards';
+import { DashboardChartSurface, DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
+import { AdminDashboardDoughnutChart } from '@/components/admin-system-dashboard-charts';
 import { Badge } from '@/components/ui/badge';
-import { DoughnutChart } from '@/components/ui/doughnut-chart';
-import { Separator } from '@/components/ui/separator';
 
 type RiskData = {
     total_employees: number;
@@ -52,7 +51,6 @@ export default function RiskEmployeeAlert() {
             } catch (err) {
                 console.error('Error fetching risk data:', err);
                 setError(err instanceof Error ? err.message : 'Unknown error');
-                // Use default values on error
                 setRiskData({
                     total_employees: 0,
                     high_risk_count: 0,
@@ -67,24 +65,20 @@ export default function RiskEmployeeAlert() {
 
         fetchRiskData();
 
-        // Refresh every 5 minutes
         const interval = setInterval(fetchRiskData, 5 * 60 * 1000);
         return () => clearInterval(interval);
     }, []);
 
     return (
-        <div className={`${dashboardGlassCardClassName} flex h-full w-full min-w-0 flex-1 animate-fade-in-right flex-col gap-4 rounded-xl p-4 transition-shadow hover:shadow-md sm:gap-5`}>
-            <div className="flex flex-col gap-3">
-                <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg lg:whitespace-nowrap">
-                    <ShieldAlert className="size-5 text-primary" />
-                    Employee Risk Alert
-                </h1>
-                {isLoading ? (
-                    <div className="flex gap-2">
-                        <div className="h-8 w-24 animate-pulse rounded bg-muted"></div>
-                        <div className="h-8 w-24 animate-pulse rounded bg-muted"></div>
-                    </div>
-                ) : (
+        <DashboardPanelCard
+            title="Employee Risk Alert"
+            description={error
+                ? `Error loading risk data: ${error}`
+                : 'Snapshot of employees based on recent performance patterns.'
+            }
+            accentClassName="right-0 top-0 size-36 rounded-full bg-chart-3/10 blur-3xl"
+            headerExtras={
+                !isLoading ? (
                     <div className="flex flex-wrap gap-2">
                         <Badge
                             variant="outline"
@@ -103,17 +97,17 @@ export default function RiskEmployeeAlert() {
                             Monitoring: {riskData?.satisfactory_count || 0}
                         </Badge>
                     </div>
-                )}
-            </div>
-
+                ) : undefined
+            }
+        >
             {!isLoading && riskData && (
-                <div className="grid grid-cols-3 gap-3 px-1 sm:px-4">
-                    <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-muted/20 p-3">
+                <div className="grid grid-cols-3 gap-3">
+                    <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-3 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                         <Users className="size-5 text-primary" />
                         <span className="text-xl font-bold">{riskData.total_employees}</span>
                         <span className="text-xs text-muted-foreground">Total</span>
                     </div>
-                    <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-muted/20 p-3">
+                    <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-3 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                         <AlertTriangle className={`size-5 ${
                             riskData.high_risk_percentage > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
                         }`} />
@@ -124,7 +118,7 @@ export default function RiskEmployeeAlert() {
                         </span>
                         <span className="text-xs text-muted-foreground">High Risk</span>
                     </div>
-                    <div className="flex flex-col items-center gap-1 rounded-lg border border-border bg-muted/20 p-3">
+                    <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-3 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                         <TrendingUp className={`size-5 ${
                             riskData.average_rating >= 4.0 ? 'text-emerald-600 dark:text-emerald-400' :
                             riskData.average_rating >= 3.0 ? 'text-amber-600 dark:text-amber-400' :
@@ -142,31 +136,22 @@ export default function RiskEmployeeAlert() {
                 </div>
             )}
 
-            <div className="mx-auto w-full max-w-full px-1 sm:max-w-none sm:px-4">
-                <DashboardChartSurface>
-                    {isLoading ? (
-                        <div className="flex h-40 items-center justify-center">
-                            <div className="h-32 w-32 animate-pulse rounded-full bg-muted"></div>
-                        </div>
-                    ) : (
-                        <DoughnutChart data={{
-                            lowRisk: riskData?.satisfactory_count ?? 0,
-                            highRisk: riskData?.high_risk_count ?? 0,
-                        }} />
-                    )}
-                </DashboardChartSurface>
-            </div>
-            <Separator className="mt-2" />
-            <div className="flex items-start gap-2 text-sm text-muted-foreground sm:ml-6 sm:text-left">
-                <TriangleAlert className="mt-0.5 size-4 shrink-0" />
-                {error ? (
-                    <span>Error loading risk data: {error}</span>
+            <DashboardChartSurface className="flex flex-1 flex-col items-center justify-center">
+                {isLoading ? (
+                    <div className="flex h-40 items-center justify-center">
+                        <div className="h-32 w-32 animate-pulse rounded-full bg-muted"></div>
+                    </div>
                 ) : (
-                    <span>
-                        Snapshot of employees based on recent performance patterns (Last updated: {new Date().toLocaleTimeString()}).
-                    </span>
+                    <AdminDashboardDoughnutChart
+                        labels={['Low Risk', 'High Risk']}
+                        data={[riskData?.satisfactory_count ?? 0, riskData?.high_risk_count ?? 0]}
+                        backgroundColor={['#4A7C3C', '#EE4B2B']}
+                        borderColor={['#4A7C3C', '#EE4B2B']}
+                        annotationMode="percentage-only"
+                        className="mx-auto h-[14rem] max-w-[15rem] sm:h-[16rem] sm:max-w-[17rem]"
+                    />
                 )}
-            </div>
-        </div>
+            </DashboardChartSurface>
+        </DashboardPanelCard>
     );
 }

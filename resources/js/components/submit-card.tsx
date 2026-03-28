@@ -36,7 +36,7 @@ export default function SubmitCard() {
                     <CardDescription>Select the appropriate semester before submitting the evaluation form.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-4 lg:grid-cols-2">
                         <div className="space-y-2">
                             <Label htmlFor="employee-name">Employee Name</Label>
                             <Input id="employee-name" value={auth.user.name} readOnly />

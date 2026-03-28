@@ -1,6 +1,6 @@
 import { usePage } from '@inertiajs/react';
-import { Briefcase, ChartLine, MessageSquare, UserRound } from 'lucide-react';
-import { dashboardGlassCardClassName } from '@/components/admin-system-dashboard-cards';
+import { Briefcase, MessageSquare, UserRound } from 'lucide-react';
+import { DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
 import PredictionDisplay, {
     type PredictionResult,
 } from '@/components/prediction-display';
@@ -23,17 +23,18 @@ export default function PredictivePerformance() {
     const { employeeProfile, prediction } = usePage<PageProps>().props;
 
     return (
-        <div className={`${dashboardGlassCardClassName} col-span-2 flex w-full min-w-0 animate-fade-in flex-col gap-4 rounded-xl p-4 transition-shadow hover:shadow-md sm:gap-5`}>
-            <h1 className="flex min-w-0 items-center gap-2 text-base font-bold sm:text-lg">
-                <ChartLine className="size-5 text-primary" />
-                Predictive Performance Analysis
-            </h1>
+        <DashboardPanelCard
+            title="Predictive Performance Analysis"
+            description="AI-powered analysis based on historical evaluation data."
+            className="col-span-2"
+            accentClassName="right-8 bottom-0 size-40 rounded-full bg-complement-sky-300/20 blur-3xl dark:bg-complement-sky-500/10"
+        >
             <PredictionDisplay
                 prediction={prediction ?? null}
                 loading={false}
             />
-            <div className="grid grid-cols-1 gap-3 rounded-lg md:grid-cols-2">
-                <div className="space-y-1 text-sm text-muted-foreground">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                <div className="space-y-1 rounded-2xl border border-brand-300 bg-white/75 p-4 text-sm text-muted-foreground shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                     <p className="flex items-center gap-2 font-semibold text-foreground">
                         <UserRound className="size-4 text-primary" />
                         Employee ID: {employeeProfile?.employee_id ?? 'N/A'}
@@ -43,17 +44,17 @@ export default function PredictivePerformance() {
                         Name: {employeeProfile?.name ?? 'N/A'}
                     </p>
                 </div>
-                <div className="space-y-1 text-sm text-muted-foreground sm:text-right">
-                    <p className="flex items-center justify-start gap-2 font-semibold text-foreground sm:justify-end">
+                <div className="space-y-1 rounded-2xl border border-brand-300 bg-white/75 p-4 text-sm text-muted-foreground shadow-sm backdrop-blur-md sm:text-right dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
+                    <p className="flex items-center justify-start gap-2 font-semibold text-foreground lg:justify-end">
                         <Briefcase className="size-4 text-primary" />
                         Position: {employeeProfile?.job_title ?? 'N/A'}
                     </p>
-                    <p className="flex items-center justify-start gap-2 sm:justify-end">
+                    <p className="flex items-center justify-start gap-2 lg:justify-end">
                         <MessageSquare className="size-4 text-primary" />
                         Remarks: {employeeProfile?.remarks ?? 'No remarks yet.'}
                     </p>
                 </div>
             </div>
-        </div>
+        </DashboardPanelCard>
     );
 }

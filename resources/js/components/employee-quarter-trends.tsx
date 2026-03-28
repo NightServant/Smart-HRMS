@@ -1,19 +1,6 @@
-import { BarChart3 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    Title,
-    Tooltip,
-    Legend,
-} from 'chart.js';
-import { Bar } from 'react-chartjs-2';
-import { DashboardChartSurface, dashboardGlassCardClassName } from '@/components/admin-system-dashboard-cards';
-import { Separator } from '@/components/ui/separator';
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+import { DashboardChartSurface, DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
+import { AdminDashboardBarChart } from '@/components/admin-system-dashboard-charts';
 
 type QuarterScores = {
     Q1: number;
@@ -72,82 +59,53 @@ export default function EmployeeQuarterTrends() {
         fetchData();
     }, []);
 
-    const chartData = {
-        labels: ['Q1', 'Q2', 'Q3', 'Q4'],
-        datasets: [
-            {
-                label: 'Performance Score',
-                data: data
-                    ? [data.quarter_scores.Q1, data.quarter_scores.Q2, data.quarter_scores.Q3, data.quarter_scores.Q4]
-                    : [0, 0, 0, 0],
-                backgroundColor: '#4A7C3C',
-            },
-        ],
-    };
-
-    const options = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            title: { display: false },
-        },
-        scales: {
-            y: {
-                min: 0,
-                max: 5,
-                ticks: { stepSize: 1 },
-            },
-        },
-    };
-
     return (
-        <div className={`${dashboardGlassCardClassName} flex h-full w-full min-w-0 animate-fade-in-left flex-col gap-4 rounded-xl p-4 transition-shadow hover:shadow-md sm:gap-5`}>
-            <div className="flex flex-col gap-3">
-                <h1 className="flex min-w-0 items-center gap-2 text-base font-bold sm:text-lg lg:whitespace-nowrap">
-                    <BarChart3 className="size-5 text-primary" />
-                    My Quarterly Performance
-                </h1>
-            </div>
-
-            <div className="mx-auto flex-1 w-full max-w-full px-1 sm:max-w-none sm:px-4">
-                {isLoading ? (
-                    <DashboardChartSurface className="mt-2">
-                        <div className="flex h-40 items-center justify-center">
-                            <div className="h-32 w-full animate-pulse rounded bg-muted"></div>
+        <DashboardPanelCard
+            title="My Quarterly Performance"
+            description="Your performance scores across all quarters based on historical evaluation data."
+            accentClassName="-left-10 top-10 size-28 rounded-full bg-brand-300/20 blur-3xl dark:bg-brand-500/10"
+        >
+            {isLoading ? (
+                <DashboardChartSurface>
+                    <div className="flex h-40 items-center justify-center">
+                        <div className="h-32 w-full animate-pulse rounded bg-muted"></div>
+                    </div>
+                </DashboardChartSurface>
+            ) : error ? (
+                <DashboardChartSurface>
+                    <div className="flex items-center justify-center rounded bg-muted/50 p-4 text-sm text-muted-foreground">
+                        {error}
+                    </div>
+                </DashboardChartSurface>
+            ) : (
+                <>
+                    {data && (
+                        <div className="rounded-2xl border border-brand-300 bg-white/75 p-4 text-sm shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
+                            <p>
+                                <strong>Average Score:</strong>{' '}
+                                {(
+                                    (data.quarter_scores.Q1 + data.quarter_scores.Q2 + data.quarter_scores.Q3 + data.quarter_scores.Q4) / 4
+                                ).toFixed(2)}{' '}
+                                / 5.0
+                            </p>
                         </div>
+                    )}
+                    <DashboardChartSurface>
+                        <AdminDashboardBarChart
+                            labels={['Q1', 'Q2', 'Q3', 'Q4']}
+                            datasets={[{
+                                label: 'Performance Score',
+                                data: data
+                                    ? [data.quarter_scores.Q1, data.quarter_scores.Q2, data.quarter_scores.Q3, data.quarter_scores.Q4]
+                                    : [0, 0, 0, 0],
+                                backgroundColor: '#4A7C3C',
+                                borderColor: '#4A7C3C',
+                            }]}
+                            className="h-full min-h-[15rem] sm:min-h-[18rem]"
+                        />
                     </DashboardChartSurface>
-                ) : error ? (
-                    <DashboardChartSurface className="mt-2">
-                        <div className="flex items-center justify-center rounded bg-muted/50 p-4 text-sm text-muted-foreground">
-                            Error loading quarter scores: {error}
-                        </div>
-                    </DashboardChartSurface>
-                ) : (
-                    <>
-                        {data && (
-                            <div className="mb-4 rounded bg-muted/30 p-3 text-sm">
-                                <p>
-                                    <strong>Average Score:</strong>{' '}
-                                    {(
-                                        (data.quarter_scores.Q1 + data.quarter_scores.Q2 + data.quarter_scores.Q3 + data.quarter_scores.Q4) / 4
-                                    ).toFixed(2)}{' '}
-                                    / 5.0
-                                </p>
-                            </div>
-                        )}
-                        <DashboardChartSurface className="mt-2">
-                            <div className="mx-auto h-36 w-3/4 sm:h-44 md:h-52 lg:h-60">
-                                <Bar options={options} data={chartData} />
-                            </div>
-                        </DashboardChartSurface>
-                    </>
-                )}
-            </div>
-            <Separator className="mt-2" />
-            <p className="text-sm text-muted-foreground sm:ml-6">
-                Your performance scores across all quarters based on historical evaluation data.
-            </p>
-        </div>
+                </>
+            )}
+        </DashboardPanelCard>
     );
 }

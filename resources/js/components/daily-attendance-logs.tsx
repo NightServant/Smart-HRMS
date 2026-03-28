@@ -1,7 +1,7 @@
-import { CalendarCheck2, ClipboardList } from 'lucide-react';
+import { CalendarOff, CheckCircle2, Clock3, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { DashboardChartSurface, dashboardGlassCardClassName } from '@/components/admin-system-dashboard-cards';
-import { Separator } from '@/components/ui/separator';
+import { DashboardChartSurface, DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
+import { Badge } from '@/components/ui/badge';
 import { DailyAttendanceBarChart } from './ui/daily-attendance-barchart';
 
 type AttendanceMetrics = {
@@ -64,54 +64,83 @@ export default function DailyAttendanceLogs() {
 
         fetchAttendanceMetrics();
 
-        // Refresh every 5 minutes
         const interval = setInterval(fetchAttendanceMetrics, 5 * 60 * 1000);
         return () => clearInterval(interval);
     }, []);
 
     return (
-        <div className={`${dashboardGlassCardClassName} flex h-full w-full min-w-0 animate-fade-in-left flex-col gap-4 rounded-xl p-4 transition-shadow hover:shadow-md sm:gap-5`}>
-            <div className="flex items-center gap-2 text-base font-bold sm:text-lg">
-                <CalendarCheck2 className="size-5 text-primary" />
-                Daily Attendance Logs
-            </div>
-            <div className="mx-auto w-full max-w-full px-1 sm:max-w-none sm:px-4">
-                {isLoading ? (
-                    <DashboardChartSurface className="mt-2">
-                        <div className="flex h-40 items-center justify-center">
-                            <div className="h-32 w-full animate-pulse rounded bg-muted"></div>
-                        </div>
+        <DashboardPanelCard
+            title="Daily Attendance Logs"
+            description="Daily attendance summary for monitoring presence and time-in/time-out consistency."
+            accentClassName="-left-10 top-10 size-28 rounded-full bg-brand-300/20 blur-3xl dark:bg-brand-500/10"
+            headerExtras={
+                !isLoading && metrics ? (
+                    <Badge variant="outline" className="border-brand-300/60 bg-brand-100/70 text-brand-900 dark:border-brand-700/60 dark:bg-brand-900/30 dark:text-brand-100">
+                        {metrics.attendance_pct}% attendance rate
+                    </Badge>
+                ) : undefined
+            }
+        >
+            {isLoading ? (
+                <DashboardChartSurface>
+                    <div className="flex h-40 items-center justify-center">
+                        <div className="h-32 w-full animate-pulse rounded bg-muted"></div>
+                    </div>
+                </DashboardChartSurface>
+            ) : error ? (
+                <DashboardChartSurface>
+                    <div className="flex items-center justify-center rounded bg-muted/50 p-4 text-sm text-muted-foreground">
+                        Error loading attendance data: {error}
+                    </div>
+                </DashboardChartSurface>
+            ) : (
+                <>
+                    <div className="rounded-2xl border border-brand-300 bg-white/75 p-4 text-sm shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
+                        <p>
+                            <strong>Current Month Attendance:</strong> {metrics?.attendance_pct || 0}%
+                            ({metrics?.present_days || 0} / {metrics?.total_days || 0} days present)
+                        </p>
+                    </div>
+                    <DashboardChartSurface>
+                        <DailyAttendanceBarChart data={{
+                            late: metrics?.late_count ?? 0,
+                            absent: metrics?.absent_count ?? 0,
+                            onLeave: metrics?.on_leave_count ?? 0,
+                            present: metrics?.present_count ?? 0,
+                        }} />
                     </DashboardChartSurface>
-                ) : error ? (
-                    <DashboardChartSurface className="mt-2">
-                        <div className="flex items-center justify-center rounded bg-muted/50 p-4 text-sm text-muted-foreground">
-                            Error loading attendance data: {error}
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-3 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
+                            <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" />
+                            <span className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                                {metrics?.present_count ?? 0}
+                            </span>
+                            <span className="text-xs text-muted-foreground">Present</span>
                         </div>
-                    </DashboardChartSurface>
-                ) : (
-                    <>
-                        <div className="mb-4 rounded bg-muted/30 p-3 text-sm">
-                            <p>
-                                <strong>Current Month Attendance:</strong> {metrics?.attendance_pct || 0}%
-                                ({metrics?.present_days || 0} / {metrics?.total_days || 0} days present)
-                            </p>
+                        <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-3 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
+                            <Clock3 className="size-5 text-amber-600 dark:text-amber-400" />
+                            <span className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                                {metrics?.late_count ?? 0}
+                            </span>
+                            <span className="text-xs text-muted-foreground">Late</span>
                         </div>
-                        <DashboardChartSurface className="mt-2">
-                            <DailyAttendanceBarChart data={{
-                                late: metrics?.late_count ?? 0,
-                                absent: metrics?.absent_count ?? 0,
-                                onLeave: metrics?.on_leave_count ?? 0,
-                                present: metrics?.present_count ?? 0,
-                            }} />
-                        </DashboardChartSurface>
-                    </>
-                )}
-            </div>
-            <Separator className="mt-2" />
-            <div className="flex items-start gap-2 text-sm text-muted-foreground sm:ml-6">
-                <ClipboardList className="mt-0.5 size-4 shrink-0" />
-                Daily attendance summary for monitoring presence and time-in/time-out consistency.
-            </div>
-        </div>
+                        <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-3 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
+                            <XCircle className={`size-5 ${(metrics?.absent_count ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
+                            <span className={`text-xl font-bold ${(metrics?.absent_count ?? 0) > 0 ? 'text-red-600 dark:text-red-400' : ''}`}>
+                                {metrics?.absent_count ?? 0}
+                            </span>
+                            <span className="text-xs text-muted-foreground">Absent</span>
+                        </div>
+                        <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-3 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
+                            <CalendarOff className="size-5 text-blue-600 dark:text-blue-400" />
+                            <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                                {metrics?.on_leave_count ?? 0}
+                            </span>
+                            <span className="text-xs text-muted-foreground">On Leave</span>
+                        </div>
+                    </div>
+                </>
+            )}
+        </DashboardPanelCard>
     );
 }

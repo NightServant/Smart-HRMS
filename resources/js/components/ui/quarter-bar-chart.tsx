@@ -6,8 +6,17 @@ import {
   Title,
   Tooltip,
   Legend,
+  type ChartOptions,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
+import {
+    BAR_DATASET_DEFAULTS,
+    CHART_GRID_COLOR,
+    CHART_TICK_COLOR,
+    CHART_TICK_FONT,
+    CHART_TOOLTIP_CONFIG,
+} from '@/components/admin-system-dashboard-charts';
+import { cn } from '@/lib/utils';
 
 ChartJS.register(
   CategoryScale,
@@ -57,9 +66,10 @@ type QuarterScoresData = {
 type Props = {
   quarter?: Quarter;
   data?: QuarterScoresData | null;
+  className?: string;
 };
 
-export function QuarterBarChart({ quarter = 'Q1', data }: Props) {
+export function QuarterBarChart({ quarter = 'Q1', data, className }: Props) {
   const employeeScores = data?.employee_scores ?? [];
   const employeeBarColors = employeeScores.map((_, index) => employeeBarPalette[index % employeeBarPalette.length]);
 
@@ -72,10 +82,7 @@ export function QuarterBarChart({ quarter = 'Q1', data }: Props) {
             data: employeeScores.map((s) => s.final_rating),
             backgroundColor: employeeBarColors.map((color) => color.background),
             borderColor: employeeBarColors.map((color) => color.border),
-            borderWidth: 0,
-            borderRadius: 0,
-            hoverBackgroundColor: employeeBarColors.map((color) => color.background),
-            hoverBorderColor: employeeBarColors.map((color) => color.border),
+            ...BAR_DATASET_DEFAULTS,
           },
         ],
       }
@@ -87,30 +94,46 @@ export function QuarterBarChart({ quarter = 'Q1', data }: Props) {
             data: [0, 0, 0],
             backgroundColor: '#4A7C3C',
             borderColor: '#4A7C3C',
-            borderWidth: 0,
-            borderRadius: 0,
+            ...BAR_DATASET_DEFAULTS,
           },
         ],
       };
 
-  const options = {
+  const options: ChartOptions<'bar'> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
       title: { display: false },
+      tooltip: CHART_TOOLTIP_CONFIG,
     },
     scales: {
+      x: {
+        border: { display: false },
+        grid: { color: CHART_GRID_COLOR, drawTicks: false },
+        ticks: {
+          color: CHART_TICK_COLOR,
+          padding: 10,
+          font: CHART_TICK_FONT,
+        },
+      },
       y: {
         min: 0,
         max: 5,
-        ticks: { stepSize: 1 },
+        border: { display: false },
+        grid: { color: CHART_GRID_COLOR, drawTicks: false },
+        ticks: {
+          stepSize: 1,
+          color: CHART_TICK_COLOR,
+          padding: 10,
+          font: CHART_TICK_FONT,
+        },
       },
     },
   };
 
   return (
-    <div className="mx-auto h-40 w-full sm:h-48 md:h-56 lg:h-64">
+    <div className={cn('h-60 min-w-0 w-full sm:h-72', className)}>
       <Bar options={options} data={chartData} />
     </div>
   );

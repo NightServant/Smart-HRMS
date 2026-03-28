@@ -11,7 +11,41 @@ import {
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { cn } from '@/lib/utils';
 
-function colorForDoughnutText(color: string): string {
+/* ── Shared chart-styling constants ────────────────────────────────── */
+
+export const CHART_TOOLTIP_CONFIG = {
+    backgroundColor: 'rgba(17, 24, 39, 0.94)' as const,
+    padding: 12,
+    displayColors: true,
+    cornerRadius: 16,
+    titleFont: { family: 'Montserrat, sans-serif', weight: 700 as const },
+    bodyFont: { family: 'Montserrat, sans-serif' },
+    bodySpacing: 6,
+};
+
+export const CHART_TICK_FONT = (context: { chart: { width: number } }) => ({
+    family: 'Montserrat, sans-serif' as const,
+    size: context.chart.width < 420 ? 10 : 12,
+    weight: 500 as const,
+});
+
+export const CHART_GRID_COLOR = 'rgba(74, 124, 60, 0.08)';
+export const CHART_GRID_COLOR_STRONG = 'rgba(74, 124, 60, 0.12)';
+export const CHART_TICK_COLOR = '#6b7280';
+
+export const BAR_DATASET_DEFAULTS = {
+    borderWidth: 0,
+    borderRadius: 14,
+    borderSkipped: false as const,
+    hoverBorderWidth: 0,
+    maxBarThickness: 30,
+    categoryPercentage: 0.64,
+    barPercentage: 0.82,
+};
+
+/* ── Helpers ──────────────────────────────────────────────────────── */
+
+export function colorForDoughnutText(color: string): string {
     const normalized = color.replace('#', '');
 
     if (normalized.length !== 6) {
@@ -135,13 +169,7 @@ export function AdminDashboardBarChart({
         labels,
         datasets: datasets.map((dataset) => ({
             ...dataset,
-            borderWidth: 0,
-            borderRadius: 14,
-            borderSkipped: false as const,
-            hoverBorderWidth: 0,
-            maxBarThickness: 30,
-            categoryPercentage: 0.64,
-            barPercentage: 0.82,
+            ...BAR_DATASET_DEFAULTS,
         })),
     };
 
@@ -153,59 +181,34 @@ export function AdminDashboardBarChart({
             legend: {
                 display: false,
             },
-            tooltip: {
-                backgroundColor: 'rgba(17, 24, 39, 0.94)',
-                padding: 12,
-                displayColors: true,
-                cornerRadius: 16,
-                titleFont: {
-                    family: 'Montserrat, sans-serif',
-                    weight: 700,
-                },
-                bodyFont: {
-                    family: 'Montserrat, sans-serif',
-                },
-                bodySpacing: 6,
-            },
+            tooltip: CHART_TOOLTIP_CONFIG,
         },
         scales: {
             x: {
                 beginAtZero: true,
-                border: {
-                    display: false,
-                },
+                border: { display: false },
                 grid: {
-                    color: indexAxis === 'y' ? 'rgba(74, 124, 60, 0.08)' : 'rgba(74, 124, 60, 0.12)',
+                    color: indexAxis === 'y' ? CHART_GRID_COLOR : CHART_GRID_COLOR_STRONG,
                     drawTicks: false,
                 },
                 ticks: {
                     precision: 0,
-                    color: '#6b7280',
+                    color: CHART_TICK_COLOR,
                     padding: 10,
-                    font: (context) => ({
-                        family: 'Montserrat, sans-serif',
-                        size: context.chart.width < 420 ? 10 : 12,
-                        weight: 500,
-                    }),
+                    font: CHART_TICK_FONT,
                 },
             },
             y: {
-                border: {
-                    display: false,
-                },
+                border: { display: false },
                 grid: {
                     display: indexAxis !== 'y',
-                    color: 'rgba(74, 124, 60, 0.08)',
+                    color: CHART_GRID_COLOR,
                     drawTicks: false,
                 },
                 ticks: {
-                    color: '#6b7280',
+                    color: CHART_TICK_COLOR,
                     padding: 10,
-                    font: (context) => ({
-                        family: 'Montserrat, sans-serif',
-                        size: context.chart.width < 420 ? 10 : 12,
-                        weight: 500,
-                    }),
+                    font: CHART_TICK_FONT,
                 },
             },
         },
@@ -261,20 +264,7 @@ export function AdminDashboardDoughnutChart({
             legend: {
                 display: false,
             },
-            tooltip: {
-                backgroundColor: 'rgba(17, 24, 39, 0.94)',
-                padding: 12,
-                displayColors: true,
-                cornerRadius: 16,
-                titleFont: {
-                    family: 'Montserrat, sans-serif',
-                    weight: 700,
-                },
-                bodyFont: {
-                    family: 'Montserrat, sans-serif',
-                },
-                bodySpacing: 6,
-            },
+            tooltip: CHART_TOOLTIP_CONFIG,
             adminDashboardDoughnutLabelPlugin: {
                 annotationMode,
                 minSliceLabelRatio,

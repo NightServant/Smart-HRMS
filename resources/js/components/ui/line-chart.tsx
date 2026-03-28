@@ -7,8 +7,16 @@ import {
   Title,
   Tooltip,
   Legend,
+  type ChartOptions,
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
+import {
+    CHART_GRID_COLOR,
+    CHART_TICK_COLOR,
+    CHART_TICK_FONT,
+    CHART_TOOLTIP_CONFIG,
+} from '@/components/admin-system-dashboard-charts';
+import { cn } from '@/lib/utils';
 
 ChartJS.register(
   CategoryScale,
@@ -26,6 +34,7 @@ type LineChartProps = {
   borderColor?: string;
   backgroundColor?: string;
   label?: string;
+  className?: string;
 };
 
 export function LineChart({
@@ -34,13 +43,13 @@ export function LineChart({
   borderColor = '#91C383',
   backgroundColor = '#4A7C3C',
   label = 'Performance Score',
+  className,
 }: LineChartProps) {
   const chartData = {
     labels,
     datasets: [
       {
         label,
-        font: { family: 'Montserrat, sans-serif' },
         data,
         borderColor,
         backgroundColor,
@@ -50,24 +59,41 @@ export function LineChart({
     ],
   };
 
-  const chartOptions = {
+  const chartOptions: ChartOptions<'line'> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: { display: false },
       title: { display: false },
+      tooltip: CHART_TOOLTIP_CONFIG,
     },
     scales: {
+      x: {
+        border: { display: false },
+        grid: { color: CHART_GRID_COLOR, drawTicks: false },
+        ticks: {
+          color: CHART_TICK_COLOR,
+          padding: 10,
+          font: CHART_TICK_FONT,
+        },
+      },
       y: {
         min: 1.0,
         max: 5.0,
-        ticks: { stepSize: 0.5 },
+        border: { display: false },
+        grid: { color: CHART_GRID_COLOR, drawTicks: false },
+        ticks: {
+          stepSize: 0.5,
+          color: CHART_TICK_COLOR,
+          padding: 10,
+          font: CHART_TICK_FONT,
+        },
       },
     },
   };
 
   return (
-    <div className="mx-auto h-36 w-full sm:h-40 md:h-44 lg:h-48">
+    <div className={cn('h-60 min-w-0 w-full sm:h-72', className)}>
       <Line options={chartOptions} data={chartData} />
     </div>
   );
