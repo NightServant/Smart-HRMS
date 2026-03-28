@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { Briefcase, ChartLine, MessageSquare, UserRound } from 'lucide-react';
+import { dashboardGlassCardClassName } from '@/components/admin-system-dashboard-cards';
 import PredictionDisplay, {
     type PredictionResult,
 } from '@/components/prediction-display';
@@ -22,7 +23,7 @@ export default function PredictivePerformance() {
     const { employeeProfile, prediction } = usePage<PageProps>().props;
 
     return (
-        <div className="glass-card col-span-2 flex w-full min-w-0 animate-fade-in flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md sm:gap-5">
+        <div className={`${dashboardGlassCardClassName} col-span-2 flex w-full min-w-0 animate-fade-in flex-col gap-4 rounded-xl p-4 transition-shadow hover:shadow-md sm:gap-5`}>
             <h1 className="flex min-w-0 items-center gap-2 text-base font-bold sm:text-lg">
                 <ChartLine className="size-5 text-primary" />
                 Predictive Performance Analysis

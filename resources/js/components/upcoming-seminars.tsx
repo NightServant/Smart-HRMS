@@ -1,4 +1,5 @@
 import { CalendarDays, Clock3, MapPin, Mic, Target } from 'lucide-react';
+import { dashboardGlassCardClassName } from '@/components/admin-system-dashboard-cards';
 import {
     Card,
     CardContent,
@@ -33,7 +34,7 @@ export default function UpcomingSeminars({
     const upcomingSeminars = seminars.slice(0, 10);
 
     return (
-        <div className="glass-card flex w-full min-w-0 animate-fade-in flex-col gap-3 overflow-hidden rounded-xl border border-border bg-background p-4 shadow-sm transition-shadow hover:shadow-md sm:gap-4 2xl:col-span-2 2xl:col-start-1 2xl:col-end-3">
+        <div className={`${dashboardGlassCardClassName} flex w-full min-w-0 animate-fade-in flex-col gap-3 overflow-hidden rounded-xl p-4 transition-shadow hover:shadow-md sm:gap-4 2xl:col-span-2 2xl:col-start-1 2xl:col-end-3`}>
             <h1 className="flex min-w-0 items-center gap-2 text-base font-bold sm:text-lg">
                 <CalendarDays className="size-5 text-primary" />
                 Upcoming Seminars and Trainings

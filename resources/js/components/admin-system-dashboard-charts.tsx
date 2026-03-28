@@ -11,15 +11,6 @@ import {
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { cn } from '@/lib/utils';
 
-function formatDoughnutLabel(label: string | string[]): string {
-    const resolvedLabel = Array.isArray(label) ? label.join(' ') : label;
-
-    return resolvedLabel
-        .replace(' Events', '')
-        .replace('Personnel', 'HR')
-        .replace('Administrators', 'Admins');
-}
-
 function colorForDoughnutText(color: string): string {
     const normalized = color.replace('#', '');
 
@@ -35,17 +26,33 @@ function colorForDoughnutText(color: string): string {
     return brightness > 160 ? '#0f172a' : '#ffffff';
 }
 
+type DoughnutAnnotationMode = 'percentage-only' | 'none';
+
+type AdminDashboardDoughnutLabelPluginOptions = {
+    annotationMode?: DoughnutAnnotationMode;
+    minSliceLabelRatio?: number;
+    minSlicePixelArc?: number;
+};
+
+function resolveDoughnutPluginOptions(chart: ChartJS<'doughnut'>): AdminDashboardDoughnutLabelPluginOptions {
+    const plugins = chart.options.plugins as ChartOptions<'doughnut'>['plugins'] & {
+        adminDashboardDoughnutLabelPlugin?: AdminDashboardDoughnutLabelPluginOptions;
+    };
+
+    return plugins?.adminDashboardDoughnutLabelPlugin ?? {};
+}
+
 const adminDashboardDoughnutLabelPlugin: Plugin<'doughnut'> = {
     id: 'adminDashboardDoughnutLabelPlugin',
     afterDatasetsDraw(chart) {
+        const { annotationMode = 'percentage-only', minSliceLabelRatio = 0.08, minSlicePixelArc = 28 } = resolveDoughnutPluginOptions(chart);
         const dataset = chart.data.datasets[0];
         const values = (dataset?.data ?? []).map((value) => Number(value) || 0);
         const total = values.reduce((sum, value) => sum + value, 0);
-        const labels = (chart.data.labels ?? []) as Array<string | string[]>;
         const arcs = chart.getDatasetMeta(0).data as ArcElement[];
         const backgroundColors = Array.isArray(dataset?.backgroundColor) ? dataset.backgroundColor : [];
 
-        if (total <= 0 || arcs.length === 0) {
+        if (annotationMode === 'none' || total <= 0 || arcs.length === 0) {
             return;
         }
 
@@ -58,24 +65,23 @@ const adminDashboardDoughnutLabelPlugin: Plugin<'doughnut'> = {
 
         arcs.forEach((arc, index) => {
             const percentage = values[index] / total;
+            const midRadius = (arc.innerRadius + arc.outerRadius) / 2;
+            const arcLength = (arc.endAngle - arc.startAngle) * midRadius;
+            const ringDepth = arc.outerRadius - arc.innerRadius;
 
-            if (percentage < 0.12) {
+            if (percentage < minSliceLabelRatio || arcLength < minSlicePixelArc || ringDepth < 28) {
                 return;
             }
 
             const angle = (arc.startAngle + arc.endAngle) / 2;
-            const radius = arc.innerRadius + (arc.outerRadius - arc.innerRadius) * 0.68;
+            const radius = arc.innerRadius + ringDepth * 0.66;
             const x = arc.x + Math.cos(angle) * radius;
-            const y = arc.y + Math.sin(angle) * radius;
-            const label = formatDoughnutLabel(labels[index] ?? '');
+            const y = arc.y + Math.sin(angle) * radius + 1;
             const textColor = colorForDoughnutText(String(backgroundColors[index] ?? '#0f172a'));
 
             ctx.fillStyle = textColor;
             ctx.font = `${chartWidth < 420 ? '700 10px' : '700 11px'} Montserrat, sans-serif`;
-            ctx.fillText(label, x, y - 7);
-
-            ctx.font = `${chartWidth < 420 ? '600 10px' : '600 11px'} Montserrat, sans-serif`;
-            ctx.fillText(`${values[index]}`, x, y + 8);
+            ctx.fillText(`${Math.round(percentage * 100)}%`, x, y);
         });
 
         ctx.restore();
@@ -103,6 +109,9 @@ type AdminDashboardDoughnutChartProps = {
     data: number[];
     backgroundColor: string[];
     borderColor: string[];
+    annotationMode?: DoughnutAnnotationMode;
+    minSliceLabelRatio?: number;
+    minSlicePixelArc?: number;
     className?: string;
 };
 
@@ -214,6 +223,9 @@ export function AdminDashboardDoughnutChart({
     data,
     backgroundColor,
     borderColor,
+    annotationMode = 'percentage-only',
+    minSliceLabelRatio = 0.08,
+    minSlicePixelArc = 28,
     className,
 }: AdminDashboardDoughnutChartProps) {
     const hasData = labels.length > 0 && data.some((value) => value > 0);
@@ -263,6 +275,13 @@ export function AdminDashboardDoughnutChart({
                 },
                 bodySpacing: 6,
             },
+            adminDashboardDoughnutLabelPlugin: {
+                annotationMode,
+                minSliceLabelRatio,
+                minSlicePixelArc,
+            },
+        } as ChartOptions<'doughnut'>['plugins'] & {
+            adminDashboardDoughnutLabelPlugin: AdminDashboardDoughnutLabelPluginOptions;
         },
         elements: {
             arc: {

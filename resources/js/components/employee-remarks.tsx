@@ -5,6 +5,7 @@ import {
     Quote,
     UserRound,
 } from 'lucide-react';
+import { dashboardGlassCardClassName } from '@/components/admin-system-dashboard-cards';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -35,7 +36,7 @@ export default function EmployeeRemarks({
     remarks?: Remark[];
 }) {
     return (
-        <div className="glass-card flex h-full w-full min-w-0 flex-1 animate-fade-in-right flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md">
+        <div className={`${dashboardGlassCardClassName} flex h-full w-full min-w-0 flex-1 animate-fade-in-right flex-col gap-3 rounded-xl p-4 transition-shadow hover:shadow-md`}>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg">
                     <MessageSquareText className="size-5 text-primary" />

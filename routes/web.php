@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\SystemDashboardController;
 use App\Http\Controllers\Admin\UserManagementController;
+use App\Http\Controllers\Api\AdmsController;
 use App\Http\Controllers\AttendanceImportController;
 use App\Http\Controllers\AttendanceRecordController;
 use App\Http\Controllers\DashboardController;
@@ -46,6 +47,9 @@ Route::get('attendance', [AttendanceRecordController::class, 'index'])
 Route::post('attendance/punch', [AttendanceRecordController::class, 'punch'])
     ->middleware(['auth', 'role:employee'])
     ->name('attendance.punch');
+Route::post('attendance/biometric-punch', [AdmsController::class, 'simulate'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('attendance.biometric-punch');
 
 Route::get('notifications', [NotificationController::class, 'index'])
     ->middleware(['auth', 'role:administrator,employee,evaluator,hr-personnel'])

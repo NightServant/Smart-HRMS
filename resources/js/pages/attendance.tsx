@@ -20,15 +20,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function Attendance({
     records,
     employeeId,
+    hasDevice,
 }: {
     records: AttendanceRecord[];
     employeeId: string;
+    hasDevice: boolean;
 }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Attendance" />
             <div className="mx-auto flex w-full flex-col gap-6 p-4">
-                <AttendanceScanner records={records} employeeId={employeeId} />
+                <AttendanceScanner records={records} employeeId={employeeId} hasDevice={hasDevice} />
             </div>
         </AppLayout>
     );

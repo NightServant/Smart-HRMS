@@ -247,11 +247,13 @@ export function AttendanceTable({
                                 </TableCell>
                                 <TableCell className="px-4 py-2">
                                     <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                        attendance.source === 'manual'
-                                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                                            : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+                                        attendance.source === 'biometric'
+                                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                                            : attendance.source === 'manual'
+                                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                                              : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
                                     }`}>
-                                        {attendance.source === 'manual' ? 'Manual' : 'Import'}
+                                        {attendance.source === 'biometric' ? 'Biometric' : attendance.source === 'manual' ? 'Manual' : 'Import'}
                                     </span>
                                 </TableCell>
                             </TableRow>

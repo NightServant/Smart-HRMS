@@ -1,5 +1,6 @@
 import { BarChart3, CalendarRange, ChevronDown, Users, AlertTriangle, CheckCircle2, TrendingUp } from 'lucide-react';
 import { useMemo, useState, useEffect } from 'react';
+import { DashboardChartSurface, dashboardGlassCardClassName } from '@/components/admin-system-dashboard-cards';
 import { Button } from '@/components/ui/button';
 import {
     DropdownMenu,
@@ -81,7 +82,7 @@ export default function QuarterPerformanceTrends() {
     }, [selectedQuarter]);
 
     return (
-        <div className="glass-card flex h-full w-full min-w-0 animate-fade-in-left flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md sm:gap-5">
+        <div className={`${dashboardGlassCardClassName} flex h-full w-full min-w-0 animate-fade-in-left flex-col gap-4 rounded-xl p-4 transition-shadow hover:shadow-md sm:gap-5`}>
             <div className="flex flex-col gap-3">
                 <h1 className="flex min-w-0 items-center gap-2 text-base font-bold sm:text-lg lg:whitespace-nowrap">
                     <BarChart3 className="size-5 text-primary" />
@@ -133,13 +134,17 @@ export default function QuarterPerformanceTrends() {
 
             <div className="mx-auto w-full max-w-full px-1 sm:max-w-none sm:px-4">
                 {isLoading ? (
-                    <div className="flex h-40 items-center justify-center">
-                        <div className="h-32 w-full animate-pulse rounded bg-muted"></div>
-                    </div>
+                    <DashboardChartSurface className="mt-2">
+                        <div className="flex h-40 items-center justify-center">
+                            <div className="h-32 w-full animate-pulse rounded bg-muted"></div>
+                        </div>
+                    </DashboardChartSurface>
                 ) : error ? (
-                    <div className="flex items-center justify-center rounded bg-muted/50 p-4 text-sm text-muted-foreground">
-                        Error loading quarter scores: {error}
-                    </div>
+                    <DashboardChartSurface className="mt-2">
+                        <div className="flex items-center justify-center rounded bg-muted/50 p-4 text-sm text-muted-foreground">
+                            Error loading quarter scores: {error}
+                        </div>
+                    </DashboardChartSurface>
                 ) : (
                     <>
                         {quarterData && quarterData.aggregate && (
@@ -184,7 +189,9 @@ export default function QuarterPerformanceTrends() {
                                 </div>
                             </div>
                         )}
-                        <QuarterBarChart quarter={selectedQuarter} data={quarterData} />
+                        <DashboardChartSurface>
+                            <QuarterBarChart quarter={selectedQuarter} data={quarterData} />
+                        </DashboardChartSurface>
                     </>
                 )}
             </div>

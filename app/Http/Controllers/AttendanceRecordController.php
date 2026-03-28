@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceRecord;
+use App\Models\BiometricDevice;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,9 +28,12 @@ class AttendanceRecordController extends Controller
                 'status' => $record->status,
             ]);
 
+        $hasDevice = BiometricDevice::query()->where('is_active', true)->exists();
+
         return Inertia::render('attendance', [
             'records' => $records,
             'employeeId' => $employeeId ?? '',
+            'hasDevice' => $hasDevice,
         ]);
     }
 

@@ -1,5 +1,6 @@
 import { CalendarCheck2, ClipboardList } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { DashboardChartSurface, dashboardGlassCardClassName } from '@/components/admin-system-dashboard-cards';
 import { Separator } from '@/components/ui/separator';
 import { DailyAttendanceBarChart } from './ui/daily-attendance-barchart';
 
@@ -69,20 +70,24 @@ export default function DailyAttendanceLogs() {
     }, []);
 
     return (
-        <div className="glass-card flex h-full w-full min-w-0 animate-fade-in-left flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md sm:gap-5">
+        <div className={`${dashboardGlassCardClassName} flex h-full w-full min-w-0 animate-fade-in-left flex-col gap-4 rounded-xl p-4 transition-shadow hover:shadow-md sm:gap-5`}>
             <div className="flex items-center gap-2 text-base font-bold sm:text-lg">
                 <CalendarCheck2 className="size-5 text-primary" />
                 Daily Attendance Logs
             </div>
             <div className="mx-auto w-full max-w-full px-1 sm:max-w-none sm:px-4">
                 {isLoading ? (
-                    <div className="flex h-40 items-center justify-center">
-                        <div className="h-32 w-full animate-pulse rounded bg-muted"></div>
-                    </div>
+                    <DashboardChartSurface className="mt-2">
+                        <div className="flex h-40 items-center justify-center">
+                            <div className="h-32 w-full animate-pulse rounded bg-muted"></div>
+                        </div>
+                    </DashboardChartSurface>
                 ) : error ? (
-                    <div className="flex items-center justify-center rounded bg-muted/50 p-4 text-sm text-muted-foreground">
-                        Error loading attendance data: {error}
-                    </div>
+                    <DashboardChartSurface className="mt-2">
+                        <div className="flex items-center justify-center rounded bg-muted/50 p-4 text-sm text-muted-foreground">
+                            Error loading attendance data: {error}
+                        </div>
+                    </DashboardChartSurface>
                 ) : (
                     <>
                         <div className="mb-4 rounded bg-muted/30 p-3 text-sm">
@@ -91,12 +96,14 @@ export default function DailyAttendanceLogs() {
                                 ({metrics?.present_days || 0} / {metrics?.total_days || 0} days present)
                             </p>
                         </div>
-                        <DailyAttendanceBarChart data={{
-                            late: metrics?.late_count ?? 0,
-                            absent: metrics?.absent_count ?? 0,
-                            onLeave: metrics?.on_leave_count ?? 0,
-                            present: metrics?.present_count ?? 0,
-                        }} />
+                        <DashboardChartSurface className="mt-2">
+                            <DailyAttendanceBarChart data={{
+                                late: metrics?.late_count ?? 0,
+                                absent: metrics?.absent_count ?? 0,
+                                onLeave: metrics?.on_leave_count ?? 0,
+                                present: metrics?.present_count ?? 0,
+                            }} />
+                        </DashboardChartSurface>
                     </>
                 )}
             </div>

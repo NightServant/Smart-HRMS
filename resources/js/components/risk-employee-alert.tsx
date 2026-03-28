@@ -1,5 +1,6 @@
 import { ShieldAlert, TriangleAlert, Users, AlertTriangle, TrendingUp } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { DashboardChartSurface, dashboardGlassCardClassName } from '@/components/admin-system-dashboard-cards';
 import { Badge } from '@/components/ui/badge';
 import { DoughnutChart } from '@/components/ui/doughnut-chart';
 import { Separator } from '@/components/ui/separator';
@@ -72,7 +73,7 @@ export default function RiskEmployeeAlert() {
     }, []);
 
     return (
-        <div className="glass-card flex h-full w-full min-w-0 flex-1 animate-fade-in-right flex-col gap-4 rounded-xl border border-border bg-card p-4 shadow-sm transition-shadow hover:shadow-md sm:gap-5">
+        <div className={`${dashboardGlassCardClassName} flex h-full w-full min-w-0 flex-1 animate-fade-in-right flex-col gap-4 rounded-xl p-4 transition-shadow hover:shadow-md sm:gap-5`}>
             <div className="flex flex-col gap-3">
                 <h1 className="flex items-center gap-2 text-base font-bold sm:text-lg lg:whitespace-nowrap">
                     <ShieldAlert className="size-5 text-primary" />
@@ -142,16 +143,18 @@ export default function RiskEmployeeAlert() {
             )}
 
             <div className="mx-auto w-full max-w-full px-1 sm:max-w-none sm:px-4">
-                {isLoading ? (
-                    <div className="flex h-40 items-center justify-center">
-                        <div className="h-32 w-32 animate-pulse rounded-full bg-muted"></div>
-                    </div>
-                ) : (
-                    <DoughnutChart data={{
-                        lowRisk: riskData?.satisfactory_count ?? 0,
-                        highRisk: riskData?.high_risk_count ?? 0,
-                    }} />
-                )}
+                <DashboardChartSurface>
+                    {isLoading ? (
+                        <div className="flex h-40 items-center justify-center">
+                            <div className="h-32 w-32 animate-pulse rounded-full bg-muted"></div>
+                        </div>
+                    ) : (
+                        <DoughnutChart data={{
+                            lowRisk: riskData?.satisfactory_count ?? 0,
+                            highRisk: riskData?.high_risk_count ?? 0,
+                        }} />
+                    )}
+                </DashboardChartSurface>
             </div>
             <Separator className="mt-2" />
             <div className="flex items-start gap-2 text-sm text-muted-foreground sm:ml-6 sm:text-left">
@@ -160,12 +163,10 @@ export default function RiskEmployeeAlert() {
                     <span>Error loading risk data: {error}</span>
                 ) : (
                     <span>
-                        Snapshot of employees who may need immediate support based on recent
-                        performance patterns (Last updated: {new Date().toLocaleTimeString()}).
+                        Snapshot of employees based on recent performance patterns (Last updated: {new Date().toLocaleTimeString()}).
                     </span>
                 )}
             </div>
         </div>
     );
 }
-

@@ -1,7 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import {
     Clock,
-    ExternalLink,
     Fingerprint,
     IdCard,
     Monitor,
@@ -39,13 +38,31 @@ type AttendanceRecord = {
 export default function AttendanceScanner({
     records,
     employeeId,
+    hasDevice,
 }: {
     records: AttendanceRecord[];
     employeeId: string;
+    hasDevice: boolean;
 }) {
     const { data, post, processing } = useForm({
         employee_id: employeeId,
     });
+
+    const { post: biometricPost, processing: biometricProcessing } = useForm({});
+
+    const handleBiometricPunch = (): void => {
+        biometricPost('/attendance/biometric-punch', {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Biometric punch recorded successfully.');
+            },
+            onError: (errors) => {
+                const message =
+                    errors.employee_id || 'Failed to record biometric punch.';
+                toast.error(message);
+            },
+        });
+    };
 
     const handlePunch = (): void => {
         post('/attendance/punch', {
@@ -94,16 +111,16 @@ export default function AttendanceScanner({
 
             {/* Cards Row */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                {/* ZKTeco M1 Integration Card */}
+                {/* Biometric Scanner Card */}
                 <Card className="glass-card animate-fade-in-left border-primary/20 shadow-sm transition-shadow hover:shadow-md">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Monitor className="size-5 text-primary" />
-                            ZKLink Biometric Portal
+                            Biometric Scanner
                         </CardTitle>
                         <CardDescription>
-                            Access the ZKTeco cloud platform to manage
-                            fingerprint scans and device records.
+                            Record your attendance using the ZKTeco biometric
+                            fingerprint terminal.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-4">
@@ -119,32 +136,44 @@ export default function AttendanceScanner({
                                     <p className="mt-0.5 text-xs text-muted-foreground">
                                         Compatible with ZKTeco M1 Time &amp;
                                         Attendance Terminal (fingerprint +
-                                        password). Use the physical device or
-                                        the ZKLink web portal.
+                                        password).
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        <Button
-                            type="button"
-                            className="w-full gap-2"
-                            onClick={() =>
-                                window.open(
-                                    'https://zlink.minervaiot.com/home',
-                                    '_blank',
-                                    'noopener,noreferrer',
-                                )
-                            }
-                        >
-                            <ExternalLink className="size-4" />
-                            Open ZKLink Biometric Portal
-                        </Button>
+                        {!hasDevice ? (
+                            <div className="flex flex-col items-center gap-2 py-4 text-center">
+                                <Fingerprint className="size-10 text-muted-foreground/40" />
+                                <p className="text-sm font-medium text-muted-foreground">
+                                    No devices available.
+                                </p>
+                                <p className="text-xs text-muted-foreground/70">
+                                    A biometric device will appear here once
+                                    connected to the system.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                <Button
+                                    type="button"
+                                    className="w-full gap-2"
+                                    disabled={biometricProcessing || !employeeId}
+                                    onClick={handleBiometricPunch}
+                                >
+                                    <Fingerprint className="size-4" />
+                                    {biometricProcessing
+                                        ? 'Recording...'
+                                        : 'Biometric Punch'}
+                                </Button>
 
-                        <p className="text-center text-xs text-muted-foreground">
-                            Opens in a new tab &mdash; requires ZKLink account
-                            credentials.
-                        </p>
+                                <p className="text-center text-xs text-muted-foreground">
+                                    Simulates a fingerprint scan &mdash;
+                                    records attendance with biometric
+                                    verification.
+                                </p>
+                            </>
+                        )}
                     </CardContent>
                 </Card>
 

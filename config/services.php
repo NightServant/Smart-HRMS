@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'biometric' => [
+        'enabled' => env('ADMS_ENABLED', false),
+    ],
+
 ];
