@@ -9,15 +9,20 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 // Detect Python path - try common locations
+const IS_WIN = process.platform === 'win32';
 const PYTHON = [
-    path.resolve(__dirname, '.venv', 'bin', 'python'),      // Local venv
-    path.resolve(__dirname, '..', 'venv', 'bin', 'python'), // Parent venv
-    'python3',                                               // System python3
-    'python',                                                // System python
+    IS_WIN
+        ? path.resolve(__dirname, '..', 'iwr', '.venv', 'Scripts', 'python.exe')
+        : path.resolve(__dirname, '..', 'iwr', '.venv', 'bin', 'python'),
+    IS_WIN
+        ? path.resolve(__dirname, '.venv', 'Scripts', 'python.exe')
+        : path.resolve(__dirname, '.venv', 'bin', 'python'),
+    'python3',
+    'python',
 ].find(p => {
     try {
         if (require('fs').existsSync(p)) return true;
-        if (p === 'python3' || p === 'python') return true; // Assume system Python exists
+        if (p === 'python3' || p === 'python') return true;
     } catch {
         return false;
     }

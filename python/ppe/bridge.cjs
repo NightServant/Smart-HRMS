@@ -8,7 +8,10 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-const PYTHON = path.resolve(__dirname, '..', 'iwr', '.venv', 'bin', 'python');
+const IS_WIN = process.platform === 'win32';
+const PYTHON = IS_WIN
+    ? path.resolve(__dirname, '..', 'iwr', '.venv', 'Scripts', 'python.exe')
+    : path.resolve(__dirname, '..', 'iwr', '.venv', 'bin', 'python');
 const TIMEOUT = 15000;
 
 let input = '';
