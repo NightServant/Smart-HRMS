@@ -318,7 +318,6 @@ export default function LeaveRequestForm() {
                     <p className="mt-1 text-muted-foreground">Submit leave requests based on office leave policy rules.</p>
                 </div>
             </div>
-
             <Card className="glass-card animate-fade-in-up border-primary/20 bg-card shadow-sm hover:shadow-md transition-shadow">
                 <CardHeader className="space-y-3">
                     <CardTitle className="flex items-center gap-2">
@@ -328,6 +327,18 @@ export default function LeaveRequestForm() {
                     <CardDescription className="text-sm">Department Head {'>'} HR Personnel</CardDescription>
                 </CardHeader>
                 <CardContent>
+                        <div className="rounded-lg border border-border bg-background/70 p-4">
+                            <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
+                                <FileCheck2 className="h-4 w-4 text-primary" />
+                                Leave Policy Notes
+                            </h2>
+                            <ul className="space-y-1 text-sm text-muted-foreground">
+                                {selectedLeaveRequirements.map((requirement) => (
+                                    <li key={requirement}>- {requirement}</li>
+                                ))}
+                            </ul>
+                        </div>
+                    <Separator className='my-6'/>
                     <form className="space-y-6">
                         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                             <div className="flex flex-col gap-2 lg:col-span-2">
@@ -464,21 +475,7 @@ export default function LeaveRequestForm() {
                             )}
 
                         </div>
-
                         <Separator />
-
-                        <div className="rounded-lg border border-border bg-background/70 p-4">
-                            <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-                                <FileCheck2 className="h-4 w-4 text-primary" />
-                                Leave Policy Notes
-                            </h2>
-                            <ul className="space-y-1 text-sm text-muted-foreground">
-                                {selectedLeaveRequirements.map((requirement) => (
-                                    <li key={requirement}>- {requirement}</li>
-                                ))}
-                            </ul>
-                        </div>
-
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <Button type="button" variant="destructive" onClick={handleReset}>
                                 Cancel
