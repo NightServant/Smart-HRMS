@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { BellRing, Clock3, Eye, X } from 'lucide-react';
+import { BellRing, Clock3, Eye, ExternalLink, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 type NotificationSnackbarProps = {
@@ -7,6 +7,7 @@ type NotificationSnackbarProps = {
     title: string;
     message: string;
     time: string;
+    targetUrl?: string | null;
     type?: 'info' | 'warning' | 'success';
     isRead?: boolean;
 };
@@ -16,6 +17,7 @@ export default function NotificationSnackbar({
     title,
     message,
     time,
+    targetUrl = null,
     type = 'info',
     isRead = false,
 }: NotificationSnackbarProps) {
@@ -39,9 +41,36 @@ export default function NotificationSnackbar({
         router.delete(`/notifications/${id}`, { preserveScroll: true });
     }
 
+    function handleOpen() {
+        if (!targetUrl) {
+            return;
+        }
+
+        if (isRead) {
+            router.visit(targetUrl);
+            return;
+        }
+
+        router.post(`/notifications/${id}/read`, {}, {
+            preserveScroll: true,
+            onSuccess: () => router.visit(targetUrl),
+        });
+    }
+
     return (
-        <div className={`animate-fade-in-up w-full rounded-xl border p-4 text-foreground shadow-lg ${typeStyles[type]} ${isRead ? 'opacity-60' : ''}`}>
-            <div className="flex items-start gap-3">
+        <div
+            role={targetUrl ? 'button' : undefined}
+            tabIndex={targetUrl ? 0 : -1}
+            onClick={targetUrl ? handleOpen : undefined}
+            onKeyDown={targetUrl ? (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleOpen();
+                }
+            } : undefined}
+            className={`animate-fade-in-up w-full rounded-xl border p-4 text-foreground shadow-lg ${typeStyles[type]} ${isRead ? 'opacity-60' : ''} ${targetUrl ? 'cursor-pointer transition hover:-translate-y-0.5 hover:shadow-xl focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none' : ''}`}
+        >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                 <div className={`mt-0.5 rounded-full p-2 ${iconStyles[type]}`}>
                     <BellRing className="size-4" />
                 </div>
@@ -53,16 +82,25 @@ export default function NotificationSnackbar({
                         <Clock3 className="size-3.5" />
                         {time}
                     </p>
+                    {targetUrl && (
+                        <p className="inline-flex items-center gap-1 text-xs font-medium text-primary">
+                            <ExternalLink className="size-3.5" />
+                            Open notification target
+                        </p>
+                    )}
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 self-end sm:self-start">
                     {!isRead && (
                         <Button
                             type="button"
                             variant="ghost"
                             size="icon"
                             className="size-7 text-muted-foreground hover:bg-card/70 hover:text-foreground"
-                            onClick={handleMarkRead}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                handleMarkRead();
+                            }}
                             aria-label="Mark as read"
                         >
                             <Eye className="size-4" />
@@ -73,7 +111,10 @@ export default function NotificationSnackbar({
                         variant="ghost"
                         size="icon"
                         className="size-7 text-muted-foreground hover:bg-card/70 hover:text-foreground"
-                        onClick={handleDismiss}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            handleDismiss();
+                        }}
                         aria-label="Dismiss notification"
                     >
                         <X className="size-4" />

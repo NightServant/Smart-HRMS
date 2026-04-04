@@ -11,6 +11,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import ReportsDashboardController from '@/actions/App/Http/Controllers/Admin/ReportsDashboardController';
 import * as admin from '@/routes/admin';
 
 type Props = {
@@ -59,7 +60,7 @@ export function AdminReportsPeriodSelector({ period, dateFrom, dateTo }: Props) 
         navigate({ dateTo: value });
     };
 
-    const exportUrl = admin.reports.export.url({
+    const exportUrl = ReportsDashboardController.export.url({
         query: {
             period: selectedPeriod,
             dateFrom: fromDate,

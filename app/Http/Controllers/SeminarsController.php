@@ -6,8 +6,11 @@ use App\Http\Requests\StoreSeminarsRequest;
 use App\Http\Requests\UpdateSeminarsRequest;
 use App\Models\IpcrSubmission;
 use App\Models\LeaveRequest;
+use App\Models\Notification;
 use App\Models\Seminars;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -60,50 +63,50 @@ class SeminarsController extends Controller
     public function performanceDashboard(): Response
     {
         return Inertia::render('performanceDashboard', [
-            'seminars' => $this->seminarPayload(),
             'remarks' => $this->remarksPayload(),
-            'leaveOverview' => $this->leaveOverviewPayload(),
+            'leaveOverview' => $this->evaluatorLeaveOverviewPayload(),
         ]);
     }
 
     public function adminPerformanceDashboard(): Response
     {
         return Inertia::render('admin/performance-dashboard', [
-            'seminars' => $this->seminarPayload(),
             'remarks' => $this->remarksPayload(),
-            'leaveOverview' => $this->leaveOverviewPayload(),
+            'leaveOverview' => $this->hrLeaveOverviewPayload(),
         ]);
     }
 
-    private function leaveOverviewPayload(): array
+    /**
+     * Leave overview stats scoped to the evaluator (department head) stage.
+     *
+     * @return array<string, mixed>
+     */
+    private function evaluatorLeaveOverviewPayload(): array
     {
         $requests = LeaveRequest::query();
 
         return [
-            'approved' => (clone $requests)->where('status', 'completed')
-                ->where('has_rejection_reason', false)
-                ->where('dh_decision', '!=', 2)
-                ->where('hr_decision', '!=', 2)
-                ->count(),
-            'rejected' => (clone $requests)->where('status', 'completed')
-                ->where(fn ($q) => $q->where('has_rejection_reason', true)
-                    ->orWhere('dh_decision', 2)
-                    ->orWhere('hr_decision', 2))
-                ->count(),
-            'routed' => (clone $requests)->where('status', 'routed')->count(),
+            'routed' => (clone $requests)->where('stage', 'sent_to_department_head')->count(),
+            'approved' => (clone $requests)->where('dh_decision', 1)->count(),
+            'rejected' => (clone $requests)->where('dh_decision', 2)->count(),
             'total' => (clone $requests)->count(),
-            'recentRequests' => LeaveRequest::with('user')
-                ->latest()
-                ->take(5)
-                ->get()
-                ->map(fn (LeaveRequest $lr) => [
-                    'id' => $lr->id,
-                    'name' => $lr->user?->name ?? 'Unknown',
-                    'leaveType' => $lr->leave_type,
-                    'startDate' => $lr->start_date?->format('M d, Y') ?? '-',
-                    'endDate' => $lr->end_date?->format('M d, Y') ?? '-',
-                    'status' => $lr->status ?? 'pending',
-                ]),
+        ];
+    }
+
+    /**
+     * Leave overview stats scoped to the HR stage.
+     *
+     * @return array<string, mixed>
+     */
+    private function hrLeaveOverviewPayload(): array
+    {
+        $requests = LeaveRequest::query();
+
+        return [
+            'routed' => (clone $requests)->where('stage', 'sent_to_hr')->count(),
+            'approved' => (clone $requests)->where('status', 'completed')->where('hr_decision', 1)->count(),
+            'rejected' => (clone $requests)->where('hr_decision', 2)->count(),
+            'total' => (clone $requests)->count(),
         ];
     }
 
@@ -152,5 +155,24 @@ class SeminarsController extends Controller
         $seminar->delete();
 
         return to_route('admin.training-scheduling');
+    }
+
+    public function triggerTrainingNotification(Request $request): RedirectResponse
+    {
+        $employees = User::query()
+            ->where('role', User::ROLE_EMPLOYEE)
+            ->get();
+
+        foreach ($employees as $employee) {
+            Notification::query()->create([
+                'user_id' => $employee->id,
+                'type' => 'training_suggestion',
+                'title' => 'Training Recommendation',
+                'message' => 'HR opened training discovery for your latest Performance Evaluation. Review the recommended seminars tied to your Administrative Office service areas.',
+                'is_important' => true,
+            ]);
+        }
+
+        return back()->with('success', 'Training notification sent to '.$employees->count().' employees.');
     }
 }

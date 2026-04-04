@@ -2,7 +2,7 @@ import { Link } from '@inertiajs/react';
 import {
     ArrowRight,
     CheckCircle2,
-    Send,
+    Inbox,
     XCircle,
 } from 'lucide-react';
 import { DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
@@ -34,26 +34,48 @@ export default function LeaveOverview({
             ? admin.leaveManagement().url
             : admin.hrLeaveManagement().url;
 
-    const stats = [
-        {
-            label: 'Approved',
-            value: overview.approved,
-            icon: CheckCircle2,
-            color: 'text-emerald-600 dark:text-emerald-400',
-        },
-        {
-            label: 'Rejected',
-            value: overview.rejected,
-            icon: XCircle,
-            color: 'text-red-600 dark:text-red-400',
-        },
-        {
-            label: 'Routed',
-            value: overview.routed,
-            icon: Send,
-            color: 'text-blue-600 dark:text-blue-400',
-        },
-    ];
+    const stats =
+        userRole === 'evaluator'
+            ? [
+                  {
+                      label: 'In Your Queue',
+                      value: overview.routed,
+                      icon: Inbox,
+                      color: 'text-blue-600 dark:text-blue-400',
+                  },
+                  {
+                      label: 'DH Approved',
+                      value: overview.approved,
+                      icon: CheckCircle2,
+                      color: 'text-emerald-600 dark:text-emerald-400',
+                  },
+                  {
+                      label: 'DH Returned',
+                      value: overview.rejected,
+                      icon: XCircle,
+                      color: 'text-red-600 dark:text-red-400',
+                  },
+              ]
+            : [
+                  {
+                      label: 'Pending Review',
+                      value: overview.routed,
+                      icon: Inbox,
+                      color: 'text-blue-600 dark:text-blue-400',
+                  },
+                  {
+                      label: 'Fully Approved',
+                      value: overview.approved,
+                      icon: CheckCircle2,
+                      color: 'text-emerald-600 dark:text-emerald-400',
+                  },
+                  {
+                      label: 'Rejected by HR',
+                      value: overview.rejected,
+                      icon: XCircle,
+                      color: 'text-red-600 dark:text-red-400',
+                  },
+              ];
 
     const roleDescription = userRole === 'evaluator'
         ? 'As an evaluator, you can review and approve or return leave requests submitted by employees.'

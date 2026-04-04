@@ -9,7 +9,8 @@ type HistoricalDataRecord = {
     employeeName: string;
     departmentName: string;
     year: number;
-    quarter: string;
+    period?: string | null;
+    quarter?: string | null;
     attendancePunctualityRate: string;
     absenteeismDays: number;
     tardinessIncidents: number;
@@ -28,6 +29,7 @@ type HistoricalSortKey =
     | "employee_name"
     | "department_name"
     | "year"
+    | "period"
     | "quarter"
     | "attendance_punctuality_rate"
     | "absenteeism_days"

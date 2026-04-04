@@ -5,6 +5,9 @@ use App\Models\User;
 dataset('employee-allowed-routes', [
     'dashboard',
     'leave-application',
+    'submit-evaluation',
+    'ipcr.form',
+    'notifications',
 ]);
 
 dataset('employee-forbidden-routes', [
@@ -16,7 +19,12 @@ dataset('employee-forbidden-routes', [
     'admin.audit-logs',
     'admin.employee-directory',
     'admin.attendance-management',
+    'admin.evaluator-attendance',
     'admin.leave-management',
+    'admin.hr-leave-management',
+    'admin.hr-review',
+    'admin.hr-finalize',
+    'admin.pmt-review',
     'training-scheduling',
     'admin.training-scheduling',
 ]);
@@ -24,9 +32,10 @@ dataset('employee-forbidden-routes', [
 dataset('evaluator-allowed-routes', [
     'performanceDashboard',
     'admin.employee-directory',
-    'admin.attendance-management',
+    'admin.evaluator-attendance',
     'document-management',
     'admin.leave-management',
+    'notifications',
 ]);
 
 dataset('evaluator-forbidden-routes', [
@@ -36,6 +45,13 @@ dataset('evaluator-forbidden-routes', [
     'admin.audit-logs',
     'dashboard',
     'leave-application',
+    'submit-evaluation',
+    'ipcr.form',
+    'admin.attendance-management',
+    'admin.hr-leave-management',
+    'admin.hr-review',
+    'admin.hr-finalize',
+    'admin.pmt-review',
     'training-scheduling',
     'admin.training-scheduling',
 ]);
@@ -45,8 +61,11 @@ dataset('hr-allowed-routes', [
     'admin.employee-directory',
     'admin.attendance-management',
     'admin.hr-leave-management',
+    'admin.hr-review',
+    'admin.hr-finalize',
     'training-scheduling',
     'admin.training-scheduling',
+    'notifications',
 ]);
 
 dataset('hr-forbidden-routes', [
@@ -57,6 +76,36 @@ dataset('hr-forbidden-routes', [
     'dashboard',
     'document-management',
     'leave-application',
+    'submit-evaluation',
+    'ipcr.form',
+    'admin.evaluator-attendance',
+    'admin.leave-management',
+    'admin.pmt-review',
+]);
+
+dataset('pmt-allowed-routes', [
+    'admin.pmt-review',
+    'notifications',
+]);
+
+dataset('pmt-forbidden-routes', [
+    'dashboard',
+    'leave-application',
+    'submit-evaluation',
+    'ipcr.form',
+    'performanceDashboard',
+    'document-management',
+    'admin.performance-dashboard',
+    'admin.employee-directory',
+    'admin.attendance-management',
+    'admin.evaluator-attendance',
+    'admin.hr-leave-management',
+    'admin.leave-management',
+    'admin.hr-review',
+    'admin.hr-finalize',
+    'training-scheduling',
+    'admin.training-scheduling',
+    'admin.system-dashboard',
 ]);
 
 dataset('administrator-allowed-routes', [
@@ -68,13 +117,19 @@ dataset('administrator-allowed-routes', [
 dataset('administrator-forbidden-routes', [
     'dashboard',
     'leave-application',
+    'submit-evaluation',
+    'ipcr.form',
     'performanceDashboard',
     'document-management',
     'admin.performance-dashboard',
     'admin.employee-directory',
     'admin.attendance-management',
+    'admin.evaluator-attendance',
     'admin.hr-leave-management',
     'admin.leave-management',
+    'admin.hr-review',
+    'admin.hr-finalize',
+    'admin.pmt-review',
     'notifications',
     'training-scheduling',
     'admin.training-scheduling',
@@ -127,6 +182,22 @@ test('hr personnel cannot access employee and evaluator routes', function (strin
         ->get(route($routeName))
         ->assertForbidden();
 })->with('hr-forbidden-routes');
+
+test('pmt can access pmt routes', function (string $routeName) {
+    $user = User::factory()->asPmt()->create();
+
+    $this->actingAs($user)
+        ->get(route($routeName))
+        ->assertOk();
+})->with('pmt-allowed-routes');
+
+test('pmt cannot access non-pmt routes', function (string $routeName) {
+    $user = User::factory()->asPmt()->create();
+
+    $this->actingAs($user)
+        ->get(route($routeName))
+        ->assertForbidden();
+})->with('pmt-forbidden-routes');
 
 test('administrators can access administrator routes', function (string $routeName) {
     $user = User::factory()->asAdministrator()->create();

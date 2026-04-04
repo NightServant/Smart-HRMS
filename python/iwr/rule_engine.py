@@ -25,7 +25,10 @@
 
 from datetime import date
 
-from org_and_rules import EMPLOYEES, LEAVE_RULES, IPCR_PASSING_SCORE, IPCR_EVALUATOR_ID
+from org_and_rules import (
+    EMPLOYEES, LEAVE_RULES, IPCR_PASSING_SCORE, IPCR_EVALUATOR_ID,
+    HR_MAX_CYCLES, PMT_MAX_CYCLES,
+)
 
 
 class RuleEngine:
@@ -275,3 +278,88 @@ class RuleEngine:
         # All rules passed — document is compliant
         # ------------------------------------------------------------------
         return True, "Compliant", evaluator
+
+    # =========================================================================
+    # IPCR v5.1 — HR REVIEW Compliance Check
+    # Phase 3: HR checks computation and completeness
+    # =========================================================================
+
+    def check_hr_review(self, form: dict) -> tuple:
+        """
+        Validates an HR review action on an IPCR submission.
+
+        Returns:
+            (True,  "Compliant")     — review action is valid
+            (False, "<reason text>") — review action is invalid
+        """
+        hr_decision = form.get("hr_decision")
+
+        # RULE 1: Decision must be 'approved' or 'rejected'
+        if hr_decision not in ("approved", "rejected"):
+            return False, f"Invalid HR decision: '{hr_decision}'. Must be 'approved' or 'rejected'."
+
+        # RULE 2: Rejection requires remarks
+        if hr_decision == "rejected":
+            hr_remarks = form.get("hr_remarks", "")
+            if not hr_remarks or not hr_remarks.strip():
+                return False, "HR must provide remarks when rejecting an IPCR."
+
+        return True, "Compliant"
+
+    # =========================================================================
+    # IPCR v5.1 — APPEAL SUBMISSION Compliance Check
+    # Phase 3B: Employee submits appeal with evidence
+    # =========================================================================
+
+    def check_appeal_submission(self, form: dict) -> tuple:
+        """
+        Validates an employee's appeal submission.
+
+        Returns:
+            (True,  "Compliant")     — appeal is valid
+            (False, "<reason text>") — appeal is invalid
+        """
+        appeal_status = form.get("appeal_status")
+
+        # RULE 1: Appeal window must be open
+        if appeal_status != "appeal_window_open":
+            return False, "Appeal window is not open. Cannot submit an appeal."
+
+        # RULE 2: Appeal reason is required (R-A2)
+        appeal_reason = form.get("appeal_reason", "")
+        if not appeal_reason or not appeal_reason.strip():
+            return False, "Appeal reason is required."
+
+        # RULE 3: Evidence must be attached (R-A2)
+        evidence_files = form.get("evidence_files", [])
+        if not evidence_files or len(evidence_files) == 0:
+            return False, "Appeal must include at least one evidence attachment (Actual Accomplishments)."
+
+        return True, "Compliant"
+
+    # =========================================================================
+    # IPCR v5.1 — PMT REVIEW Compliance Check
+    # Phase 4: PMT validates policy compliance
+    # =========================================================================
+
+    def check_pmt_review(self, form: dict) -> tuple:
+        """
+        Validates a PMT review action on an IPCR submission.
+
+        Returns:
+            (True,  "Compliant")     — review action is valid
+            (False, "<reason text>") — review action is invalid
+        """
+        pmt_decision = form.get("pmt_decision")
+
+        # RULE 1: Decision must be 'approved' or 'rejected'
+        if pmt_decision not in ("approved", "rejected"):
+            return False, f"Invalid PMT decision: '{pmt_decision}'. Must be 'approved' or 'rejected'."
+
+        # RULE 2: Rejection requires remarks
+        if pmt_decision == "rejected":
+            pmt_remarks = form.get("pmt_remarks", "")
+            if not pmt_remarks or not pmt_remarks.strip():
+                return False, "PMT must provide remarks when rejecting an IPCR."
+
+        return True, "Compliant"

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\HistoricalDataRecord;
 use App\Models\IpcrSubmission;
+use App\Models\Notification;
 use App\Models\Seminars;
 use App\Services\AtreService;
 use App\Services\PpeService;
@@ -23,27 +24,25 @@ class DashboardController extends Controller
         if ($employee) {
             $submission = IpcrSubmission::query()
                 ->where('employee_id', $employee->employee_id)
-                ->whereNotNull('criteria_ratings')
                 ->latest()
                 ->first();
 
-            if ($submission?->criteria_ratings) {
+            $recommendationsEnabled = Notification::query()
+                ->where('user_id', auth()->id())
+                ->where('type', 'training_suggestion')
+                ->exists();
+
+            if ($submission?->form_payload && $recommendationsEnabled) {
                 $seminars = Seminars::query()
-                    ->orderBy('date')
                     ->get()
                     ->map(fn (Seminars $s): array => [
                         'id' => $s->id,
-                        'title' => $s->title,
                         'description' => $s->description,
-                        'location' => $s->location,
-                        'time' => $s->time,
-                        'speaker' => $s->speaker,
                         'target_performance_area' => $s->target_performance_area,
-                        'date' => $s->date?->format('Y-m-d'),
                     ])
                     ->all();
 
-                $result = $atre->recommend($seminars, $submission->criteria_ratings);
+                $result = $atre->recommend($seminars, $submission->form_payload);
 
                 $recommendations = $result['recommendations'] ?? [];
                 $riskLevel = $result['risk_level'] ?? 'LOW';
@@ -64,20 +63,34 @@ class DashboardController extends Controller
             $records = HistoricalDataRecord::query()
                 ->where('employee_name', $employee->name)
                 ->orderBy('year')
-                ->orderByRaw("CASE quarter WHEN 'Q1' THEN 1 WHEN 'Q2' THEN 2 WHEN 'Q3' THEN 3 WHEN 'Q4' THEN 4 ELSE 5 END")
                 ->get()
-                ->map(fn (HistoricalDataRecord $r): array => [
-                    'year' => $r->year,
-                    'quarter' => $r->quarter,
-                    'attendance_punctuality_rate' => (float) $r->attendance_punctuality_rate,
-                    'absenteeism_days' => $r->absenteeism_days,
-                    'tardiness_incidents' => $r->tardiness_incidents,
-                    'training_completion_status' => $r->training_completion_status,
-                    'evaluated_performance_score' => (float) $r->evaluated_performance_score,
+                ->map(function (HistoricalDataRecord $record): ?array {
+                    $period = $record->resolvedPeriod();
+                    $score = $record->normalizedEvaluatedPerformanceScore();
+
+                    if ($period === null || $score === null) {
+                        return null;
+                    }
+
+                    return [
+                        'year' => $record->year,
+                        'period' => $period,
+                        'attendance_punctuality_rate' => (float) $record->attendance_punctuality_rate,
+                        'absenteeism_days' => $record->absenteeism_days,
+                        'tardiness_incidents' => $record->tardiness_incidents,
+                        'training_completion_status' => $record->training_completion_status,
+                        'evaluated_performance_score' => $score,
+                    ];
+                })
+                ->filter()
+                ->sortBy([
+                    ['year', 'asc'],
+                    ['period', 'asc'],
                 ])
+                ->values()
                 ->all();
 
-            if (count($records) >= 8) {
+            if (count($records) >= 4) {
                 $prediction = $ppe->predict($employee->name, $records);
             }
         }

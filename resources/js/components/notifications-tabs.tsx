@@ -9,6 +9,7 @@ type Notification = {
     message: string;
     documentType: string | null;
     documentId: number | null;
+    targetUrl: string | null;
     isRead: boolean;
     isImportant: boolean;
     time: string;
@@ -37,15 +38,19 @@ export default function NotificationsTabs({ notifications, unreadCount }: Props)
 
     return (
         <Tabs defaultValue="all" className="w-full">
-            <TabsList>
-                <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="unread">
+            <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 sm:grid-cols-3">
+                <TabsTrigger value="all" className="min-h-10 rounded-xl border border-border/70 bg-background/70">
+                    All
+                </TabsTrigger>
+                <TabsTrigger value="important" className="min-h-10 rounded-xl border border-border/70 bg-background/70">
+                    Important
+                </TabsTrigger>
+                <TabsTrigger value="unread" className="min-h-10 rounded-xl border border-border/70 bg-background/70">
                     Unread {unreadCount > 0 && <Badge className="ml-2">{unreadCount}</Badge>}
                 </TabsTrigger>
-                <TabsTrigger value="important">Important</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="all" className="mt-4 space-y-4">
+            <TabsContent value="all" className="mt-4 space-y-3 sm:space-y-4">
                 {notifications.length === 0 ? (
                     <EmptyState message="No notifications yet." />
                 ) : (
@@ -56,6 +61,7 @@ export default function NotificationsTabs({ notifications, unreadCount }: Props)
                             title={n.title}
                             message={n.message}
                             time={n.time}
+                            targetUrl={n.targetUrl}
                             type={mapType(n.type)}
                             isRead={n.isRead}
                         />
@@ -63,7 +69,7 @@ export default function NotificationsTabs({ notifications, unreadCount }: Props)
                 )}
             </TabsContent>
 
-            <TabsContent value="unread" className="mt-4 space-y-4">
+            <TabsContent value="unread" className="mt-4 space-y-3 sm:space-y-4">
                 {unread.length === 0 ? (
                     <EmptyState message="All caught up!" />
                 ) : (
@@ -74,6 +80,7 @@ export default function NotificationsTabs({ notifications, unreadCount }: Props)
                             title={n.title}
                             message={n.message}
                             time={n.time}
+                            targetUrl={n.targetUrl}
                             type={mapType(n.type)}
                             isRead={n.isRead}
                         />
@@ -81,7 +88,7 @@ export default function NotificationsTabs({ notifications, unreadCount }: Props)
                 )}
             </TabsContent>
 
-            <TabsContent value="important" className="mt-4 space-y-4">
+            <TabsContent value="important" className="mt-4 space-y-3 sm:space-y-4">
                 {important.length === 0 ? (
                     <EmptyState message="No important notifications." />
                 ) : (
@@ -92,6 +99,7 @@ export default function NotificationsTabs({ notifications, unreadCount }: Props)
                             title={n.title}
                             message={n.message}
                             time={n.time}
+                            targetUrl={n.targetUrl}
                             type={mapType(n.type)}
                             isRead={n.isRead}
                         />

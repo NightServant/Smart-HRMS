@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 import EmployeeQuarterTrends from '@/components/employee-quarter-trends';
+import PageIntro from '@/components/page-intro';
 import PredictivePerformance from '@/components/predictive-performance-module';
 import TrainingRecommendations from '@/components/training-recos';
 import AppLayout from '@/layouts/app-layout';
@@ -8,13 +9,8 @@ import type { BreadcrumbItem } from '@/types';
 
 type Recommendation = {
     seminar_id: number;
-    title: string;
     description: string;
-    location: string;
-    time: string;
-    speaker: string;
     target_performance_area: string;
-    date: string;
     score: number;
     priority: 'HIGH' | 'MEDIUM';
     matched_area: string;
@@ -43,15 +39,20 @@ export default function Dashboard({ recommendations = [], riskLevel }: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Personalized Dashboard" />
-            <div className="w-full p-6">
-                <div className="grid items-stretch gap-6 xl:grid-cols-2">
+            <div className="app-page-shell app-page-stack">
+                <PageIntro
+                    eyebrow="Employee Dashboard"
+                    title="Personalized Performance Snapshot"
+                    description="Track your trendline, review training recommendations, and monitor the predictive signals that support your next evaluation cycle."
+                />
+                <div className="grid items-stretch gap-6 lg:grid-cols-2">
                     <EmployeeQuarterTrends />
                     <TrainingRecommendations
                         recommendations={recommendations}
                         riskLevel={riskLevel}
                     />
                 </div>
-                <div className="mt-6">
+                <div>
                     <PredictivePerformance />
                 </div>
             </div>

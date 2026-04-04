@@ -1,82 +1,27 @@
 """
 Automated Training Recommendation Engine (ATRE)
-Content-Based Filtering using TF-IDF + Cosine Similarity + Recency Scoring.
 
-Input:  JSON with 'seminars' (list) and 'criteria_ratings' (dict)
-Output: JSON with 'recommendations', 'risk_level', 'risk_actions', 'weak_areas'
+Recommends training suggestions from the structured IPCR form payload.
+The engine now looks at Administrative Office sections/rows and matches
+them against seminar focus areas instead of the retired criteria_ratings map.
 """
 
-import numpy as np
-import pandas as pd
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import linear_kernel
-from sklearn.preprocessing import MinMaxScaler
+from __future__ import annotations
+
+from typing import Any
 
 
-def assess_risk(performance_areas: dict) -> tuple[str, list[str]]:
-    """Determine employee risk level based on rating distribution."""
-    failed_count = sum(1 for r in performance_areas.values() if int(r) == 1)
-    needs_improvement_count = sum(1 for r in performance_areas.values() if int(r) == 2)
-
-    if failed_count >= 3:
-        return "CRITICAL", [
-            "IMMEDIATE HR INTERVENTION REQUIRED",
-            "Schedule performance improvement plan meeting",
-            "Probation consideration recommended",
-        ]
-    elif failed_count >= 1:
-        return "HIGH", [
-            "Close monitoring required",
-            "Mandatory training within 30 days",
-            "Weekly progress tracking",
-        ]
-    elif needs_improvement_count >= 4:
-        return "MEDIUM", [
-            "Development plan recommended",
-            "Target improvement areas",
-        ]
-    return "LOW", []
+SEMESTRAL_PASSING_SCORE = 3.0
+ATTENTION_SCORE = 3.5
 
 
-def recommend(payload: dict) -> dict:
-    """Generate training recommendations based on criteria ratings and available seminars."""
-    seminars = payload.get("seminars", [])
-    criteria_ratings = payload.get("criteria_ratings", {})
+def recommend(payload: dict[str, Any]) -> dict[str, Any]:
+    seminars = payload.get("seminars", []) or []
+    form_payload = payload.get("form_payload", {}) or {}
 
-    # --- Edge cases ---
-    if not criteria_ratings:
-        return {
-            "recommendations": [],
-            "risk_level": "NONE",
-            "risk_actions": [],
-            "weak_areas": [],
-        }
+    weak_areas = identify_weak_areas(form_payload)
 
-    if not seminars:
-        risk_level, risk_actions = assess_risk(criteria_ratings)
-        weak = _identify_weak_areas(criteria_ratings)
-        return {
-            "recommendations": [],
-            "risk_level": risk_level,
-            "risk_actions": risk_actions,
-            "weak_areas": weak,
-        }
-
-    # --- Identify weak performance areas ---
-    failed_areas = {
-        area: int(rating)
-        for area, rating in criteria_ratings.items()
-        if int(rating) == 1
-    }
-    needs_improvement_areas = {
-        area: int(rating)
-        for area, rating in criteria_ratings.items()
-        if int(rating) == 2
-    }
-
-    all_low_areas = {**failed_areas, **needs_improvement_areas}
-
-    if not all_low_areas:
+    if not weak_areas:
         return {
             "recommendations": [],
             "risk_level": "LOW",
@@ -84,85 +29,8 @@ def recommend(payload: dict) -> dict:
             "weak_areas": [],
         }
 
-    # --- Build DataFrame from seminars ---
-    df = pd.DataFrame(seminars)
-
-    # Combined features for TF-IDF: title + description
-    df["features"] = (
-        df["title"].fillna("") + " " + df["description"].fillna("")
-    )
-
-    # --- TF-IDF Vectorization ---
-    tfidf = TfidfVectorizer(
-        stop_words="english", ngram_range=(1, 2), max_features=5000
-    )
-    tfidf_matrix = tfidf.fit_transform(df["features"])
-    cosine_sim = linear_kernel(tfidf_matrix, tfidf_matrix)
-
-    # --- Recency scoring ---
-    try:
-        df["date_parsed"] = pd.to_datetime(df["date"], errors="coerce")
-        df["date_numeric"] = df["date_parsed"].astype(np.int64)
-        scaler = MinMaxScaler()
-        df["recency_norm"] = scaler.fit_transform(df[["date_numeric"]])
-    except Exception:
-        df["recency_norm"] = 0.5  # fallback if dates fail
-
-    # --- Build area-to-seminar index (case-insensitive) ---
-    area_index: dict[str, list[int]] = {}
-    for idx, row in df.iterrows():
-        area = str(row.get("target_performance_area", "")).strip().lower()
-        if area:
-            area_index.setdefault(area, []).append(idx)
-
-    # --- Generate recommendations per weak area ---
-    all_recs: list[dict] = []
-
-    for area_name, rating in all_low_areas.items():
-        priority_weight = 1.5 if rating == 1 else 1.0
-        priority_label = "HIGH" if rating == 1 else "MEDIUM"
-        area_key = area_name.strip().lower()
-
-        matching_indices = area_index.get(area_key, [])
-        if not matching_indices:
-            continue
-
-        for src_idx in matching_indices:
-            sim_scores = cosine_sim[src_idx]
-            for tgt_idx in matching_indices:
-                sim = float(sim_scores[tgt_idx])
-                recency = float(df.at[tgt_idx, "recency_norm"])
-                final_score = (0.7 * sim * priority_weight) + (0.3 * recency)
-
-                row = df.iloc[tgt_idx]
-                all_recs.append({
-                    "seminar_id": int(row.get("id", 0)),
-                    "title": str(row.get("title", "")),
-                    "description": str(row.get("description", "")),
-                    "location": str(row.get("location", "")),
-                    "time": str(row.get("time", "")),
-                    "speaker": str(row.get("speaker", "")),
-                    "target_performance_area": str(
-                        row.get("target_performance_area", "")
-                    ),
-                    "date": str(row.get("date", "")),
-                    "score": round(final_score, 4),
-                    "priority": priority_label,
-                    "matched_area": area_name,
-                })
-
-    # --- Deduplicate by seminar_id, keep highest score ---
-    seen: dict[int, dict] = {}
-    for rec in sorted(all_recs, key=lambda x: x["score"], reverse=True):
-        sid = rec["seminar_id"]
-        if sid not in seen:
-            seen[sid] = rec
-
-    recommendations = sorted(seen.values(), key=lambda x: x["score"], reverse=True)
-
-    # --- Risk assessment ---
-    risk_level, risk_actions = assess_risk(criteria_ratings)
-    weak_areas = _identify_weak_areas(criteria_ratings)
+    recommendations = build_recommendations(seminars, weak_areas)
+    risk_level, risk_actions = assess_risk(weak_areas)
 
     return {
         "recommendations": recommendations,
@@ -172,15 +40,127 @@ def recommend(payload: dict) -> dict:
     }
 
 
-def _identify_weak_areas(criteria_ratings: dict) -> list[dict]:
-    """Build weak areas list with severity labels."""
-    weak = []
-    for area, rating in criteria_ratings.items():
-        r = int(rating)
-        if r <= 2:
-            weak.append({
-                "area": area,
-                "rating": r,
-                "severity": "CRITICAL" if r == 1 else "IMPROVEMENT",
+def identify_weak_areas(form_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    weak_areas: list[dict[str, Any]] = []
+
+    for section in form_payload.get("sections", []) or []:
+        section_title = str(section.get("title", "")).strip()
+
+        for row in section.get("rows", []) or []:
+            average = normalize_score(row.get("average"))
+
+            if average is None or average >= ATTENTION_SCORE:
+                continue
+
+            severity = "CRITICAL" if average < SEMESTRAL_PASSING_SCORE else "IMPROVEMENT"
+            weak_areas.append({
+                "area": section_title or str(row.get("target", "Administrative Services")),
+                "criterion": str(row.get("target", "")).strip(),
+                "rating": round(average, 2),
+                "severity": severity,
             })
-    return weak
+
+    weak_areas.sort(key=lambda area: area["rating"])
+
+    return weak_areas
+
+
+def build_recommendations(seminars: list[dict[str, Any]], weak_areas: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    recommendations: list[dict[str, Any]] = []
+    seen_ids: set[int] = set()
+
+    for weak_area in weak_areas:
+        area_text = normalize_text(weak_area["area"])
+        criterion_text = normalize_text(weak_area["criterion"])
+
+        for seminar in seminars:
+            seminar_id = int(seminar.get("id", 0))
+            target_area = normalize_text(seminar.get("target_performance_area", ""))
+            description = normalize_text(seminar.get("description", ""))
+
+            score = match_score(area_text, criterion_text, target_area, description)
+            if score <= 0:
+                continue
+
+            severity_weight = 1.4 if weak_area["severity"] == "CRITICAL" else 1.0
+            final_score = round(score * severity_weight, 4)
+
+            recommendations.append({
+                "seminar_id": seminar_id,
+                "description": str(seminar.get("description", "")),
+                "target_performance_area": str(seminar.get("target_performance_area", "")),
+                "score": final_score,
+                "priority": "HIGH" if weak_area["severity"] == "CRITICAL" else "MEDIUM",
+                "matched_area": weak_area["area"],
+            })
+
+    recommendations.sort(key=lambda item: item["score"], reverse=True)
+
+    deduped: list[dict[str, Any]] = []
+    for recommendation in recommendations:
+        seminar_id = int(recommendation["seminar_id"])
+
+        if seminar_id in seen_ids:
+            continue
+
+        seen_ids.add(seminar_id)
+        deduped.append(recommendation)
+
+    return deduped[:8]
+
+
+def assess_risk(weak_areas: list[dict[str, Any]]) -> tuple[str, list[str]]:
+    critical_count = sum(1 for area in weak_areas if area["severity"] == "CRITICAL")
+
+    if critical_count >= 3:
+        return "CRITICAL", [
+            "Immediate HR coaching is recommended.",
+            "Prioritize capability-building for the lowest-rated Administrative Services areas.",
+            "Track progress before the next semester closes.",
+        ]
+
+    if critical_count >= 1:
+        return "HIGH", [
+            "Assign targeted seminars and require progress tracking.",
+            "Coordinate with the evaluator for a short improvement plan.",
+        ]
+
+    return "MEDIUM", [
+        "Recommend focused seminars for the lowest-rated service areas.",
+        "Monitor improvement during the next evaluation cycle.",
+    ]
+
+
+def match_score(area_text: str, criterion_text: str, target_area: str, description: str) -> float:
+    searchable_text = f"{target_area} {description}"
+    score = 0.0
+
+    if area_text and area_text in searchable_text:
+        score += 1.0
+
+    if criterion_text and criterion_text in searchable_text:
+        score += 1.0
+
+    for token in tokenize(area_text) | tokenize(criterion_text):
+        if token and token in searchable_text:
+            score += 0.15
+
+    return score
+
+
+def normalize_score(value: Any) -> float | None:
+    if value in (None, ""):
+        return None
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def normalize_text(value: Any) -> str:
+    return " ".join(str(value or "").lower().split())
+
+
+def tokenize(value: str) -> set[str]:
+    return {token for token in value.split(" ") if len(token) > 3}

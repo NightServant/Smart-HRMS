@@ -35,7 +35,8 @@ type HistoricalData = {
     employeeName: string;
     departmentName: string;
     year: number;
-    quarter: string;
+    period?: string | null;
+    quarter?: string | null;
     attendancePunctualityRate: string;
     absenteeismDays: number;
     tardinessIncidents: number;
@@ -54,6 +55,7 @@ type HistoricalSortKey =
     | "employee_name"
     | "department_name"
     | "year"
+    | "period"
     | "quarter"
     | "attendance_punctuality_rate"
     | "absenteeism_days"
@@ -71,6 +73,23 @@ type GroupedHistoricalRow = {
     showDepartment: boolean;
     showYear: boolean;
 };
+
+function formatSemesterLabel(record: HistoricalData): string {
+    const value = record.period ?? record.quarter;
+
+    switch (value) {
+        case "S1":
+        case "Q1":
+        case "Q2":
+            return "S1";
+        case "S2":
+        case "Q3":
+        case "Q4":
+            return "S2";
+        default:
+            return value ?? "—";
+    }
+}
 
 export function HistoricalDataTable({
     historicalData,
@@ -354,9 +373,9 @@ export function HistoricalDataTable({
                                 </Button>
                             </TableHead>
                             <TableHead className="border border-[#4A7C3C] px-4 py-3">
-                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("quarter")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
-                                    Quarter
-                                    {renderSortIcon("quarter")}
+                                <Button type="button" variant="ghost" size="sm" onClick={() => handleSortChange("period")} className="h-auto px-0 text-white hover:bg-transparent hover:text-white">
+                                    Semester
+                                    {renderSortIcon("period")}
                                 </Button>
                             </TableHead>
                             <TableHead className="border border-[#4A7C3C] px-4 py-3">
@@ -413,7 +432,7 @@ export function HistoricalDataTable({
                                         {record.year}
                                     </TableCell>
                                 )}
-                                <TableCell className="border border-[#4A7C3C] px-4 py-2">{record.quarter}</TableCell>
+                                <TableCell className="border border-[#4A7C3C] px-4 py-2">{formatSemesterLabel(record)}</TableCell>
                                 <TableCell className="border border-[#4A7C3C] px-4 py-2 text-center">{record.attendancePunctualityRate}</TableCell>
                                 <TableCell className="border border-[#4A7C3C] px-4 py-2 text-center">{record.absenteeismDays}</TableCell>
                                 <TableCell className="border border-[#4A7C3C] px-4 py-2 text-center">{record.tardinessIncidents}</TableCell>

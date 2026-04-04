@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class IpcrSubmission extends Model
 {
@@ -11,6 +12,7 @@ class IpcrSubmission extends Model
         'employee_id',
         'performance_rating',
         'criteria_ratings',
+        'form_payload',
         'is_first_submission',
         'evaluator_gave_remarks',
         'status',
@@ -20,6 +22,32 @@ class IpcrSubmission extends Model
         'confidence_pct',
         'notification',
         'rejection_reason',
+
+        // Phase 3 — HR Checking
+        'hr_reviewer_id',
+        'hr_decision',
+        'hr_remarks',
+        'hr_cycle_count',
+
+        // Phase 3B — Appeal
+        'appeal_status',
+        'appeal_window_opens_at',
+        'appeal_window_closes_at',
+
+        // Phase 4 — PMT Validation
+        'pmt_reviewer_id',
+        'pmt_decision',
+        'pmt_remarks',
+        'pmt_cycle_count',
+
+        // Phase 5 — Finalization
+        'finalized_at',
+        'final_rating',
+        'adjectival_rating',
+
+        // Escalation
+        'is_escalated',
+        'escalation_reason',
     ];
 
     protected function casts(): array
@@ -29,7 +57,15 @@ class IpcrSubmission extends Model
             'evaluator_gave_remarks' => 'boolean',
             'performance_rating' => 'decimal:2',
             'criteria_ratings' => 'array',
+            'form_payload' => 'array',
             'confidence_pct' => 'decimal:2',
+            'hr_cycle_count' => 'integer',
+            'pmt_cycle_count' => 'integer',
+            'appeal_window_opens_at' => 'datetime',
+            'appeal_window_closes_at' => 'datetime',
+            'finalized_at' => 'datetime',
+            'final_rating' => 'decimal:2',
+            'is_escalated' => 'boolean',
         ];
     }
 
@@ -41,5 +77,30 @@ class IpcrSubmission extends Model
     public function evaluator(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'evaluator_id', 'employee_id');
+    }
+
+    public function hrReviewer(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'hr_reviewer_id', 'employee_id');
+    }
+
+    public function pmtReviewer(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'pmt_reviewer_id', 'employee_id');
+    }
+
+    public function appeal(): HasOne
+    {
+        return $this->hasOne(IpcrAppeal::class);
+    }
+
+    /**
+     * Check if the appeal window is currently open and not expired.
+     */
+    public function isAppealWindowOpen(): bool
+    {
+        return $this->appeal_status === 'appeal_window_open'
+            && $this->appeal_window_closes_at !== null
+            && now()->lt($this->appeal_window_closes_at);
     }
 }

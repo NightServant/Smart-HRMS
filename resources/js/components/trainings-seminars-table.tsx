@@ -1,5 +1,5 @@
-import { useForm } from '@inertiajs/react';
-import { CalendarDays, ChevronDown } from 'lucide-react';
+import { router, useForm } from '@inertiajs/react';
+import { CalendarDays, ChevronDown, Megaphone } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -41,59 +41,44 @@ import {
 
 type Seminar = {
     id: number;
-    title: string;
     description: string;
-    location: string;
-    time: string;
-    speaker: string;
     target_performance_area: string;
-    date: string;
 };
 
 type SeminarFormData = {
-    title: string;
     description: string;
-    location: string;
-    time: string;
-    speaker: string;
     target_performance_area: string;
-    date: string;
 };
 
 const initialFormData: SeminarFormData = {
-    title: '',
     description: '',
-    location: '',
-    time: '',
-    speaker: '',
     target_performance_area: '',
-    date: '',
 };
 
 const targetPerformanceAreas = [
-    'Understanding job responsibilities',
-    'Technical or Professional Skills',
-    'Quality of work',
-    'Productivity',
-    'Accuracy and attention to detail',
-    'Meeting deadlines',
-    'Problem-Solving Ability',
-    'Initiative',
-    'Adaptability',
-    'Decision-making skills',
-    'Verbal communication',
-    'Written communication',
-    'Teamwork',
-    'Professional behavior',
-    'Punctuality',
-    'Attendance record',
-    'Dependability',
+    'Personnel Management',
+    'Records and Communication',
+    'Logistics and Procurement',
+    'Service Delivery',
+    'Workforce Support',
+    'Policy Compliance',
+    'Capability Building',
+    'Document Routing',
+    'Reporting and Communication',
+    'Stakeholder Coordination',
+    'Inventory and Supply Monitoring',
+    'Procurement Support',
+    'Facility Readiness',
+    'Frontline Assistance',
+    'Process Improvement',
+    'Special Assignments',
 ];
 
 export const TrainingsSeminarsTable = ({ seminars }: { seminars: Seminar[] }) => {
     const [editingSeminarId, setEditingSeminarId] = useState<number | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [isNotifying, setIsNotifying] = useState(false);
 
     const form = useForm<SeminarFormData>(initialFormData);
 
@@ -123,13 +108,8 @@ export const TrainingsSeminarsTable = ({ seminars }: { seminars: Seminar[] }) =>
     const editSeminar = (seminar: Seminar): void => {
         setEditingSeminarId(seminar.id);
         form.setData({
-            title: seminar.title,
             description: seminar.description,
-            location: seminar.location,
-            time: seminar.time,
-            speaker: seminar.speaker,
             target_performance_area: seminar.target_performance_area,
-            date: seminar.date,
         });
     };
 
@@ -142,6 +122,14 @@ export const TrainingsSeminarsTable = ({ seminars }: { seminars: Seminar[] }) =>
     const cancelEdit = (): void => {
         setEditingSeminarId(null);
         form.reset();
+    };
+
+    const notifyEmployees = (): void => {
+        setIsNotifying(true);
+        router.post('/admin/training-suggestions/notify', {}, {
+            preserveScroll: true,
+            onFinish: () => setIsNotifying(false),
+        });
     };
 
     const goToPreviousPage = (): void => {
@@ -164,58 +152,31 @@ export const TrainingsSeminarsTable = ({ seminars }: { seminars: Seminar[] }) =>
                     <div>
                         <h1 className="flex items-center gap-2 text-3xl font-bold">
                             <CalendarDays className="h-8 w-8" />
-                            Scheduling Seminars & Trainings
+                            Training Suggestions
                         </h1>
-                        <p className="mt-1 text-muted-foreground">Schedule seminars and trainings with the form below.</p>
+                        <p className="mt-1 text-muted-foreground">
+                            Define training criteria and notify employees to find relevant seminars.
+                        </p>
                     </div>
+                    <Button
+                        onClick={notifyEmployees}
+                        disabled={isNotifying || seminars.length === 0}
+                        className="gap-2"
+                    >
+                        <Megaphone className="size-4" />
+                        {isNotifying ? 'Sending...' : 'Notify Employees'}
+                    </Button>
                 </div>
                 <div className="glass-card animate-zoom-in-soft mx-auto w-full rounded-xl border border-border bg-card p-4 shadow-sm">
-                    <h2 className="mb-4 text-lg font-semibold">Training & Seminar List</h2>
+                    <h2 className="mb-4 text-lg font-semibold">Training Suggestions List</h2>
 
-                    <form onSubmit={submitForm} className="animate-fade-in-left mb-6 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                        <div className="space-y-1">
-                            <Label htmlFor="seminar-title">Title</Label>
-                            <Input
-                                id="seminar-title"
-                                value={form.data.title}
-                                onChange={(event) => form.setData('title', event.target.value)}
-                                required
-                            />
-                        </div>
+                    <form onSubmit={submitForm} className="animate-fade-in-left mb-6 grid grid-cols-1 gap-3 md:grid-cols-2">
                         <div className="space-y-1">
                             <Label htmlFor="seminar-description">Description</Label>
                             <Input
                                 id="seminar-description"
                                 value={form.data.description}
                                 onChange={(event) => form.setData('description', event.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <Label htmlFor="seminar-location">Location</Label>
-                            <Input
-                                id="seminar-location"
-                                value={form.data.location}
-                                onChange={(event) => form.setData('location', event.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <Label htmlFor="seminar-time">Time</Label>
-                            <Input
-                                id="seminar-time"
-                                type="time"
-                                value={form.data.time}
-                                onChange={(event) => form.setData('time', event.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <Label htmlFor="seminar-speaker">Speaker</Label>
-                            <Input
-                                id="seminar-speaker"
-                                value={form.data.speaker}
-                                onChange={(event) => form.setData('speaker', event.target.value)}
                                 required
                             />
                         </div>
@@ -229,7 +190,7 @@ export const TrainingsSeminarsTable = ({ seminars }: { seminars: Seminar[] }) =>
                                         variant="outline"
                                         className="w-full justify-between text-left font-normal"
                                     >
-                                        {form.data.target_performance_area || 'Select target performance area'}
+                                        {form.data.target_performance_area || 'Select administrative service focus area'}
                                         <ChevronDown className="size-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
@@ -245,19 +206,9 @@ export const TrainingsSeminarsTable = ({ seminars }: { seminars: Seminar[] }) =>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
-                        <div className="space-y-1">
-                            <Label htmlFor="seminar-date">Date</Label>
-                            <Input
-                                id="seminar-date"
-                                type="date"
-                                value={form.data.date}
-                                onChange={(event) => form.setData('date', event.target.value)}
-                                required
-                            />
-                        </div>
-                        <div className="flex items-end gap-2 md:col-span-2 xl:col-span-3">
+                        <div className="flex items-end gap-2 md:col-span-2">
                             <Button type="submit" disabled={form.processing}>
-                                {editingSeminarId === null ? 'Add Seminar' : 'Update Seminar'}
+                                {editingSeminarId === null ? 'Add Suggestion' : 'Update Suggestion'}
                             </Button>
                             {editingSeminarId !== null && (
                                 <Button type="button" variant="outline" onClick={cancelEdit}>
@@ -271,21 +222,16 @@ export const TrainingsSeminarsTable = ({ seminars }: { seminars: Seminar[] }) =>
                         <Table>
                             <TableHeader>
                                 <TableRow className="bg-[#2F5E2B] text-center text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Title</TableHead>
+                                    <TableHead>Administrative Service Focus Area</TableHead>
                                     <TableHead>Description</TableHead>
-                                    <TableHead>Location</TableHead>
-                                    <TableHead>Time</TableHead>
-                                    <TableHead>Speaker</TableHead>
-                                    <TableHead>Target Area</TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {seminars.length === 0 && (
                                     <TableRow>
-                                        <TableCell colSpan={8} className="text-center text-muted-foreground">
-                                            No seminars found.
+                                        <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                            No training suggestions found.
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -298,13 +244,8 @@ export const TrainingsSeminarsTable = ({ seminars }: { seminars: Seminar[] }) =>
                                             index % 2 === 0 ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80' : 'bg-[#BFDDB5] dark:bg-[#274827]/80'
                                         } animate-fade-in-up`}
                                     >
-                                        <TableCell>{seminar.date}</TableCell>
-                                        <TableCell>{seminar.title}</TableCell>
-                                        <TableCell>{seminar.description}</TableCell>
-                                        <TableCell>{seminar.location}</TableCell>
-                                        <TableCell>{seminar.time}</TableCell>
-                                        <TableCell>{seminar.speaker}</TableCell>
                                         <TableCell>{seminar.target_performance_area}</TableCell>
+                                        <TableCell>{seminar.description}</TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex justify-end gap-2">
                                                 <Button type="button" variant="outline" size="sm" onClick={() => editSeminar(seminar)}>
@@ -318,18 +259,18 @@ export const TrainingsSeminarsTable = ({ seminars }: { seminars: Seminar[] }) =>
                                                             size="sm"
                                                             disabled={form.processing}
                                                         >
-                                                            Cancel
+                                                            Remove
                                                         </Button>
                                                     </DialogTrigger>
                                                     <DialogContent>
-                                                        <DialogTitle>Confirm Event Cancellation</DialogTitle>
+                                                        <DialogTitle>Confirm Removal</DialogTitle>
                                                         <DialogDescription>
-                                                            Are you sure you want to cancel the event?
+                                                            Are you sure you want to remove this training suggestion?
                                                         </DialogDescription>
                                                         <DialogFooter className="gap-2">
                                                             <DialogClose asChild>
                                                                 <Button variant="secondary" type="button">
-                                                                    Keep Event
+                                                                    Keep
                                                                 </Button>
                                                             </DialogClose>
                                                             <DialogClose asChild>
@@ -339,7 +280,7 @@ export const TrainingsSeminarsTable = ({ seminars }: { seminars: Seminar[] }) =>
                                                                     onClick={() => deleteSeminar(seminar.id)}
                                                                     disabled={form.processing}
                                                                 >
-                                                                    Yes, Cancel Event
+                                                                    Yes, Remove
                                                                 </Button>
                                                             </DialogClose>
                                                         </DialogFooter>
@@ -352,7 +293,7 @@ export const TrainingsSeminarsTable = ({ seminars }: { seminars: Seminar[] }) =>
                             </TableBody>
                             <TableFooter>
                                 <TableRow className="bg-[#E8F4E4] text-sm font-semibold text-foreground dark:bg-[#1A2F1A] dark:text-[#EAF7E6]">
-                                    <TableCell colSpan={8}>
+                                    <TableCell colSpan={3}>
                                         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                             <div className="flex items-center gap-2">
                                                 <span>Rows per page</span>

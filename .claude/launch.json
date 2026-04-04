@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "vite",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--host"],
+      "runtimeExecutable": "/bin/sh",
+      "runtimeArgs": [".claude/start-vite.sh"],
       "port": 5173
     }
   ]

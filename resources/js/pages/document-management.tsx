@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 import DocumentsTable from '@/components/documents-table';
+import PageIntro from '@/components/page-intro';
 import AppLayout from '@/layouts/app-layout';
 import { documentManagement } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
@@ -41,8 +42,17 @@ export default function DocumentManagement({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Document Management" />
-            <div className="p-4 mx-auto flex w-full flex-col gap-6 lg:items-stretch">
-                <DocumentsTable employees={employees} search={search} pagination={pagination} />
+            <div className="app-page-shell app-page-stack">
+                <PageIntro
+                    eyebrow="Evaluator · Document Management"
+                    title="Manage assigned employee evaluation records"
+                    description="Search employees, open active IPCR submissions, and move between evaluation workspaces with a consistent review flow."
+                />
+                <DocumentsTable
+                    employees={employees}
+                    search={search}
+                    pagination={pagination}
+                />
             </div>
         </AppLayout>
     );

@@ -31,4 +31,15 @@ class Seminars extends Model
             'date' => 'date',
         ];
     }
+
+    /**
+     * @var list<string>
+     */
+    protected $nullable = [
+        'title',
+        'location',
+        'time',
+        'speaker',
+        'date',
+    ];
 }

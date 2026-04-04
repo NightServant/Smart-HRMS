@@ -1,4 +1,4 @@
-import { BookOpen, Clock3, MapPin, Mic, Sparkles, Target } from 'lucide-react';
+import { BookOpen, Sparkles, Target } from 'lucide-react';
 import { DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -12,13 +12,8 @@ import { cn } from '@/lib/utils';
 
 type Recommendation = {
     seminar_id: number;
-    title: string;
     description: string;
-    location: string;
-    time: string;
-    speaker: string;
     target_performance_area: string;
-    date: string;
     score: number;
     priority: 'HIGH' | 'MEDIUM';
     matched_area: string;
@@ -45,7 +40,7 @@ export default function TrainingRecommendations({ recommendations }: Props) {
     return (
         <DashboardPanelCard
             title="Training Recommendations"
-            description="Suggested learning programs based on current performance trends and priority skill gaps."
+            description="Suggested learning programs based on Administrative Office performance gaps and priority service areas."
             accentClassName="right-0 top-0 size-36 rounded-full bg-chart-3/10 blur-3xl"
             className="gap-3"
             contentClassName="min-h-0 gap-2"
@@ -61,7 +56,7 @@ export default function TrainingRecommendations({ recommendations }: Props) {
                         <div className="flex items-center gap-2">
                             <BookOpen className="size-4 text-primary" />
                             <p className="text-[11px] font-medium tracking-[0.18em] text-muted-foreground uppercase">
-                                Sessions
+                                Suggestions
                             </p>
                         </div>
                         <p className="mt-1 text-lg font-semibold text-foreground">
@@ -157,15 +152,6 @@ export default function TrainingRecommendations({ recommendations }: Props) {
                                                 Focus: {reco.matched_area}
                                             </Badge>
                                         </div>
-                                        <div className="space-y-1">
-                                            <p className="text-base leading-snug font-semibold break-words">
-                                                {reco.title}
-                                            </p>
-                                            <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                <Clock3 className="size-3.5" />
-                                                {reco.date} | {reco.time}
-                                            </p>
-                                        </div>
                                     </div>
 
                                     <div
@@ -184,57 +170,16 @@ export default function TrainingRecommendations({ recommendations }: Props) {
                                 </div>
 
                                 <div className="mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto pr-1">
+                                    <div className="mb-3 rounded-xl border border-brand-200/60 bg-brand-50/50 px-4 py-3 dark:border-brand-800/40 dark:bg-brand-900/20">
+                                        <p className="flex items-center gap-2 text-sm font-semibold text-brand-900 dark:text-brand-100">
+                                            <Target className="size-4 shrink-0 text-primary" />
+                                            Find a seminar or training related to: {reco.target_performance_area}
+                                        </p>
+                                    </div>
+
                                     <p className="text-sm leading-6 text-muted-foreground">
                                         {reco.description}
                                     </p>
-
-                                    <div
-                                        className={cn(
-                                            dashboardInsetTileClassName,
-                                            'mt-4 p-3',
-                                        )}
-                                    >
-                                        <div className="grid gap-3 text-sm sm:grid-cols-1">
-                                            <p className="flex items-start gap-2">
-                                                <MapPin className="mt-0.5 size-4 shrink-0 text-primary" />
-                                                <span>
-                                                    <span className="font-semibold">
-                                                        Location:
-                                                    </span>{' '}
-                                                    {reco.location}
-                                                </span>
-                                            </p>
-                                            <p className="flex items-start gap-2">
-                                                <Mic className="mt-0.5 size-4 shrink-0 text-primary" />
-                                                <span>
-                                                    <span className="font-semibold">
-                                                        Speaker:
-                                                    </span>{' '}
-                                                    {reco.speaker}
-                                                </span>
-                                            </p>
-                                            <p className="flex items-start gap-2">
-                                                <Target className="mt-0.5 size-4 shrink-0 text-primary" />
-                                                <span>
-                                                    <span className="font-semibold">
-                                                        Target Area:
-                                                    </span>{' '}
-                                                    {
-                                                        reco.target_performance_area
-                                                    }
-                                                </span>
-                                            </p>
-                                            <p className="flex items-start gap-2">
-                                                <BookOpen className="mt-0.5 size-4 shrink-0 text-primary" />
-                                                <span>
-                                                    <span className="font-semibold">
-                                                        Recommended For:
-                                                    </span>{' '}
-                                                    {reco.matched_area}
-                                                </span>
-                                            </p>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
                         </CarouselItem>

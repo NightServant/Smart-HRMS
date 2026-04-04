@@ -35,6 +35,8 @@ def main():
             if "start_date" in payload and isinstance(payload["start_date"], str):
                 payload["start_date"] = date.fromisoformat(payload["start_date"])
             result = router.route_leave(payload)
+        elif action in ("route_hr_review", "route_appeal", "route_pmt_review", "finalize_ipcr"):
+            result = router.route_ipcr_v51(payload)
         else:
             result = {"status": "error", "notification": f"Unknown action: {action}"}
 

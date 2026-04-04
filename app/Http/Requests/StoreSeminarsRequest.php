@@ -22,13 +22,13 @@ class StoreSeminarsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title' => ['required', 'string', 'max:255'],
+            'title' => ['nullable', 'string', 'max:255'],
             'description' => ['required', 'string', 'max:255'],
-            'location' => ['required', 'string', 'max:255'],
-            'time' => ['required', 'string', 'max:255'],
-            'speaker' => ['required', 'string', 'max:255'],
+            'location' => ['nullable', 'string', 'max:255'],
+            'time' => ['nullable', 'string', 'max:255'],
+            'speaker' => ['nullable', 'string', 'max:255'],
             'target_performance_area' => ['required', 'string', 'max:255'],
-            'date' => ['required', 'date'],
+            'date' => ['nullable', 'date'],
         ];
     }
 

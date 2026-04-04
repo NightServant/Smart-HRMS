@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import SystemSettingController from '@/actions/App/Http/Controllers/Admin/SystemSettingController';
 import AppLayout from '@/layouts/app-layout';
 import * as admin from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types/navigation';
@@ -42,7 +43,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-const TAB_GROUPS = ['attendance', 'devices', 'system'] as const;
+const TAB_GROUPS = ['attendance', 'devices', 'ipcr', 'system'] as const;
 
 function tabLabel(group: string): string {
     return group.charAt(0).toUpperCase() + group.slice(1);
@@ -51,7 +52,7 @@ function tabLabel(group: string): string {
 export default function SystemSettings(props: Props) {
     const handleDeviceToggle = (device: BiometricDevice) => {
         router.put(
-            admin.systemSettings.updateDevice(device.id).url,
+            SystemSettingController.updateDevice.url(device.id),
             {},
             { preserveScroll: true },
         );

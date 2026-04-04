@@ -22,9 +22,9 @@ export default function NotificationsHeader({ unreadCount }: Props) {
                     Monitor alerts, reminders, and recent system activity in one place.
                 </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full items-center gap-2 md:w-auto">
                 <Button
-                    className="inline-flex items-center gap-2"
+                    className="inline-flex w-full items-center justify-center gap-2 md:w-auto"
                     onClick={handleMarkAllRead}
                     disabled={unreadCount === 0}
                 >

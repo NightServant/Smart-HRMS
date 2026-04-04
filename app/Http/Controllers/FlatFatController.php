@@ -10,6 +10,7 @@ use App\Models\LeaveRequest;
 use App\Services\FlatFatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class FlatFatController extends Controller
 {
@@ -134,9 +135,13 @@ class FlatFatController extends Controller
                 ->count();
 
             // Employees with no attendance record today
-            $employeesWithRecordToday = AttendanceRecord::where('date', $today->toDateString())
-                ->distinct('employee_id')
-                ->count('employee_id');
+            $employeesWithRecordToday = $attendanceRecords
+                ->filter(
+                    fn (AttendanceRecord $record): bool => $record->date?->toDateString() === $today->toDateString()
+                )
+                ->pluck('employee_id')
+                ->unique()
+                ->count();
             $absentCount = max(0, $totalEmployees - $employeesWithRecordToday - $onLeaveCount);
 
             $totalDays = $attendanceRecords->count();
@@ -152,6 +157,8 @@ class FlatFatController extends Controller
                     'absent_count' => $absentCount,
                     'on_leave_count' => $onLeaveCount,
                     'present_count' => $presentCount,
+                    'total_employees' => $totalEmployees,
+                    'employees_with_record_today' => $employeesWithRecordToday,
                     'quarter' => $quarter,
                 ],
             ]);
@@ -224,6 +231,133 @@ class FlatFatController extends Controller
     }
 
     /**
+     * Get semestral performance trends with per-employee scores.
+     */
+    public function semesterScores(Request $request): JsonResponse
+    {
+        try {
+            $historicalRecords = HistoricalDataRecord::query()
+                ->orderByDesc('year')
+                ->get()
+                ->map(function (HistoricalDataRecord $record): ?array {
+                    $period = $record->resolvedPeriod();
+                    $score = $record->normalizedEvaluatedPerformanceScore();
+
+                    if ($period === null || $score === null) {
+                        return null;
+                    }
+
+                    return [
+                        'employee_name' => $record->employee_name,
+                        'year' => $record->year,
+                        'period' => $period,
+                        'score' => $score,
+                    ];
+                })
+                ->filter()
+                ->values();
+
+            $availableYears = $historicalRecords
+                ->pluck('year')
+                ->filter()
+                ->unique()
+                ->sortDesc()
+                ->values()
+                ->map(fn ($year): int => (int) $year)
+                ->all();
+
+            $selectedYear = $this->resolveSelectedYear($request, $availableYears);
+            $recordsForYear = $selectedYear === null
+                ? collect()
+                : $historicalRecords->where('year', $selectedYear)->values();
+
+            $selectedPeriod = $this->resolveSelectedPeriod($request, $recordsForYear);
+            $recordsForPeriod = $recordsForYear
+                ->where('period', $selectedPeriod)
+                ->values();
+
+            $employeeScores = $recordsForPeriod
+                ->groupBy('employee_name')
+                ->map(fn (Collection $records, string $employeeName): array => [
+                    'employee_name' => $employeeName,
+                    'final_rating' => round((float) $records->avg('score'), 2),
+                ])
+                ->sortByDesc('final_rating')
+                ->values();
+
+            $highRiskCount = $employeeScores
+                ->filter(fn (array $employeeScore): bool => $employeeScore['final_rating'] < 3.0)
+                ->count();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'year' => $selectedYear,
+                    'period' => $selectedPeriod,
+                    'available_years' => $availableYears,
+                    'average_rating' => round((float) ($employeeScores->avg('final_rating') ?? 0), 2),
+                    'employee_scores' => $employeeScores->all(),
+                    'aggregate' => [
+                        'total_employees' => $employeeScores->count(),
+                        'high_risk_count' => $highRiskCount,
+                        'satisfactory_count' => max(0, $employeeScores->count() - $highRiskCount),
+                    ],
+                ],
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('FlatFAT semester scores error: '.$e->getMessage());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve semester scores',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get risk summary based on latest evaluation results.
+     */
+    public function evaluationRiskSummary(): JsonResponse
+    {
+        try {
+            $employees = Employee::query()
+                ->whereNotIn('employee_id', self::EXCLUDED_EMPLOYEE_IDS)
+                ->with('latestRatedSubmission')
+                ->get()
+                ->filter(fn (Employee $employee): bool => $employee->latestRatedSubmission !== null)
+                ->values();
+
+            $totalEmployees = $employees->count();
+            $averageRating = round((float) ($employees->avg(
+                fn (Employee $employee): float => (float) $employee->latestRatedSubmission->performance_rating
+            ) ?? 0), 2);
+            $highRiskCount = $employees->filter(
+                fn (Employee $employee): bool => (float) $employee->latestRatedSubmission->performance_rating < 3.0
+            )->count();
+
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'total_employees' => $totalEmployees,
+                    'high_risk_count' => $highRiskCount,
+                    'satisfactory_count' => max(0, $totalEmployees - $highRiskCount),
+                    'high_risk_percentage' => $totalEmployees > 0
+                        ? round(($highRiskCount / $totalEmployees) * 100, 2)
+                        : 0,
+                    'average_rating' => $averageRating,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('FlatFAT evaluation risk summary error: '.$e->getMessage());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve evaluation risk summary',
+            ], 500);
+        }
+    }
+
+    /**
      * Get employee-specific quarterly scores (for employee dashboard).
      */
     public function employeeQuarterScores(Request $request): JsonResponse
@@ -285,6 +419,103 @@ class FlatFatController extends Controller
             return response()->json([
                 'status' => 'error',
                 'message' => 'Failed to retrieve employee quarter scores',
+            ], 500);
+        }
+    }
+
+    /**
+     * Get employee-specific semestral scores (for employee dashboard).
+     */
+    public function employeeSemesterScores(Request $request): JsonResponse
+    {
+        try {
+            $user = $request->user();
+            $employeeId = $user?->employee_id;
+            $year = $request->query('year');
+
+            if (! $employeeId) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'No employee profile linked',
+                ], 404);
+            }
+
+            $employee = Employee::find($employeeId);
+            if (! $employee) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Employee not found',
+                ], 404);
+            }
+
+            $historicalRecords = HistoricalDataRecord::query()
+                ->where('employee_name', $employee->name)
+                ->orderBy('year')
+                ->get()
+                ->map(function (HistoricalDataRecord $record): ?array {
+                    $period = $record->resolvedPeriod();
+                    $score = $record->normalizedEvaluatedPerformanceScore();
+
+                    if ($period === null || $score === null) {
+                        return null;
+                    }
+
+                    return [
+                        'year' => $record->year,
+                        'period' => $period,
+                        'score' => $score,
+                    ];
+                })
+                ->filter()
+                ->values();
+
+            if ($historicalRecords->isEmpty()) {
+                return response()->json([
+                    'status' => 'success',
+                    'data' => null,
+                    'message' => 'No historical performance data available for this employee.',
+                ]);
+            }
+
+            $availableYears = $historicalRecords
+                ->pluck('year')
+                ->filter()
+                ->unique()
+                ->sortDesc()
+                ->values()
+                ->map(fn ($availableYear): int => (int) $availableYear)
+                ->all();
+
+            $selectedYear = $year !== null && in_array((int) $year, $availableYears, true)
+                ? (int) $year
+                : $availableYears[0];
+
+            $recordsForYear = $historicalRecords->where('year', $selectedYear)->values();
+            $semesterScores = [];
+            foreach (['S1', 'S2'] as $s) {
+                $records = $recordsForYear->where('period', $s);
+                if ($records->isNotEmpty()) {
+                    $avgScore = $records->avg('score');
+                    $semesterScores[$s] = round($avgScore, 2);
+                } else {
+                    $semesterScores[$s] = 0;
+                }
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'data' => [
+                    'employee_name' => $employee->name,
+                    'semester_scores' => $semesterScores,
+                    'available_years' => $availableYears,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('FlatFAT employee semester scores error: '.$e->getMessage());
+
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to retrieve employee semester scores',
             ], 500);
         }
     }
@@ -379,18 +610,21 @@ class FlatFatController extends Controller
                 $historicalQuery->where('quarter', $quarter);
             }
             $historicalData = $historicalQuery->orderBy('year', 'desc')->first();
+            $historicalScore = HistoricalDataRecord::normalizeEvaluatedPerformanceScoreValue(
+                $historicalData?->evaluated_performance_score
+            );
 
             // Use historical data as fallback
             if ($performanceRating === null) {
-                $performanceRating = $historicalData?->evaluated_performance_score ?? 2.5;
+                $performanceRating = $historicalScore ?? 2.5;
             }
             if ($attendancePct === null && $historicalData) {
                 $attendancePct = (float) ($historicalData->attendance_punctuality_rate ?? 80.0);
             }
             $attendancePct = $attendancePct ?? 80.0;
 
-            $taskCompletion = $historicalData?->evaluated_performance_score
-                ? ($historicalData->evaluated_performance_score / 5.0) * 100.0
+            $taskCompletion = $historicalScore !== null
+                ? ($historicalScore / 5.0) * 100.0
                 : 75.0;
 
             return [
@@ -403,5 +637,39 @@ class FlatFatController extends Controller
 
             return null;
         }
+    }
+
+    /**
+     * @param  array<int, int>  $availableYears
+     */
+    private function resolveSelectedYear(Request $request, array $availableYears): ?int
+    {
+        $requestedYear = (int) $request->integer('year');
+
+        if ($requestedYear !== 0 && in_array($requestedYear, $availableYears, true)) {
+            return $requestedYear;
+        }
+
+        return $availableYears[0] ?? null;
+    }
+
+    /**
+     * @param  Collection<int, array{employee_name?: string, year?: int, period: string, score?: float}>  $recordsForYear
+     */
+    private function resolveSelectedPeriod(Request $request, Collection $recordsForYear): string
+    {
+        $requestedPeriod = strtoupper(trim((string) $request->string('period')));
+        $availablePeriods = $recordsForYear
+            ->pluck('period')
+            ->filter(fn ($period): bool => in_array($period, ['S1', 'S2'], true))
+            ->unique()
+            ->sortBy(fn (string $period): int => $period === 'S1' ? 1 : 2)
+            ->values();
+
+        if (in_array($requestedPeriod, ['S1', 'S2'], true) && $availablePeriods->contains($requestedPeriod)) {
+            return $requestedPeriod;
+        }
+
+        return $availablePeriods->last() ?? (in_array($requestedPeriod, ['S1', 'S2'], true) ? $requestedPeriod : 'S1');
     }
 }

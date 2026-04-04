@@ -20,17 +20,25 @@ class HistoricalDataRecordsImport implements ToCollection, WithHeadingRow
                 $departmentName = $this->valueFromRow($row, ['department', 'department_name']);
                 $year = $this->valueFromRow($row, ['year']);
                 $quarter = $this->valueFromRow($row, ['quarter']);
-                $rate = $this->valueFromRow($row, ['attendance_rate_pct', 'attendance_punctuality_rate', 'attendance_and_punctuality_rate']);
+                $period = $this->valueFromRow($row, ['period', 'semester']);
+                $rate = $this->valueFromRow($row, [
+                    'attendance_rate_pct',
+                    'attendance_rate',
+                    'attendance_rate_percentage',
+                    'attendance_punctuality_rate',
+                    'attendance_and_punctuality_rate',
+                ]);
                 $absenteeismDays = $this->valueFromRow($row, ['absenteeism_days']);
                 $tardinessIncidents = $this->valueFromRow($row, ['tardiness_incidents']);
                 $trainingStatus = $this->valueFromRow($row, ['training_completion_status']);
                 $score = $this->valueFromRow($row, ['evaluated_performance_score']);
+                $resolvedPeriod = HistoricalDataRecord::resolvePeriodValue($period, $quarter);
 
                 if (
                     $employeeName === null ||
                     $departmentName === null ||
                     $year === null ||
-                    $quarter === null ||
+                    $resolvedPeriod === null ||
                     $rate === null ||
                     $trainingStatus === null ||
                     $score === null
@@ -42,7 +50,8 @@ class HistoricalDataRecordsImport implements ToCollection, WithHeadingRow
                     'employee_name' => $employeeName,
                     'department_name' => $departmentName,
                     'year' => (int) $year,
-                    'quarter' => $quarter,
+                    'quarter' => HistoricalDataRecord::resolveQuarterValue($quarter, $resolvedPeriod) ?? 'Q1',
+                    'period' => $resolvedPeriod,
                     'attendance_punctuality_rate' => $rate,
                     'absenteeism_days' => (int) ($absenteeismDays ?? 0),
                     'tardiness_incidents' => (int) ($tardinessIncidents ?? 0),

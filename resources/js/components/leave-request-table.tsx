@@ -1,15 +1,18 @@
-import { router } from "@inertiajs/react";
-import { FileDown, Search, UserSearch } from "lucide-react";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { router } from '@inertiajs/react';
+import { Eye, Search, UserSearch } from 'lucide-react';
+import { useState } from 'react';
+import { LeaveDetailDialog } from '@/components/leave-detail-dialog';
+import type { LeaveRequestDetail } from '@/components/leave-detail-dialog';
+import PageIntro from '@/components/page-intro';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
     Pagination,
     PaginationContent,
     PaginationItem,
     PaginationNext,
     PaginationPrevious,
-} from "@/components/ui/pagination";
+} from '@/components/ui/pagination';
 import {
     Select,
     SelectContent,
@@ -17,7 +20,7 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
     Table,
     TableBody,
@@ -26,23 +29,8 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-import * as admin from "@/routes/admin";
-
-type LeaveRequest = {
-    id: number;
-    name: string;
-    leaveType: string;
-    startDate: string;
-    endDate: string;
-    reason: string;
-    status?: string;
-    stage?: string;
-    hasMedicalCertificate?: boolean;
-    hasMarriageCertificate?: boolean;
-    hasSoloParentId?: boolean;
-};
+} from '@/components/ui/table';
+import * as admin from '@/routes/admin';
 
 type PaginationMeta = {
     currentPage: number;
@@ -51,314 +39,413 @@ type PaginationMeta = {
     total: number;
 };
 
+function StatusBadge({ status }: { status: string }) {
+    const variants: Record<string, { label: string; className: string }> = {
+        completed: {
+            label: 'Approved',
+            className:
+                'bg-emerald-100 text-emerald-800 ring-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:ring-emerald-800',
+        },
+        returned: {
+            label: 'Rejected',
+            className:
+                'bg-red-100 text-red-800 ring-red-200 dark:bg-red-900/30 dark:text-red-400 dark:ring-red-800',
+        },
+        routed: {
+            label: 'In Review',
+            className:
+                'bg-blue-100 text-blue-800 ring-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:ring-blue-800',
+        },
+        pending: {
+            label: 'Pending',
+            className:
+                'bg-amber-100 text-amber-800 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:ring-amber-800',
+        },
+    };
+
+    const { label, className } = variants[status] ?? variants.pending;
+
+    return (
+        <span
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${className}`}
+        >
+            {label}
+        </span>
+    );
+}
+
+function formatLeaveType(type: string): string {
+    return type.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatStageLabel(stage: string): string {
+    const labels: Record<string, string> = {
+        sent_to_department_head: 'Evaluator Review',
+        sent_to_hr: 'HR Review',
+        completed: 'Completed',
+    };
+
+    return labels[stage] ?? formatLeaveType(stage);
+}
+
+function formatStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+        completed: 'Approved',
+        returned: 'Rejected',
+        routed: 'In Review',
+        pending: 'Pending',
+    };
+
+    return labels[status] ?? formatLeaveType(status);
+}
+
+function formatLeaveAccrual(value: number | null): string {
+    return value != null ? value.toFixed(2) : '—';
+}
+
 export default function LeaveRequestTable({
     leaveRequests,
     search,
+    leaveTypeFilter = '',
+    statusFilter = '',
+    stageFilter = '',
+    leaveTypeOptions = [],
+    statusOptions = [],
+    stageOptions = [],
     pagination,
 }: {
-    leaveRequests: LeaveRequest[];
+    leaveRequests: LeaveRequestDetail[];
     search: string;
+    leaveTypeFilter?: string;
+    statusFilter?: string;
+    stageFilter?: string;
+    leaveTypeOptions?: string[];
+    statusOptions?: string[];
+    stageOptions?: string[];
     pagination: PaginationMeta;
 }) {
     const [searchTerm, setSearchTerm] = useState(search);
-    const [rejectingRowId, setRejectingRowId] = useState<number | null>(null);
-    const [rejectionReason, setRejectionReason] = useState("");
-    const [processingId, setProcessingId] = useState<number | null>(null);
+    const [currentLeaveTypeFilter, setCurrentLeaveTypeFilter] =
+        useState(leaveTypeFilter);
+    const [currentStatusFilter, setCurrentStatusFilter] =
+        useState(statusFilter);
+    const [currentStageFilter, setCurrentStageFilter] = useState(stageFilter);
+    const [selectedLeave, setSelectedLeave] =
+        useState<LeaveRequestDetail | null>(null);
 
-    const handleSearchChange = (value: string): void => {
-        setSearchTerm(value);
+    const visit = (params: {
+        search?: string;
+        page?: number;
+        perPage?: number;
+        leaveTypeFilter?: string;
+        statusFilter?: string;
+        stageFilter?: string;
+    }): void => {
         router.get(
             admin.leaveManagement().url,
-            { search: value, page: 1, perPage: pagination.perPage },
+            {
+                search: params.search ?? searchTerm,
+                page: params.page ?? pagination.currentPage,
+                perPage: params.perPage ?? pagination.perPage,
+                leaveTypeFilter:
+                    params.leaveTypeFilter ?? currentLeaveTypeFilter,
+                statusFilter: params.statusFilter ?? currentStatusFilter,
+                stageFilter: params.stageFilter ?? currentStageFilter,
+            },
             {
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ["leaveRequests", "search", "pagination"],
-            }
+                only: [
+                    'leaveRequests',
+                    'search',
+                    'leaveTypeFilter',
+                    'statusFilter',
+                    'stageFilter',
+                    'leaveTypeOptions',
+                    'statusOptions',
+                    'stageOptions',
+                    'pagination',
+                ],
+            },
         );
     };
 
-    const handleRowsPerPageChange = (value: string): void => {
-        router.get(
-            admin.leaveManagement().url,
-            { search: searchTerm, page: 1, perPage: Number(value) },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                replace: true,
-                only: ["leaveRequests", "search", "pagination"],
-            }
-        );
+    const handleLeaveTypeFilterChange = (value: string): void => {
+        const filterValue = value === 'all' ? '' : value;
+        setCurrentLeaveTypeFilter(filterValue);
+        visit({ leaveTypeFilter: filterValue, page: 1 });
     };
 
-    const goToPreviousPage = (): void => {
-        if (pagination.currentPage <= 1) return;
-        router.get(
-            admin.leaveManagement().url,
-            { search: searchTerm, page: pagination.currentPage - 1, perPage: pagination.perPage },
-            { preserveScroll: true, preserveState: true, replace: true, only: ["leaveRequests", "search", "pagination"] }
-        );
+    const handleStatusFilterChange = (value: string): void => {
+        const filterValue = value === 'all' ? '' : value;
+        setCurrentStatusFilter(filterValue);
+        visit({ statusFilter: filterValue, page: 1 });
     };
 
-    const goToNextPage = (): void => {
-        if (pagination.currentPage >= pagination.lastPage) return;
-        router.get(
-            admin.leaveManagement().url,
-            { search: searchTerm, page: pagination.currentPage + 1, perPage: pagination.perPage },
-            { preserveScroll: true, preserveState: true, replace: true, only: ["leaveRequests", "search", "pagination"] }
-        );
-    };
-
-    const isActionable = (lr: LeaveRequest): boolean => lr.stage === 'sent_to_department_head';
-
-    const handleApprove = (id: number): void => {
-        setProcessingId(id);
-        router.post(
-            `/leave/${id}/approve`,
-            {},
-            {
-                preserveScroll: true,
-                onFinish: () => setProcessingId(null),
-                onError: () => setProcessingId(null),
-            }
-        );
-    };
-
-    const handleReject = (id: number): void => {
-        if (!rejectionReason.trim()) return;
-        setProcessingId(id);
-        router.post(
-            `/leave/${id}/reject`,
-            { rejection_reason: rejectionReason.trim() },
-            {
-                preserveScroll: true,
-                onFinish: () => {
-                    setProcessingId(null);
-                    setRejectingRowId(null);
-                    setRejectionReason("");
-                },
-                onError: () => setProcessingId(null),
-            }
-        );
+    const handleStageFilterChange = (value: string): void => {
+        const filterValue = value === 'all' ? '' : value;
+        setCurrentStageFilter(filterValue);
+        visit({ stageFilter: filterValue, page: 1 });
     };
 
     return (
         <>
-            <div className="animate-slide-in-down">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="flex items-center gap-2 text-3xl font-bold">
-                            <UserSearch className="h-8 w-8" />
-                            Leave Request Records
-                        </h1>
-                        <p className="mt-1 text-muted-foreground">List of leave requests from employees in the administrative office.</p>
-                    </div>
-                </div>
-            </div>
+            <PageIntro
+                eyebrow="Evaluator · Leave Management"
+                title="Leave Request Records"
+                description="Review and manage leave requests submitted by employees."
+                className="animate-slide-in-down"
+                actions={
+                    <span className="app-info-pill">
+                        <UserSearch className="size-4 text-primary" />
+                        {pagination.total} requests
+                    </span>
+                }
+            />
 
-            <div className="glass-card animate-zoom-in-soft mx-auto w-full rounded-md border border-border bg-card p-4 shadow-sm">
-                <div className="flex w-full items-center justify-between gap-4 py-6">
-                    <div className="animate-fade-in-left relative w-full max-w-sm">
-                        <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+            <div className="glass-card app-data-shell mx-auto w-full animate-zoom-in-soft bg-card shadow-sm">
+                <div className="app-filter-bar py-2">
+                    <div className="relative w-full max-w-sm">
+                        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                            type="text"
-                            placeholder="Search leave requests..."
-                            name="search"
                             value={searchTerm}
-                            onChange={(event) => handleSearchChange(event.target.value)}
-                            className="bg-card px-4 py-2 pl-9"
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                visit({ search: e.target.value, page: 1 });
+                            }}
+                            placeholder="Search by name, leave type, or status…"
+                            className="bg-card pl-9"
                         />
                     </div>
+                    <div className="app-filter-bar__actions overflow-x-auto pb-1">
+                        <Select
+                            value={currentLeaveTypeFilter || 'all'}
+                            onValueChange={handleLeaveTypeFilterChange}
+                        >
+                            <SelectTrigger className="w-48 shrink-0 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                <SelectValue placeholder="All leave types" />
+                            </SelectTrigger>
+                            <SelectContent align="end">
+                                <SelectGroup>
+                                    <SelectItem value="all">
+                                        All leave types
+                                    </SelectItem>
+                                    {leaveTypeOptions.map((option) => (
+                                        <SelectItem key={option} value={option}>
+                                            {formatLeaveType(option)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                        <Select
+                            value={currentStatusFilter || 'all'}
+                            onValueChange={handleStatusFilterChange}
+                        >
+                            <SelectTrigger className="w-44 shrink-0 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                <SelectValue placeholder="All statuses" />
+                            </SelectTrigger>
+                            <SelectContent align="end">
+                                <SelectGroup>
+                                    <SelectItem value="all">
+                                        All statuses
+                                    </SelectItem>
+                                    {statusOptions.map((option) => (
+                                        <SelectItem key={option} value={option}>
+                                            {formatStatusLabel(option)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                        <Select
+                            value={currentStageFilter || 'all'}
+                            onValueChange={handleStageFilterChange}
+                        >
+                            <SelectTrigger className="w-48 shrink-0 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                <SelectValue placeholder="All routing stages" />
+                            </SelectTrigger>
+                            <SelectContent align="end">
+                                <SelectGroup>
+                                    <SelectItem value="all">
+                                        All routing stages
+                                    </SelectItem>
+                                    {stageOptions.map((option) => (
+                                        <SelectItem key={option} value={option}>
+                                            {formatStageLabel(option)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
 
-                <Table className="w-full">
+                <Table className="w-full min-w-[58rem]">
                     <TableHeader>
-                        <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
-                            <TableHead className="px-4 py-3">ID</TableHead>
-                            <TableHead className="px-4 py-3">Name</TableHead>
-                            <TableHead className="px-4 py-3">Leave Type</TableHead>
-                            <TableHead className="px-4 py-3">Start Date</TableHead>
-                            <TableHead className="px-4 py-3">End Date</TableHead>
-                            <TableHead className="px-4 py-3">Reason</TableHead>
-                            <TableHead className="px-4 py-3 text-center">Documents</TableHead>
-                            <TableHead className="px-4 py-3 text-center">Status</TableHead>
-                            <TableHead className="px-4 py-3 text-center">Action 1</TableHead>
-                            <TableHead className="px-4 py-3 text-center">Action 2</TableHead>
+                        <TableRow className="app-table-head-row text-sm font-bold">
+                            <TableHead>Employee</TableHead>
+                            <TableHead>Leave Type</TableHead>
+                            <TableHead>Period</TableHead>
+                            <TableHead className="text-center">Days</TableHead>
+                            <TableHead className="text-center">
+                                Status
+                            </TableHead>
+                            <TableHead className="text-center">
+                                Action
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {leaveRequests.map((leaveRequest, index) => (
-                            <>
-                                <TableRow
-                                    key={leaveRequest.id}
-                                    style={{ animationDelay: `${index * 24}ms` }}
-                                    className={`text-sm font-semibold text-foreground ${
-                                        index % 2 === 0 ? "bg-[#DDEFD7] dark:bg-[#345A34]/80" : "bg-[#BFDDB5] dark:bg-[#274827]/80"
-                                    } animate-fade-in-up`}
-                                >
-                                    <TableCell className="px-4 py-2">{leaveRequest.id}</TableCell>
-                                    <TableCell className="px-4 py-2">{leaveRequest.name}</TableCell>
-                                    <TableCell className="px-4 py-2">{leaveRequest.leaveType}</TableCell>
-                                    <TableCell className="px-4 py-2">{leaveRequest.startDate}</TableCell>
-                                    <TableCell className="px-4 py-2">{leaveRequest.endDate}</TableCell>
-                                    <TableCell className="px-4 py-2">{leaveRequest.reason}</TableCell>
-                                    <TableCell className="px-4 py-2">
-                                        <div className="flex flex-wrap justify-center gap-1">
-                                            {leaveRequest.hasMedicalCertificate && (
-                                                <a href={`/leave/${leaveRequest.id}/document/medical_certificate`} target="_blank" rel="noopener noreferrer" title="Medical Certificate" className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300">
-                                                    <FileDown className="size-3" /> Medical
-                                                </a>
-                                            )}
-                                            {leaveRequest.hasMarriageCertificate && (
-                                                <a href={`/leave/${leaveRequest.id}/document/marriage_certificate`} target="_blank" rel="noopener noreferrer" title="Marriage Certificate" className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300">
-                                                    <FileDown className="size-3" /> Marriage
-                                                </a>
-                                            )}
-                                            {leaveRequest.hasSoloParentId && (
-                                                <a href={`/leave/${leaveRequest.id}/document/solo_parent_id`} target="_blank" rel="noopener noreferrer" title="Solo Parent ID" className="inline-flex items-center gap-1 rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-300">
-                                                    <FileDown className="size-3" /> Solo Parent
-                                                </a>
-                                            )}
-                                            {!leaveRequest.hasMedicalCertificate && !leaveRequest.hasMarriageCertificate && !leaveRequest.hasSoloParentId && (
-                                                <span className="text-xs text-muted-foreground">&mdash;</span>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="px-4 py-2 text-center">
-                                        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold ${
-                                            leaveRequest.status === 'completed' ? 'bg-green-200 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                                            leaveRequest.status === 'returned' ? 'bg-red-200 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                                            leaveRequest.status === 'routed' ? 'bg-blue-200 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
-                                            'bg-gray-200 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                                        }`}>
-                                            {leaveRequest.status || 'pending'}
+                        {leaveRequests.map((lr, index) => (
+                            <TableRow
+                                key={lr.id}
+                                style={{ animationDelay: `${index * 24}ms` }}
+                                className={`animate-fade-in-up text-sm font-medium text-foreground ${index % 2 === 0 ? 'app-table-row-even' : 'app-table-row-odd'}`}
+                            >
+                                <TableCell>
+                                    <div className="flex flex-col">
+                                        <span className="font-semibold">
+                                            {lr.name}
                                         </span>
-                                    </TableCell>
-                                    <TableCell className="px-4 py-2">
-                                        {isActionable(leaveRequest) ? (
-                                            <Button
-                                                type="button"
-                                                className="mx-auto block w-full max-w-48 rounded-md bg-secondary px-4 py-2 font-bold text-foreground shadow-md transition-opacity hover:opacity-90 hover:shadow-lg disabled:opacity-50"
-                                                disabled={processingId === leaveRequest.id}
-                                                onClick={() => handleApprove(leaveRequest.id)}
-                                            >
-                                                {processingId === leaveRequest.id ? "Processing..." : "Approve"}
-                                            </Button>
-                                        ) : (
-                                            <span className="block text-center text-xs text-muted-foreground">&mdash;</span>
+                                        {lr.employeeId && (
+                                            <span className="text-xs text-muted-foreground">
+                                                {lr.employeeId}
+                                            </span>
                                         )}
-                                    </TableCell>
-                                    <TableCell className="px-4 py-2">
-                                        {isActionable(leaveRequest) ? (
-                                            <Button
-                                                type="button"
-                                                className="mx-auto block w-full max-w-48 bg-destructive text-white px-4 py-2 font-bold rounded-md shadow-md transition-opacity hover:opacity-90 hover:shadow-lg"
-                                                onClick={() => {
-                                                    if (rejectingRowId === leaveRequest.id) {
-                                                        setRejectingRowId(null);
-                                                        setRejectionReason("");
-                                                    } else {
-                                                        setRejectingRowId(leaveRequest.id);
-                                                        setRejectionReason("");
-                                                    }
-                                                }}
-                                            >
-                                                Reject
-                                            </Button>
-                                        ) : (
-                                            <span className="block text-center text-xs text-muted-foreground">&mdash;</span>
-                                        )}
-                                    </TableCell>
-                                </TableRow>
-                                {rejectingRowId === leaveRequest.id && isActionable(leaveRequest) && (
-                                    <TableRow key={`reject-${leaveRequest.id}`} className="bg-red-50 dark:bg-red-950/30">
-                                        <TableCell colSpan={10} className="px-4 py-3">
-                                            <div className="flex items-end gap-3">
-                                                <div className="flex-1">
-                                                    <label className="mb-1 block text-sm font-semibold text-foreground">
-                                                        Reason for Rejection (required)
-                                                    </label>
-                                                    <Textarea
-                                                        value={rejectionReason}
-                                                        onChange={(e) => setRejectionReason(e.target.value)}
-                                                        placeholder="Please provide a reason for rejecting this leave request..."
-                                                        className="min-h-20 resize-none"
-                                                    />
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        type="button"
-                                                        variant="destructive"
-                                                        disabled={!rejectionReason.trim() || processingId === leaveRequest.id}
-                                                        onClick={() => handleReject(leaveRequest.id)}
-                                                    >
-                                                        {processingId === leaveRequest.id ? "Submitting..." : "Confirm Rejection"}
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        onClick={() => {
-                                                            setRejectingRowId(null);
-                                                            setRejectionReason("");
-                                                        }}
-                                                    >
-                                                        Cancel
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="font-semibold">
+                                    {formatLeaveType(lr.leaveType)}
+                                </TableCell>
+                                <TableCell className="text-sm">
+                                    <span>{lr.startDate}</span>
+                                    <span className="mx-1 text-muted-foreground">
+                                        –
+                                    </span>
+                                    <span>{lr.endDate}</span>
+                                </TableCell>
+                                <TableCell className="text-center text-sm">
+                                    {formatLeaveAccrual(lr.leaveAccrual)}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                    <StatusBadge status={lr.status} />
+                                </TableCell>
+                                <TableCell className="text-center">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="gap-1.5 border-[#2F5E2B]/30 bg-white/60 text-[#2F5E2B] hover:bg-[#2F5E2B] hover:text-white dark:border-[#4A7C3C]/50 dark:bg-transparent dark:text-[#7DC46B] dark:hover:bg-[#2F5E2B] dark:hover:text-white"
+                                        onClick={() => setSelectedLeave(lr)}
+                                    >
+                                        <Eye className="size-3.5" />
+                                        View
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
                         ))}
                         {leaveRequests.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={10} className="bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80">
-                                    No matching leave requests found.
+                                <TableCell
+                                    colSpan={6}
+                                    className="app-table-empty px-4 py-8"
+                                >
+                                    No leave requests found.
                                 </TableCell>
                             </TableRow>
                         )}
                     </TableBody>
                     <TableFooter>
                         <TableRow className="bg-[#E8F4E4] text-sm font-semibold text-foreground dark:bg-[#1A2F1A] dark:text-[#EAF7E6]">
-                            <TableCell colSpan={10} className="px-4 py-3">
+                            <TableCell colSpan={6} className="px-4 py-3">
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-2">
-                                        <span>Rows per page</span>
-                                        <Select value={String(pagination.perPage)} onValueChange={handleRowsPerPageChange}>
+                                        <span className="text-sm">
+                                            Rows per page
+                                        </span>
+                                        <Select
+                                            value={String(pagination.perPage)}
+                                            onValueChange={(v) =>
+                                                visit({
+                                                    perPage: Number(v),
+                                                    page: 1,
+                                                })
+                                            }
+                                        >
                                             <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent align="start">
                                                 <SelectGroup>
-                                                    <SelectItem value="5">5</SelectItem>
-                                                    <SelectItem value="10">10</SelectItem>
-                                                    <SelectItem value="25">25</SelectItem>
-                                                    <SelectItem value="50">50</SelectItem>
+                                                    {[
+                                                        '5',
+                                                        '10',
+                                                        '25',
+                                                        '50',
+                                                    ].map((v) => (
+                                                        <SelectItem
+                                                            key={v}
+                                                            value={v}
+                                                        >
+                                                            {v}
+                                                        </SelectItem>
+                                                    ))}
                                                 </SelectGroup>
                                             </SelectContent>
                                         </Select>
                                     </div>
-
                                     <div className="flex items-center gap-4 self-end md:self-auto">
                                         <span>
-                                            Page {pagination.currentPage} of {pagination.lastPage}
+                                            Page {pagination.currentPage} of{' '}
+                                            {pagination.lastPage}
                                         </span>
                                         <Pagination className="mx-0 w-auto">
                                             <PaginationContent>
                                                 <PaginationItem>
                                                     <PaginationPrevious
                                                         href="#"
-                                                        onClick={(event) => { event.preventDefault(); goToPreviousPage(); }}
-                                                        className={pagination.currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            if (
+                                                                pagination.currentPage >
+                                                                1
+                                                            )
+                                                                visit({
+                                                                    page:
+                                                                        pagination.currentPage -
+                                                                        1,
+                                                                });
+                                                        }}
+                                                        className={
+                                                            pagination.currentPage ===
+                                                            1
+                                                                ? 'pointer-events-none opacity-50'
+                                                                : ''
+                                                        }
                                                     />
                                                 </PaginationItem>
                                                 <PaginationItem>
                                                     <PaginationNext
                                                         href="#"
-                                                        onClick={(event) => { event.preventDefault(); goToNextPage(); }}
-                                                        className={pagination.currentPage === pagination.lastPage ? "pointer-events-none opacity-50" : ""}
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            if (
+                                                                pagination.currentPage <
+                                                                pagination.lastPage
+                                                            )
+                                                                visit({
+                                                                    page:
+                                                                        pagination.currentPage +
+                                                                        1,
+                                                                });
+                                                        }}
+                                                        className={
+                                                            pagination.currentPage ===
+                                                            pagination.lastPage
+                                                                ? 'pointer-events-none opacity-50'
+                                                                : ''
+                                                        }
                                                     />
                                                 </PaginationItem>
                                             </PaginationContent>
@@ -370,6 +457,13 @@ export default function LeaveRequestTable({
                     </TableFooter>
                 </Table>
             </div>
+
+            {/* Leave detail dialog */}
+            <LeaveDetailDialog
+                leave={selectedLeave}
+                role="evaluator"
+                onClose={() => setSelectedLeave(null)}
+            />
         </>
     );
 }

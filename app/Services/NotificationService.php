@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\IpcrSubmission;
 use App\Models\Notification;
 use App\Models\User;
 
@@ -110,7 +111,7 @@ class NotificationService
                 'save_data' => $rating !== null
                     ? 'Your IPCR evaluation is complete with a rating of '.number_format((float) $rating, 2).'. Data has been saved.'
                     : 'Your IPCR evaluation is complete. Data has been saved.',
-                'route_back_to_evaluator' => "Your IPCR received a rating below 2.5. It has been sent back to {$evaluatorName} for remarks.",
+                'route_back_to_evaluator' => "Your IPCR needs evaluator remarks before it can proceed. It has been sent back to {$evaluatorName}.",
                 default => $result['notification'] ?? 'Your IPCR has been updated.',
             };
         }
@@ -168,6 +169,81 @@ class NotificationService
         }
 
         return "New {$docLabel} awaiting your review";
+    }
+
+    /**
+     * Create notifications for IPCR v5.1 workflow phases.
+     */
+    public function notifyV51(IpcrSubmission $submission, string $action, string $message = ''): void
+    {
+        $employeeUser = User::query()->where('employee_id', $submission->employee_id)->first();
+        $employeeName = $employeeUser?->name ?? $submission->employee_id;
+
+        match ($action) {
+            'route_to_hr' => $this->notifyRoleUsers(
+                User::ROLE_HR_PERSONNEL, 'ipcr_pending_hr_review', 'New IPCR awaiting HR review',
+                "{$employeeName}'s IPCR has completed evaluator review and is ready for HR checking.",
+                $submission->id,
+            ),
+            'open_appeal_window' => $employeeUser ? $this->create(
+                $employeeUser->id, 'ipcr_appeal_window', 'IPCR Appeal Window Opened',
+                "Your IPCR passed HR checking and is now open for appeal for 72 hours. You may accept the results or submit an appeal with supporting evidence. {$message}",
+                'ipcr', $submission->id, true,
+            ) : null,
+            'appeal_expired' => $employeeUser ? $this->create(
+                $employeeUser->id, 'ipcr_appeal_expired', 'Appeal Window Expired',
+                'Your IPCR appeal window has expired. The submission will now proceed to PMT review.',
+                'ipcr', $submission->id, false,
+            ) : null,
+            'route_to_pmt' => $this->notifyRoleUsers(
+                User::ROLE_PMT, 'ipcr_pending_pmt_review', 'New IPCR awaiting PMT review',
+                $submission->appeal_status === 'appealed'
+                    ? "{$employeeName} submitted an appeal on their IPCR. Please review the evidence and take action."
+                    : "{$employeeName}'s IPCR is ready for PMT review after the appeal window closed without an appeal.",
+                $submission->id,
+            ),
+            'route_to_hr_finalize' => $this->notifyRoleUsers(
+                User::ROLE_HR_PERSONNEL, 'ipcr_pending_finalization', 'IPCR ready for finalization',
+                "{$employeeName}'s IPCR is ready for final recording. Please review and finalize.",
+                $submission->id,
+            ),
+            're_evaluate' => $this->notifyEvaluator($submission, $employeeName),
+            'escalate' => $this->notifyRoleUsers(
+                User::ROLE_ADMINISTRATOR, 'ipcr_escalated', 'IPCR Escalated',
+                "{$employeeName}'s IPCR has been escalated. {$message}",
+                $submission->id,
+            ),
+            'finalized' => $employeeUser ? $this->create(
+                $employeeUser->id, 'ipcr_finalized', 'Your IPCR has been finalized',
+                "Your IPCR has been finalized with a rating of {$submission->final_rating} ({$submission->adjectival_rating}).",
+                'ipcr', $submission->id, false,
+            ) : null,
+            default => null,
+        };
+    }
+
+    private function notifyRoleUsers(string $role, string $type, string $title, string $message, int $submissionId): void
+    {
+        User::query()->where('role', $role)->each(function (User $user) use ($type, $title, $message, $submissionId): void {
+            $this->create($user->id, $type, $title, $message, 'ipcr', $submissionId, false);
+        });
+    }
+
+    private function notifyEvaluator(IpcrSubmission $submission, string $employeeName): void
+    {
+        if (! $submission->evaluator_id) {
+            return;
+        }
+
+        $evaluatorUser = User::query()->where('employee_id', $submission->evaluator_id)->first();
+        if ($evaluatorUser) {
+            $returnSource = $submission->pmt_decision === 'rejected' ? 'PMT' : 'HR';
+            $this->create(
+                $evaluatorUser->id, 'ipcr_re_evaluate', 'IPCR returned for re-evaluation',
+                "{$employeeName}'s IPCR was returned by {$returnSource}. Please re-evaluate and resubmit it.",
+                'ipcr', $submission->id, true,
+            );
+        }
     }
 
     private function approverMessage(array $result, string $documentType, string $employeeName, string $routingAction): string

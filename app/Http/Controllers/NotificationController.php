@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\IpcrSubmission;
 use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -12,7 +14,8 @@ class NotificationController extends Controller
 {
     public function index(Request $request): Response
     {
-        $userId = $request->user()->id;
+        $user = $request->user();
+        $userId = $user->id;
 
         $notifications = Notification::query()
             ->where('user_id', $userId)
@@ -25,6 +28,7 @@ class NotificationController extends Controller
                 'message' => $n->message,
                 'documentType' => $n->document_type,
                 'documentId' => $n->document_id,
+                'targetUrl' => $this->resolveTargetUrl($n, $user),
                 'isRead' => $n->is_read,
                 'isImportant' => $n->is_important,
                 'time' => $n->created_at->diffForHumans(),
@@ -64,5 +68,66 @@ class NotificationController extends Controller
             ->update(['is_read' => true]);
 
         return back();
+    }
+
+    private function resolveTargetUrl(Notification $notification, User $user): string
+    {
+        if ($notification->type === 'ipcr_period_opened') {
+            return $user->role === User::ROLE_EVALUATOR
+                ? route('document-management')
+                : route('submit-evaluation');
+        }
+
+        if ($notification->type === 'training_suggestion') {
+            return route('dashboard');
+        }
+
+        return match ($notification->document_type) {
+            'ipcr' => $this->resolveIpcrTargetUrl($notification, $user),
+            'leave' => $this->resolveLeaveTargetUrl($user),
+            default => route('notifications'),
+        };
+    }
+
+    private function resolveIpcrTargetUrl(Notification $notification, User $user): string
+    {
+        $submission = $notification->document_id
+            ? IpcrSubmission::query()->find($notification->document_id)
+            : null;
+
+        return match ($user->role) {
+            User::ROLE_EMPLOYEE => $this->resolveEmployeeIpcrTargetUrl($notification, $submission),
+            User::ROLE_EVALUATOR => $submission
+                ? route('evaluation-page', ['employee_id' => $submission->employee_id])
+                : route('document-management'),
+            User::ROLE_HR_PERSONNEL => $notification->type === 'ipcr_pending_finalization'
+                ? route('admin.hr-finalize')
+                : route('admin.hr-review'),
+            User::ROLE_PMT => route('admin.pmt-review'),
+            default => route('notifications'),
+        };
+    }
+
+    private function resolveEmployeeIpcrTargetUrl(Notification $notification, ?IpcrSubmission $submission): string
+    {
+        if ($notification->type === 'ipcr_appeal_window' && $submission) {
+            return route('ipcr.appeal', $submission);
+        }
+
+        if ($submission) {
+            return route('ipcr.form', ['submission_id' => $submission->id]);
+        }
+
+        return route('submit-evaluation');
+    }
+
+    private function resolveLeaveTargetUrl(User $user): string
+    {
+        return match ($user->role) {
+            User::ROLE_EMPLOYEE => route('leave-application'),
+            User::ROLE_EVALUATOR => route('admin.leave-management'),
+            User::ROLE_HR_PERSONNEL => route('admin.hr-leave-management'),
+            default => route('notifications'),
+        };
     }
 }

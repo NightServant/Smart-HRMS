@@ -1,4 +1,4 @@
-import { AlertTriangle, ShieldAlert, TrendingUp, Users } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DashboardChartSurface, DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
 import { AdminDashboardDoughnutChart } from '@/components/admin-system-dashboard-charts';
@@ -23,7 +23,7 @@ export default function RiskEmployeeAlert() {
                 setIsLoading(true);
                 setError(null);
 
-                const response = await fetch('/api/flatfat/organization-aggregate', {
+                const response = await fetch('/api/flatfat/evaluation-risk-summary', {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
@@ -74,7 +74,7 @@ export default function RiskEmployeeAlert() {
             title="Employee Risk Alert"
             description={error
                 ? `Error loading risk data: ${error}`
-                : 'Snapshot of employees based on recent performance patterns.'
+                : 'Snapshot of the latest employee evaluation results and who may need follow-up coaching.'
             }
             accentClassName="right-0 top-0 size-36 rounded-full bg-chart-3/10 blur-3xl"
             headerExtras={
@@ -105,7 +105,7 @@ export default function RiskEmployeeAlert() {
                     <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-3 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                         <Users className="size-5 text-primary" />
                         <span className="text-xl font-bold">{riskData.total_employees}</span>
-                        <span className="text-xs text-muted-foreground">Total</span>
+                        <span className="text-xs text-muted-foreground">Evaluated</span>
                     </div>
                     <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-3 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                         <AlertTriangle className={`size-5 ${

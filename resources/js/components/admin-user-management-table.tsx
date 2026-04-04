@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import PageIntro from '@/components/page-intro';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -253,27 +254,21 @@ export function AdminUserManagementTable({
 
     return (
         <>
-            <div className="top-0 animate-slide-in-down">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div>
-                        <h1 className="flex items-center gap-2 text-3xl font-bold">
-                            <ShieldPlus className="h-8 w-8" />
-                            User Management
-                        </h1>
-                        <p className="mt-1 text-muted-foreground">
-                            Manage all Smart HRMS accounts, roles, and account
-                            access from one place.
-                        </p>
-                    </div>
+            <PageIntro
+                eyebrow="Administrator · User Management"
+                title="User Management"
+                description="Manage all Smart HRMS accounts, roles, and account access from one place."
+                className="animate-slide-in-down"
+                actions={
                     <Button type="button" onClick={openCreateDialog}>
                         <Plus className="mr-2 h-4 w-4" />
                         Create Account
                     </Button>
-                </div>
-            </div>
+                }
+            />
 
-            <div className="glass-card mx-auto w-full animate-zoom-in-soft rounded-md border border-border bg-card p-4 shadow-sm">
-                <div className="grid gap-4 py-6 lg:grid-cols-3 xl:grid-cols-[minmax(0,1fr)_repeat(3,11rem)]">
+            <div className="glass-card app-data-shell mx-auto w-full animate-zoom-in-soft bg-card shadow-sm">
+                <div className="grid gap-4 py-2 lg:grid-cols-3 xl:grid-cols-[minmax(0,1fr)_repeat(3,11rem)]">
                     <div className="relative w-full lg:col-span-3 xl:col-span-1 xl:max-w-md">
                         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
@@ -349,9 +344,9 @@ export function AdminUserManagementTable({
                     </Select>
                 </div>
 
-                <Table className="w-full">
+                <Table className="w-full min-w-[78rem]">
                     <TableHeader>
-                        <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
+                        <TableRow className="app-table-head-row text-sm font-bold">
                             <TableHead>
                                 <Button
                                     type="button"
@@ -415,7 +410,7 @@ export function AdminUserManagementTable({
                             <TableRow
                                 key={`${user.email}-${index}`}
                                 style={{ animationDelay: `${index * 24}ms` }}
-                                className={`animate-fade-in-up text-sm font-semibold text-foreground ${index % 2 === 0 ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80' : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}`}
+                                className={`animate-fade-in-up text-sm font-semibold text-foreground ${index % 2 === 0 ? 'app-table-row-even' : 'app-table-row-odd'}`}
                             >
                                 <TableCell>
                                     <div className="flex flex-col">

@@ -250,16 +250,61 @@ LEAVE_RULES = {
 
 # -----------------------------------------------------------------------------
 # 3. IPCR PASSING THRESHOLD
-#    Source: CSC Performance Evaluation Guidelines
-#
-#    IMPORTANT NOTE FOR YOUR THESIS DEFENSE:
-#    Your draft flowchart (workflow.png) shows "Rating < 3 = Failed".
-#    The correct CSC standard is 2.5 — Satisfactory is the minimum passing mark.
-#    This code uses 2.5 to match your thesis manuscript and CSC guidelines.
-#    You should update your flowchart to say "< 2.5" before your final defense.
+#    Source: IPCR Process Flow v5.1
 # -----------------------------------------------------------------------------
 
-IPCR_PASSING_SCORE = 2.5   # Ratings >= 2.5 are passing (Satisfactory and above)
+IPCR_PASSING_SCORE = 3.0
+
+
+# -----------------------------------------------------------------------------
+# 3B. IPCR v5.1 — APPEAL & WORKFLOW CONSTANTS
+#     Source: CSC MC No. 6 s. 2012, IPCR Process Flow v5.1
+# -----------------------------------------------------------------------------
+
+APPEAL_WINDOW_HOURS = 72      # 3 calendar days (practical optimization from CSC 10-day)
+HR_MAX_CYCLES = 1             # Max re-evaluation cycles for HR stage
+PMT_MAX_CYCLES = 1            # Max re-evaluation cycles for PMT stage
+RE_EVAL_DEADLINE_DAYS = 3     # Re-evaluation turnaround deadline
+
+# SPMS Rating Scale — maps numerical score ranges to adjectival ratings
+# Source: CSC SPMS Guidelines
+ADJECTIVAL_RATING_RANGES = [
+    (4.50, 5.00, "Outstanding"),
+    (3.50, 4.49, "Very Satisfactory"),
+    (2.50, 3.49, "Satisfactory"),
+    (1.50, 2.49, "Unsatisfactory"),
+    (0.00, 1.49, "Poor"),
+]
+
+
+def get_adjectival_rating(score: float) -> str:
+    """Convert a numerical SPMS score to its adjectival rating label."""
+    for low, high, label in ADJECTIVAL_RATING_RANGES:
+        if low <= score <= high:
+            return label
+    return "Poor"
+
+
+# v5.1 Rule Reference — for traceability and audit logging
+V51_RULES = {
+    "R-01":  "Initial routing to evaluator",
+    "R-02":  "Require remarks before routing",
+    "R-02b": "Confirmation dialog on submission",
+    "R-03":  "Route to HR after evaluation",
+    "R-04":  "HR escalation (cycle >= 1)",
+    "R-05":  "HR re-evaluation (first time)",
+    "R-05b": "HR notify employee + open appeal window",
+    "R-A1":  "Appeal window routing decision",
+    "R-A2":  "Require appeal evidence",
+    "R-A3":  "Route appeal to PMT",
+    "R-A4":  "PMT check if employee appealed",
+    "R-06":  "HR advance to PMT (no errors)",
+    "R-07":  "PMT escalation (cycle >= 1)",
+    "R-08":  "PMT re-evaluation (first time)",
+    "R-09":  "PMT approve and route to HR recording",
+    "R-10":  "HR record finalized IPCR",
+    "R-11":  "Notify employee of final rating",
+}
 
 # IPCR Evaluator Override (Option B)
 #

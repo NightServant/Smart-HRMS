@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LeaveRequest extends Model
 {
@@ -59,5 +59,14 @@ class LeaveRequest extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'employee_id', 'employee_id');
+    }
+
+    public function leaveAccrual(): ?float
+    {
+        if ($this->days_requested === null) {
+            return null;
+        }
+
+        return round(((float) $this->days_requested) / 12, 2);
     }
 }

@@ -21,8 +21,20 @@ class Employee extends Model
         'employee_id',
         'name',
         'job_title',
+        'employment_status',
         'supervisor_id',
+        'manual_punch_enabled',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'manual_punch_enabled' => 'boolean',
+        ];
+    }
 
     public function supervisor(): BelongsTo
     {
@@ -47,6 +59,13 @@ class Employee extends Model
     public function latestSubmission(): HasOne
     {
         return $this->hasOne(IpcrSubmission::class, 'employee_id', 'employee_id')->latestOfMany();
+    }
+
+    public function latestRatedSubmission(): HasOne
+    {
+        return $this->hasOne(IpcrSubmission::class, 'employee_id', 'employee_id')
+            ->whereNotNull('performance_rating')
+            ->latestOfMany();
     }
 
     public function leaveRequests(): HasMany

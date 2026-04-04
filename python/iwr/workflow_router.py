@@ -49,7 +49,11 @@ import logging
 import json
 from datetime import datetime, timezone
 
-from org_and_rules import EMPLOYEES, ROLE_ENCODING, LEAVE_TYPE_ENCODING
+from org_and_rules import (
+    EMPLOYEES, ROLE_ENCODING, LEAVE_TYPE_ENCODING,
+    HR_MAX_CYCLES, PMT_MAX_CYCLES, APPEAL_WINDOW_HOURS,
+    get_adjectival_rating,
+)
 from rule_engine import RuleEngine
 from decision_tree import IPCRDecisionTree, LeaveDecisionTree
 
@@ -126,8 +130,8 @@ class WorkflowRouter:
         """
 
         employee_id = form.get("employee_id")
-        is_first    = form.get("is_first_submission", True)
-        rating      = form.get("performance_rating")
+        is_first = form.get("is_first_submission", True)
+        rating = form.get("performance_rating")
 
         # ==================================================================
         # LAYER 1 — Rule Engine
@@ -155,138 +159,77 @@ class WorkflowRouter:
                 "notification": f"Form returned. Reason: {reason}",
             }
 
-        # Compliance passed — get the employee record
         employee = EMPLOYEES[employee_id]
+        confidence_pct = 100.0
 
-        # ==================================================================
-        # LAYER 2 — Decision Tree
-        # Maps to workflow.png: "Employee Rating" decision diamond
-        #
-        # Build the feature vector and ask the Decision Tree to classify
-        # the correct routing action for this form.
-        # ==================================================================
-        role_enc = ROLE_ENCODING[employee["role"]]
-
-        features = {
-            "role_encoded":        role_enc,
-            "performance_rating":  rating if rating is not None else 0.0,
-            "is_first_submission": 1 if is_first else 0,
-        }
-
-        # The Decision Tree traverses Root → Decision Nodes → Leaf Node
-        dt_result = self.ipcr_dt.predict(features)
-        action    = dt_result["routing_action_label"]
-
-        # ==================================================================
-        # BRANCH 1: Fresh form submission
-        # Maps to workflow.png:
-        #   "Route to assigned Evaluator (Supervisor)"
-        #
-        # The employee just submitted the form. No rating yet.
-        # The evaluator was assigned by the Rule Engine above.
-        # ==================================================================
-        if action == "route_to_evaluator":
+        if is_first:
             return {
                 "status":          "routed",
                 "stage":           "sent_to_evaluator",
                 "employee_id":     employee_id,
                 "employee_name":   employee["name"],
-                "routing_action":  action,
+                "routing_action":  "route_to_evaluator",
                 "evaluator_id":    evaluator["employee_id"],
                 "evaluator_name":  evaluator["name"],
                 "evaluator_role":  evaluator["role"],
-                "confidence_pct":  dt_result["confidence_pct"],
+                "confidence_pct":  confidence_pct,
                 "notification": (
                     f"IPCR form for {employee['name']} has been sent to "
                     f"{evaluator['name']} ({evaluator['role']}) for evaluation."
                 ),
             }
 
-        # ==================================================================
-        # BRANCH 2: Passing rating (>= 2.5)
-        # Maps to workflow.png:
-        #   "Employee Rating < 3? → No → Passed → Save Data"
-        # ==================================================================
-        if action == "save_data":
+        gave_remarks = form.get("evaluator_gave_remarks", False)
+        if not gave_remarks:
+            return {
+                "status":          "routed",
+                "stage":           "waiting_for_remarks",
+                "employee_id":     employee_id,
+                "employee_name":   employee["name"],
+                "routing_action":  "route_back_to_evaluator",
+                "rating":          rating,
+                "evaluator_id":    evaluator["employee_id"],
+                "evaluator_name":  evaluator["name"],
+                "evaluator_role":  evaluator["role"],
+                "confidence_pct":  confidence_pct,
+                "notification": (
+                    f"Routed back to {evaluator['name']} to provide the required evaluator remarks."
+                ),
+            }
+
+        if rating >= 3.0:
             return {
                 "status":          "completed",
                 "stage":           "data_saved",
                 "employee_id":     employee_id,
                 "employee_name":   employee["name"],
-                "routing_action":  action,
+                "routing_action":  "save_data",
                 "rating":          rating,
                 "evaluator_id":    evaluator["employee_id"],
                 "evaluator_name":  evaluator["name"],
                 "evaluator_role":  evaluator["role"],
-                "confidence_pct":  dt_result["confidence_pct"],
+                "confidence_pct":  confidence_pct,
                 "notification": (
                     f"IPCR for {employee['name']} passed with a rating of {rating:.2f}. "
                     f"Data saved."
                 ),
             }
 
-        # ==================================================================
-        # BRANCH 3: Failing rating (< 2.5)
-        # Maps to workflow.png:
-        #   "Employee Rating < 3? → Yes → Failed → Gives Remarks?"
-        #
-        # The "Gives Remarks?" diamond is NOT handled by the Decision Tree.
-        # It is a follow-up condition checked here in the orchestrator.
-        # ==================================================================
-        if action == "return_for_remarks":
-
-            gave_remarks = form.get("evaluator_gave_remarks", False)
-
-            # --------------------------------------------------------------
-            # SUB-BRANCH A: Evaluator has NOT given remarks yet
-            # Maps to workflow.png:
-            #   "Gives Remarks? → No → Route back to assigned Evaluator
-            #                       → Give Remarks"
-            # --------------------------------------------------------------
-            if not gave_remarks:
-                return {
-                    "status":          "routed",
-                    "stage":           "waiting_for_remarks",
-                    "employee_id":     employee_id,
-                    "employee_name":   employee["name"],
-                    "routing_action":  "route_back_to_evaluator",
-                    "rating":          rating,
-                    "evaluator_id":    evaluator["employee_id"],
-                    "evaluator_name":  evaluator["name"],
-                    "evaluator_role":  evaluator["role"],
-                    "notification": (
-                        f"Routed back to {evaluator['name']} to provide remarks."
-                    ),
-                }
-
-            # --------------------------------------------------------------
-            # SUB-BRANCH B: Evaluator HAS given remarks
-            # Maps to workflow.png:
-            #   "Gives Remarks? → Yes → Save Data"
-            # --------------------------------------------------------------
-            else:
-                return {
-                    "status":          "completed",
-                    "stage":           "remarks_saved",
-                    "employee_id":     employee_id,
-                    "employee_name":   employee["name"],
-                    "routing_action":  "save_data",
-                    "rating":          rating,
-                    "evaluator_id":    evaluator["employee_id"],
-                    "evaluator_name":  evaluator["name"],
-                    "evaluator_role":  evaluator["role"],
-                    "notification": (
-                        f"IPCR for {employee['name']} — failing rating of {rating:.2f}. "
-                        f"Evaluator remarks recorded. Data saved."
-                    ),
-                }
-
-        # ==================================================================
-        # Fallback — should never reach here if Decision Tree is working correctly
-        # ==================================================================
         return {
-            "status": "error",
-            "reason": f"Unexpected routing action from Decision Tree: '{action}'",
+            "status":          "completed",
+            "stage":           "remarks_saved",
+            "employee_id":     employee_id,
+            "employee_name":   employee["name"],
+            "routing_action":  "save_data",
+            "rating":          rating,
+            "evaluator_id":    evaluator["employee_id"],
+            "evaluator_name":  evaluator["name"],
+            "evaluator_role":  evaluator["role"],
+            "confidence_pct":  confidence_pct,
+            "notification": (
+                f"IPCR for {employee['name']} — failing rating of {rating:.2f}. "
+                f"Evaluator remarks recorded. Data saved."
+            ),
         }
 
     # =========================================================================
@@ -637,3 +580,100 @@ class WorkflowRouter:
         self._log_decision(result, "leave")
         return result
 
+    # =========================================================================
+    # IPCR v5.1 — Post-Evaluator Phases (HR, Appeal, PMT, Finalize)
+    # Rule-based routing only — no Decision Tree needed.
+    # =========================================================================
+
+    def _route_ipcr_v51(self, form: dict) -> dict:
+        stage = form.get("stage", "")
+        employee_id = form.get("employee_id", "")
+        employee_name = form.get("employee_name", "Unknown")
+
+        base = {
+            "employee_id": employee_id,
+            "employee_name": employee_name,
+        }
+
+        # --- Phase 3: HR Review ---
+        if stage == "hr_review":
+            passed, reason = self.rules.check_hr_review(form)
+            if not passed:
+                return {**base, "status": "error", "stage": "hr_review", "routing_action": "validation_failed", "notification": reason}
+
+            hr_decision = form.get("hr_decision")
+            hr_cycle_count = int(form.get("hr_cycle_count", 0))
+
+            if hr_decision == "approved":
+                return {**base, "status": "routed", "stage": "appeal_window_open", "routing_action": "open_appeal_window",
+                        "appeal_window_hours": APPEAL_WINDOW_HOURS,
+                        "notification": f"HR approved IPCR for {employee_name}. Appeal window opened for {APPEAL_WINDOW_HOURS} hours."}
+
+            if hr_cycle_count < HR_MAX_CYCLES:
+                return {**base, "status": "routed", "stage": "sent_to_evaluator", "routing_action": "re_evaluate",
+                        "notification": f"HR returned IPCR for {employee_name} to the evaluator for correction."}
+
+            return {**base, "status": "escalated", "stage": "escalated", "routing_action": "escalate",
+                    "escalation_reason": "HR review cycle limit reached",
+                    "notification": f"IPCR for {employee_name} escalated — HR review cycle limit reached."}
+
+        # --- Phase 3B: Appeal ---
+        if stage == "appeal":
+            appeal_status = form.get("appeal_status", "")
+
+            if appeal_status in ("expired", "no_appeal"):
+                return {**base, "status": "routed", "stage": "sent_to_pmt", "routing_action": "route_to_pmt",
+                        "notification": f"Appeal window closed for {employee_name}. Routed to PMT for review."}
+
+            passed, reason = self.rules.check_appeal_submission(form)
+            if not passed:
+                return {**base, "status": "error", "stage": "appeal", "routing_action": "validation_failed", "notification": reason}
+
+            return {**base, "status": "routed", "stage": "sent_to_pmt", "routing_action": "route_to_pmt",
+                    "notification": f"Appeal submitted for {employee_name}. Routed to PMT for validation."}
+
+        # --- Phase 4: PMT Review ---
+        if stage == "pmt_review":
+            passed, reason = self.rules.check_pmt_review(form)
+            if not passed:
+                return {**base, "status": "error", "stage": "pmt_review", "routing_action": "validation_failed", "notification": reason}
+
+            pmt_decision = form.get("pmt_decision")
+            pmt_cycle_count = int(form.get("pmt_cycle_count", 0))
+
+            if pmt_decision == "approved":
+                return {**base, "status": "routed", "stage": "sent_to_hr_finalize", "routing_action": "route_to_hr_finalize",
+                        "notification": f"PMT approved IPCR for {employee_name}. Ready for finalization."}
+
+            if pmt_cycle_count < PMT_MAX_CYCLES:
+                return {**base, "status": "routed", "stage": "sent_to_evaluator", "routing_action": "re_evaluate",
+                        "notification": f"PMT rejected IPCR for {employee_name}. Sent back for re-evaluation."}
+
+            return {**base, "status": "escalated", "stage": "escalated", "routing_action": "escalate",
+                    "escalation_reason": "PMT review cycle limit reached",
+                    "notification": f"IPCR for {employee_name} escalated — PMT review cycle limit reached."}
+
+        # --- Phase 5: Finalization ---
+        if stage == "finalize":
+            final_rating = form.get("final_rating")
+            if final_rating is None:
+                return {**base, "status": "error", "stage": "finalize", "routing_action": "validation_failed",
+                        "notification": "Final rating is required."}
+
+            final_rating = float(final_rating)
+            if not (1.0 <= final_rating <= 5.0):
+                return {**base, "status": "error", "stage": "finalize", "routing_action": "validation_failed",
+                        "notification": f"Final rating {final_rating} is invalid. Must be between 1.0 and 5.0."}
+
+            adjectival = get_adjectival_rating(final_rating)
+            return {**base, "status": "completed", "stage": "finalized", "routing_action": "finalized",
+                    "adjectival_rating": adjectival, "final_rating": final_rating,
+                    "notification": f"IPCR for {employee_name} finalized. Rating: {final_rating:.2f} ({adjectival})."}
+
+        return {**base, "status": "error", "routing_action": "unknown_stage",
+                "notification": f"Unknown v5.1 stage: '{stage}'."}
+
+    def route_ipcr_v51(self, form: dict) -> dict:
+        result = self._route_ipcr_v51(form)
+        self._log_decision(result, "ipcr_v51")
+        return result

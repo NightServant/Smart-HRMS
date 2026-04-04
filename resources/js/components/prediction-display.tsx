@@ -1,14 +1,27 @@
 import { ArrowDown, ArrowRight, ArrowUp, ChartLine, Loader2, TrendingUp } from 'lucide-react';
 import { DashboardChartSurface } from '@/components/admin-system-dashboard-cards';
 import { Badge } from '@/components/ui/badge';
-import { LineChart } from '@/components/ui/line-chart';
+import { MultiLineChart } from '@/components/ui/line-chart';
 
 export type PredictionResult = {
     status: string;
     employee_name: string;
     notification?: string;
-    historical: { labels: string[]; scores: number[]; yearly_labels: string[]; yearly_scores: number[] };
-    forecast: { labels: string[]; scores: number[] };
+    historical: {
+        labels: string[];
+        scores: number[];
+        yearly_labels: string[];
+        yearly_scores: number[];
+        semester_labels?: string[];
+        available_years?: number[];
+        by_year?: Record<string, [number | null, number | null]>;
+        all_year_scores?: [number | null, number | null];
+    };
+    forecast: {
+        labels: string[];
+        scores: number[];
+        semester_labels?: string[];
+    };
     trend: string;
     recent_avg: number;
     forecast_avg: number;
@@ -19,6 +32,30 @@ type Props = {
     prediction: PredictionResult | null;
     loading: boolean;
 };
+
+function buildForecastYearAverages(labels: string[], scores: number[]): Record<string, number> {
+    const grouped = new Map<string, number[]>();
+
+    labels.forEach((label, index) => {
+        const score = scores[index];
+
+        if (score == null) {
+            return;
+        }
+
+        const year = label.split('-S')[0] ?? label;
+        const existing = grouped.get(year) ?? [];
+        existing.push(score);
+        grouped.set(year, existing);
+    });
+
+    return Object.fromEntries(
+        Array.from(grouped.entries()).map(([year, values]) => [
+            year,
+            Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2)),
+        ]),
+    );
+}
 
 export default function PredictionDisplay({ prediction, loading }: Props) {
     if (loading) {
@@ -48,42 +85,75 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
     }[prediction.trend] ?? { icon: ArrowRight, color: 'text-muted-foreground', bg: 'border-border/70 bg-muted/10', label: prediction.trend };
 
     const TrendIcon = trendConfig.icon;
+    const historicalYearLabels = prediction.historical.yearly_labels ?? [];
+    const historicalYearScores = prediction.historical.yearly_scores ?? [];
+    const forecastYearAverages = buildForecastYearAverages(
+        prediction.forecast.labels ?? [],
+        prediction.forecast.scores ?? [],
+    );
+    const yearLabels = Array.from(new Set([
+        ...historicalYearLabels,
+        ...Object.keys(forecastYearAverages),
+    ])).sort((left, right) => Number(left) - Number(right));
+    const historicalData = yearLabels.map((year) => {
+        const index = historicalYearLabels.indexOf(year);
+
+        return index >= 0 ? historicalYearScores[index] ?? null : null;
+    });
+    const forecastData = yearLabels.map((year) => forecastYearAverages[year] ?? null);
+    const lastHistoricalYear = historicalYearLabels.at(-1);
+    const lastHistoricalScore = historicalYearScores.at(-1) ?? null;
+
+    if (lastHistoricalYear && lastHistoricalScore !== null) {
+        const lastHistoricalIndex = yearLabels.indexOf(lastHistoricalYear);
+
+        if (lastHistoricalIndex >= 0 && forecastData[lastHistoricalIndex] === null) {
+            forecastData[lastHistoricalIndex] = lastHistoricalScore;
+        }
+    }
 
     return (
         <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <DashboardChartSurface className="flex flex-col gap-2">
-                    <p className="flex items-center gap-2 text-sm font-semibold">
-                        <TrendingUp className="size-4 text-primary" />
-                        Historical Performance
-                    </p>
-                    <LineChart
-                        labels={prediction.historical.yearly_labels}
-                        data={prediction.historical.yearly_scores}
-                        borderColor="#91C383"
-                        backgroundColor="#4A7C3C"
-                    />
-                </DashboardChartSurface>
-                <DashboardChartSurface className="flex flex-col gap-2">
-                    <p className="flex items-center gap-2 text-sm font-semibold">
-                        <ChartLine className="size-4 text-primary" />
-                        Projected Performance
-                    </p>
-                    <LineChart
-                        labels={prediction.forecast.labels}
-                        data={prediction.forecast.scores}
-                        borderColor="#4A90D9"
-                        backgroundColor="#2A5A8C"
-                    />
-                </DashboardChartSurface>
-            </div>
+            <DashboardChartSurface className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                        <p className="flex items-center gap-2 text-sm font-semibold">
+                            <TrendingUp className="size-4 text-primary" />
+                            Yearly Performance Trend
+                        </p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                            Historical yearly averages with forecasted performance mapped onto the same year-based timeline.
+                        </p>
+                    </div>
+                    <Badge variant="outline">X-Axis: Historical Years</Badge>
+                </div>
+
+                <MultiLineChart
+                    labels={yearLabels}
+                    datasets={[
+                        {
+                            label: 'Historical Yearly Average',
+                            data: historicalData,
+                            borderColor: '#4A7C3C',
+                            backgroundColor: '#91C383',
+                        },
+                        {
+                            label: 'Projected Performance',
+                            data: forecastData,
+                            borderColor: '#2A5A8C',
+                            backgroundColor: '#4A90D9',
+                            borderDash: [6, 3],
+                        },
+                    ]}
+                />
+            </DashboardChartSurface>
             <div className="flex flex-wrap items-center gap-4 text-sm">
                 <Badge variant="outline" className={`${trendConfig.bg} ${trendConfig.color}`}>
                     <TrendIcon className="size-4" />
                     {trendConfig.label}
                 </Badge>
                 <span className="text-muted-foreground">
-                    Recent avg: <span className="font-semibold text-foreground">{prediction.recent_avg.toFixed(2)}</span>
+                    Historical avg: <span className="font-semibold text-foreground">{prediction.recent_avg.toFixed(2)}</span>
                 </span>
                 <span className="text-muted-foreground">
                     Forecast avg: <span className="font-semibold text-foreground">{prediction.forecast_avg.toFixed(2)}</span>

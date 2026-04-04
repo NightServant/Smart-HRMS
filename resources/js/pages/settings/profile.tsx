@@ -25,7 +25,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 type AccountProfile = {
     name: string;
     email: string;
-    role: 'administrator' | 'employee' | 'evaluator' | 'hr-personnel';
+    role: 'administrator' | 'employee' | 'evaluator' | 'hr-personnel' | 'pmt';
     employeeId: string | null;
 };
 
@@ -47,6 +47,10 @@ type PageProps = {
 function formatRoleLabel(role: AccountProfile['role']): string {
     if (role === 'hr-personnel') {
         return 'HR Personnel';
+    }
+
+    if (role === 'pmt') {
+        return 'PMT';
     }
 
     return role.charAt(0).toUpperCase() + role.slice(1);
@@ -113,9 +117,9 @@ const handleClick = () => {
 export default function Profile() {
     const { auth, canEditProfile, accountProfile, employeeProfile } = usePage<PageProps>().props;
     const roleLabel = formatRoleLabel(accountProfile.role);
-    const shouldShowAccountManagementField = auth.user.role === 'employee' || auth.user.role === 'evaluator' || auth.user.role === 'hr-personnel';
+    const shouldShowAccountManagementField = auth.user.role === 'employee' || auth.user.role === 'evaluator' || auth.user.role === 'hr-personnel' || auth.user.role === 'pmt';
     const shouldShowEmployeeProfile = auth.user.role === 'employee' || auth.user.role === 'evaluator';
-    const shouldStackSections = canEditProfile || auth.user.role === 'hr-personnel' || auth.user.role === 'employee';
+    const shouldStackSections = canEditProfile || auth.user.role === 'hr-personnel' || auth.user.role === 'employee' || auth.user.role === 'pmt';
     const shouldShowSupervisorId = auth.user.role !== 'evaluator';
     const linkedRecordNameDiffers = employeeProfile?.name && employeeProfile.name !== accountProfile.name;
     const shouldShowLinkedEmployeeIdOutsideEmployeeProfile = canEditProfile;

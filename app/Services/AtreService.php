@@ -8,24 +8,24 @@ use Illuminate\Support\Facades\Process;
 class AtreService
 {
     /**
-     * Get training recommendations based on seminars and criteria ratings.
+     * Get training recommendations based on seminars and the structured IPCR form payload.
      *
      * @param  array<int, array<string, mixed>>  $seminars
-     * @param  array<string, string>  $criteriaRatings
+     * @param  array<string, mixed>  $formPayload
      * @return array<string, mixed>
      */
-    public function recommend(array $seminars, array $criteriaRatings): array
+    public function recommend(array $seminars, array $formPayload): array
     {
         try {
             $input = json_encode([
                 'action' => 'recommend',
                 'payload' => [
                     'seminars' => $seminars,
-                    'criteria_ratings' => $criteriaRatings,
+                    'form_payload' => $formPayload,
                 ],
             ]);
 
-            Log::info('ATRE request', ['criteria_count' => count($criteriaRatings), 'seminar_count' => count($seminars)]);
+            Log::info('ATRE request', ['seminar_count' => count($seminars)]);
 
             $result = Process::path(base_path('python/atre'))
                 ->timeout(15)

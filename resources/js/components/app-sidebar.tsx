@@ -1,5 +1,22 @@
-import { Link, router, usePage } from '@inertiajs/react';
-import { Activity, BarChart3, Bell, CalendarClock, ClipboardCheck, FileStack, FileUser, Fingerprint, Grid, LayoutDashboard, PieChart, ScrollText, Send, Settings, ShieldPlus, Users } from 'lucide-react';
+import { router, usePage } from '@inertiajs/react';
+import {
+    Activity,
+    BarChart3,
+    Bell,
+    CalendarClock,
+    ClipboardCheck,
+    FileStack,
+    FileUser,
+    Fingerprint,
+    Grid,
+    LayoutDashboard,
+    PieChart,
+    ScrollText,
+    Send,
+    Settings,
+    ShieldPlus,
+    Users,
+} from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -8,14 +25,19 @@ import {
     SidebarContent,
     SidebarFooter,
     SidebarHeader,
-    SidebarMenu,
-    SidebarMenuButton,
-    SidebarMenuItem,
+    SidebarTrigger,
 } from '@/components/ui/sidebar';
-import { attendance, dashboard, leaveApplication, documentManagement, performanceDashboard, notifications, submitEvaluation } from '@/routes';
+import {
+    attendance,
+    dashboard,
+    leaveApplication,
+    documentManagement,
+    performanceDashboard,
+    notifications,
+    submitEvaluation,
+} from '@/routes';
 import * as admin from '@/routes/admin';
 import type { Auth, NavItem } from '@/types';
-import AppLogo from './app-logo';
 
 const employeeNavItems: NavItem[] = [
     {
@@ -29,7 +51,7 @@ const employeeNavItems: NavItem[] = [
         icon: FileUser,
     },
     {
-        title: 'Form Submission',
+        title: 'Performance Evaluation',
         href: submitEvaluation(),
         icon: Send,
     },
@@ -58,11 +80,11 @@ const evaluatorNavItems: NavItem[] = [
     },
     {
         title: 'Attendance Management',
-        href: admin.attendanceManagement(),
+        href: admin.evaluatorAttendance(),
         icon: ClipboardCheck,
     },
     {
-        title: 'Documents',
+        title: 'Performance Evaluation',
         href: documentManagement(),
         icon: FileStack,
     },
@@ -105,9 +127,27 @@ const hrPersonnelNavItems: NavItem[] = [
         icon: FileUser,
     },
     {
-        title: 'Training Scheduling',
+        title: 'Performance Evaluation',
+        href: admin.hrReview(),
+        icon: Send,
+    },
+    {
+        title: 'Training Suggestions',
         href: admin.trainingScheduling(),
         icon: CalendarClock,
+    },
+    {
+        title: 'Notifications',
+        href: notifications(),
+        icon: Bell,
+    },
+];
+
+const pmtNavItems: NavItem[] = [
+    {
+        title: 'Performance Evaluation',
+        href: admin.pmtReview(),
+        icon: ClipboardCheck,
     },
     {
         title: 'Notifications',
@@ -150,7 +190,10 @@ const administratorNavItems: NavItem[] = [
 ];
 
 export function AppSidebar() {
-    const { auth, unreadNotificationCount } = usePage<{ auth: Auth; unreadNotificationCount: number }>().props;
+    const { auth, unreadNotificationCount } = usePage<{
+        auth: Auth;
+        unreadNotificationCount: number;
+    }>().props;
 
     // Poll for unread notification count every 15 seconds
     useEffect(() => {
@@ -160,43 +203,36 @@ export function AppSidebar() {
         return () => clearInterval(interval);
     }, []);
 
-    const mainNavItems = auth.user.role === 'administrator'
-        ? administratorNavItems
-        : auth.user.role === 'evaluator'
-        ? evaluatorNavItems
-        : auth.user.role === 'hr-personnel'
-            ? hrPersonnelNavItems
-            : employeeNavItems;
+    const mainNavItems =
+        auth.user.role === 'administrator'
+            ? administratorNavItems
+            : auth.user.role === 'evaluator'
+              ? evaluatorNavItems
+              : auth.user.role === 'hr-personnel'
+                ? hrPersonnelNavItems
+                : auth.user.role === 'pmt'
+                  ? pmtNavItems
+                  : employeeNavItems;
 
     const itemsWithBadge = useMemo(() => {
-        return mainNavItems.map(item =>
-            item.title === 'Notifications' ? { ...item, badge: unreadNotificationCount } : item
+        return mainNavItems.map((item) =>
+            item.title === 'Notifications'
+                ? { ...item, badge: unreadNotificationCount }
+                : item,
         );
     }, [mainNavItems, unreadNotificationCount]);
 
-    const homeLink = auth.user.role === 'administrator'
-        ? admin.systemDashboard()
-        : auth.user.role === 'hr-personnel'
-        ? admin.performanceDashboard()
-        : auth.user.role === 'evaluator'
-            ? performanceDashboard()
-            : dashboard();
-
     return (
-        <Sidebar collapsible="icon" variant="sidebar" >
-            <SidebarHeader>
-                <SidebarMenu>
-                    <SidebarMenuItem>
-                        <SidebarMenuButton size="lg" asChild>
-                            <Link href={homeLink} prefetch>
-                                <AppLogo />
-                            </Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
-                </SidebarMenu>
+        <Sidebar collapsible="icon" variant="sidebar">
+            <SidebarHeader className="border-b border-sidebar-border/50 p-3">
+                <div className="flex items-center justify-between gap-3 group-data-[collapsible=icon]:justify-center">
+                    <span className="px-1 text-[0.68rem] font-semibold tracking-[0.22em] text-sidebar-foreground/70 uppercase group-data-[collapsible=icon]:hidden">
+                        Platform
+                    </span>
+                    <SidebarTrigger className="rounded-full border border-sidebar-border/70 bg-sidebar-accent/75 p-1.5 text-sidebar-foreground shadow-sm hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
+                </div>
             </SidebarHeader>
-
-            <SidebarContent>
+            <SidebarContent className="pt-4">
                 <NavMain items={itemsWithBadge} />
             </SidebarContent>
 

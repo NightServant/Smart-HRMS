@@ -26,7 +26,6 @@ type Props = {
         documentType: string;
         routingAction: string;
         compliance: string;
-        confidence: string;
         dateFrom: string;
         dateTo: string;
     };

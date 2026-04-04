@@ -13,33 +13,38 @@ test('evaluator can fetch predictive performance data for an employee', function
         'department_name' => 'Administrative Office',
         'year' => 2026,
         'quarter' => 'Q1',
+        'period' => null,
         'attendance_punctuality_rate' => '98%',
         'absenteeism_days' => 0,
         'tardiness_incidents' => 1,
         'training_completion_status' => 1,
-        'evaluated_performance_score' => 4.25,
+        'evaluated_performance_score' => 94.20,
     ]);
 
     $this->mock(PpeService::class, function (MockInterface $mock): void {
         $mock->shouldReceive('predict')
             ->once()
-            ->with('Alice Employee', \Mockery::type('array'))
+            ->with('Alice Employee', \Mockery::on(function (array $records): bool {
+                return count($records) === 1
+                    && $records[0]['period'] === 'S1'
+                    && $records[0]['evaluated_performance_score'] === 4.71;
+            }))
             ->andReturn([
                 'status' => 'ok',
                 'employee_name' => 'Alice Employee',
                 'historical' => [
-                    'labels' => ['Q1 2026'],
-                    'scores' => [4.25],
-                    'yearly_labels' => ['2026 Q1'],
-                    'yearly_scores' => [4.25],
+                    'labels' => ['2026-S1'],
+                    'scores' => [4.71],
+                    'yearly_labels' => ['2026'],
+                    'yearly_scores' => [4.71],
                 ],
                 'forecast' => [
-                    'labels' => ['Q2 2026'],
-                    'scores' => [4.30],
+                    'labels' => ['2026-S2'],
+                    'scores' => [4.74],
                 ],
                 'trend' => 'IMPROVING',
-                'recent_avg' => 4.25,
-                'forecast_avg' => 4.30,
+                'recent_avg' => 4.71,
+                'forecast_avg' => 4.74,
                 'coefficients' => [],
             ]);
     });

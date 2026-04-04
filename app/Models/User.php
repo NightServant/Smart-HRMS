@@ -19,6 +19,8 @@ class User extends Authenticatable
 
     public const ROLE_HR_PERSONNEL = 'hr-personnel';
 
+    public const ROLE_PMT = 'pmt';
+
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, TwoFactorAuthenticatable;
 
@@ -74,6 +76,7 @@ class User extends Authenticatable
             self::ROLE_EMPLOYEE,
             self::ROLE_EVALUATOR,
             self::ROLE_HR_PERSONNEL,
+            self::ROLE_PMT,
         ];
     }
 
@@ -99,6 +102,10 @@ class User extends Authenticatable
 
         if ($this->role === self::ROLE_EVALUATOR) {
             return 'performanceDashboard';
+        }
+
+        if ($this->role === self::ROLE_PMT) {
+            return 'admin.pmt-review';
         }
 
         return 'dashboard';

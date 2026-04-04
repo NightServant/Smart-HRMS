@@ -1,262 +1,213 @@
-import { router } from "@inertiajs/react";
-import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
-
-const evaluationCriteria = [
-    {
-        name: "Understanding job responsibilities",
-        description: "Clearly understands assigned duties, scope, and expected outcomes.",
-    },
-    {
-        name: "Technical or Professional Skills",
-        description: "Applies required technical knowledge and role-specific competencies.",
-    },
-    {
-        name: "Quality of work",
-        description: "Produces outputs that are complete, accurate, and aligned with standards.",
-    },
-    {
-        name: "Productivity",
-        description: "Delivers expected volume of work within available time and resources.",
-    },
-    {
-        name: "Accuracy and attention to detail",
-        description: "Minimizes errors and checks details before submitting outputs.",
-    },
-    {
-        name: "Meeting deadlines",
-        description: "Completes tasks on or before agreed timelines consistently.",
-    },
-    {
-        name: "Problem-Solving Ability",
-        description: "Analyzes issues and proposes practical, timely solutions.",
-    },
-    {
-        name: "Initiative",
-        description: "Acts proactively without waiting for frequent direction.",
-    },
-    {
-        name: "Adaptability",
-        description: "Adjusts effectively to new priorities, tools, and work conditions.",
-    },
-    {
-        name: "Decision-making skills",
-        description: "Makes sound decisions using available facts and policy guidance.",
-    },
-    {
-        name: "Verbal communication",
-        description: "Communicates ideas clearly and professionally in spoken interactions.",
-    },
-    {
-        name: "Written communication",
-        description: "Prepares clear, organized, and grammatically correct written outputs.",
-    },
-    {
-        name: "Teamwork",
-        description: "Collaborates respectfully and supports shared team goals.",
-    },
-    {
-        name: "Professional behavior",
-        description: "Demonstrates integrity, respect, and proper workplace conduct.",
-    },
-    {
-        name: "Punctuality",
-        description: "Reports to work and meetings on time consistently.",
-    },
-    {
-        name: "Attendance record",
-        description: "Maintains reliable attendance aligned with office requirements.",
-    },
-    {
-        name: "Dependability",
-        description: "Can be trusted to complete responsibilities with minimal follow-up.",
-    },
-];
-
-const ratingScale = ["1", "2", "3", "4", "5"];
-
-type RatingMap = Record<string, string>;
-
-type Employee = {
-    employee_id: string;
-    name: string;
-    job_title: string;
-};
-
-type Submission = {
-    id: number;
-    performance_rating: number | null;
-    status: string | null;
-    stage: string | null;
-    evaluator_gave_remarks: boolean;
-    remarks: string | null;
-    notification: string | null;
-};
+import { router } from '@inertiajs/react';
+import { useEffect, useMemo, useState } from 'react';
+import { saveEvaluation } from '@/actions/App/Http/Controllers/IwrController';
+import EscalationWarning from '@/components/escalation-warning';
+import IpcrPaperForm from '@/components/ipcr-paper-form';
+import IpcrWorkflowStepper from '@/components/ipcr-workflow-stepper';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import type { IpcrEmployee, IpcrFormPayload, IpcrSubmission } from '@/types';
 
 type Props = {
-    employee: Employee | null;
-    submission: Submission | null;
+    employee: IpcrEmployee | null;
+    submission: IpcrSubmission | null;
+    draftFormPayload: IpcrFormPayload | null;
 };
 
-export default function EvaluationCard({ employee, submission }: Props) {
-    const [remarks, setRemarks] = useState("");
-    const [ratings, setRatings] = useState<RatingMap>({});
+function rowCount(formPayload: IpcrFormPayload | null): number {
+    if (!formPayload) {
+        return 0;
+    }
+
+    return formPayload.sections.reduce((sum, section) => sum + section.rows.length, 0);
+}
+
+export default function EvaluationCard({
+    employee,
+    submission,
+    draftFormPayload,
+}: Props) {
+    const [formPayload, setFormPayload] = useState<IpcrFormPayload | null>(submission?.form_payload ?? draftFormPayload);
+    const [remarks, setRemarks] = useState(submission?.remarks ?? '');
     const [processing, setProcessing] = useState(false);
+    const [confirmOpen, setConfirmOpen] = useState(false);
 
-    const ratedScores = useMemo<number[]>(() => {
-        return Object.values(ratings)
-            .map((value) => Number(value))
-            .filter((value) => Number.isFinite(value) && value > 0);
-    }, [ratings]);
+    useEffect(() => {
+        setFormPayload(submission?.form_payload ?? draftFormPayload);
+        setRemarks(submission?.remarks ?? '');
+    }, [draftFormPayload, submission]);
 
-    const averageScore = useMemo<number>(() => {
-        if (ratedScores.length === 0) {
-            return 0;
+    const totalRows = rowCount(formPayload);
+    const ratedRows = formPayload?.summary.rated_rows ?? 0;
+    const averageScore = formPayload?.summary.computed_rating ?? null;
+    const isReevaluation = submission?.hr_cycle_count || submission?.pmt_cycle_count;
+    const canSubmit = Boolean(employee && formPayload && ratedRows === totalRows && totalRows > 0 && remarks.trim() && !processing);
+
+    const confirmationMessage = useMemo(() => {
+        if (!submission) {
+            return 'This evaluation will be routed to HR checking after you confirm.';
         }
 
-        const totalScore = ratedScores.reduce((sum, score) => sum + score, 0);
-        return totalScore / ratedScores.length;
-    }, [ratedScores]);
+        if ((submission.hr_cycle_count > 0 || submission.pmt_cycle_count > 0) && submission.stage === 'sent_to_evaluator') {
+            return 'This IPCR was returned for re-evaluation. Confirm that the updated scores and remarks are ready to be routed back to HR.';
+        }
 
-    const allRated = ratedScores.length === evaluationCriteria.length;
-    const showEvaluatorRemarks = averageScore > 0 && averageScore < 3;
-    const canSubmit = allRated && employee && !processing;
+        return 'Confirm that the Q/E/T ratings and evaluator remarks are final. This will route the IPCR to HR checking.';
+    }, [submission]);
 
-    const handleSave = (): void => {
-        if (!employee || !allRated) return;
+    function handleSubmit(): void {
+        if (!employee || !formPayload) {
+            return;
+        }
+
         setProcessing(true);
         router.post(
-            "/ipcr/evaluate",
+            saveEvaluation.url(),
             {
                 employee_id: employee.employee_id,
-                performance_rating: averageScore.toFixed(2),
-                evaluator_gave_remarks: remarks.trim().length > 0,
-                remarks: remarks.trim() || null,
-                criteria_ratings: JSON.stringify(ratings),
+                confirmed: true,
+                remarks: remarks.trim(),
+                form_payload: formPayload,
             },
             {
-                onFinish: () => setProcessing(false),
-                onError: () => setProcessing(false),
-            }
+                preserveScroll: true,
+                onFinish: () => {
+                    setProcessing(false);
+                    setConfirmOpen(false);
+                },
+            },
         );
-    };
-
-    const resetForm = (): void => {
-        setRemarks("");
-        setRatings({});
-    };
+    }
 
     return (
-        <Card className="glass-card animate-zoom-in-soft mx-auto w-full max-w-7xl rounded-xl border border-border bg-card shadow-sm">
-            <CardHeader className="animate-slide-in-down">
-                <CardTitle>Individual Performance Commitment and Review</CardTitle>
-                <CardDescription>
-                    {employee
-                        ? <>Evaluating: <span className="font-semibold text-foreground">{employee.name}</span> — {employee.job_title}</>
-                        : "No employee selected. Open this page from the Document Management table."
-                    }
-                </CardDescription>
-                {submission?.notification && (
-                    <p className="mt-2 text-sm text-primary">{submission.notification}</p>
-                )}
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="animate-fade-in-up anim-stagger-1 w-full overflow-x-auto rounded-md border border-border">
-                    <Table className="min-w-[1200px] [&_td]:border-r [&_td]:border-border [&_td:last-child]:border-r-0 [&_th]:border-r [&_th]:border-border [&_th:last-child]:border-r-0">
-                        <TableHeader>
-                            <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
-                                <TableHead className="w-[20rem] px-4 py-3 text-sm font-bold">Performance Area</TableHead>
-                                <TableHead className="w-[28rem] px-4 py-3 text-sm font-bold">Description</TableHead>
-                                {ratingScale.map((rate) => (
-                                    <TableHead key={rate} className="px-4 py-3 text-center text-sm font-bold">
-                                        {rate}
-                                    </TableHead>
-                                ))}
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {evaluationCriteria.map((criterion, index) => (
-                                <TableRow
-                                    key={criterion.name}
-                                    style={{ animationDelay: `${index * 30}ms` }}
-                                    className={`${index % 2 === 0 ? "bg-[#DDEFD7] dark:bg-[#345A34]/80" : "bg-[#BFDDB5] dark:bg-[#274827]/80"} animate-fade-in-up`}
-                                >
-                                    <TableCell className="px-4 py-3 font-medium">{criterion.name}</TableCell>
-                                    <TableCell className="px-4 py-3">{criterion.description}</TableCell>
-                                    {ratingScale.map((rate) => (
-                                        <TableCell key={`${criterion.name}-${rate}`} className="px-4 py-3 text-center">
-                                            <RadioGroup
-                                                value={ratings[criterion.name] ?? ""}
-                                                onValueChange={(value) => {
-                                                    setRatings((previous) => ({ ...previous, [criterion.name]: value }));
-                                                }}
-                                                className="flex justify-center"
-                                            >
-                                                <div className="flex items-center justify-center">
-                                                    <RadioGroupItem
-                                                        id={`${criterion.name}-${rate}`}
-                                                        value={rate}
-                                                        aria-label={`${criterion.name} rating ${rate}`}
-                                                    />
-                                                </div>
-                                            </RadioGroup>
-                                        </TableCell>
-                                    ))}
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+        <Card className="glass-card mx-auto w-full max-w-7xl overflow-hidden border border-border bg-card shadow-sm">
+            <CardHeader className="gap-4 border-b border-border bg-card">
+                <div className="space-y-1">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[#2F5E2B]/20 bg-[#DDEFD7] px-3 py-1 text-xs font-semibold tracking-[0.22em] text-[#2F5E2B] uppercase shadow-sm dark:border-[#4A7C3C]/40 dark:bg-[#274827]/80 dark:text-[#EAF7E6]">
+                        Evaluator Workspace
+                    </div>
+                    <CardTitle className="mt-2 text-xl">
+                        {employee
+                            ? <>Evaluating <span className="text-[#2F5E2B] dark:text-[#9AC68E]">{employee.name}</span></>
+                            : 'No Employee Selected'}
+                    </CardTitle>
+                    <CardDescription>
+                        {employee
+                            ? employee.job_title
+                            : 'Open this page from the Document Management table to evaluate an employee.'}
+                    </CardDescription>
                 </div>
 
-                <div className={showEvaluatorRemarks ? "animate-fade-in-up anim-stagger-2 grid grid-cols-1 gap-4" : "hidden"}>
-                    <div className="space-y-2">
-                        <Label htmlFor="remarks">Evaluator Remarks</Label>
-                        <Textarea
-                            id="remarks"
-                            value={remarks}
-                            onChange={(event) => setRemarks(event.target.value)}
-                            placeholder="Enter evaluator remarks"
-                            className="min-h-24 resize-none"
+                {submission && (
+                    <>
+                        <IpcrWorkflowStepper
+                            stage={submission.stage}
+                            status={submission.status}
+                            isEscalated={submission.is_escalated}
                         />
-                    </div>
-                </div>
-                <div className="flex flex-col gap-4 md:flex-row md:justify-between">
-                    <div className="animate-fade-in-up rounded-md bg-muted/40 md:max-w-xl">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-                            <Label htmlFor="average-score" className="text-sm font-medium">
-                                Average Score:
-                            </Label>
-                            <Input
-                                id="average-score"
-                                value={averageScore.toFixed(2)}
-                                readOnly
-                                className="h-9 w-full bg-background font-semibold text-primary sm:w-48"
-                            />
-                        </div>
-                    </div>
+                        {submission.is_escalated && (
+                            <EscalationWarning reason={submission.escalation_reason} />
+                        )}
+                    </>
+                )}
 
-                    <div className="animate-fade-in-up anim-stagger-3 flex flex-wrap justify-end gap-3">
-                        <Button type="button" variant="destructive" onClick={resetForm} className="w-32">
-                            Reset
+                <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline">Rows Rated: {ratedRows}/{totalRows}</Badge>
+                    <Badge variant="outline">
+                        Computed Rating: {averageScore !== null ? averageScore.toFixed(2) : 'Pending'}
+                    </Badge>
+                    {isReevaluation ? <Badge variant="outline">Re-evaluation Cycle</Badge> : null}
+                </div>
+            </CardHeader>
+
+            <CardContent className="space-y-5">
+                {formPayload ? (
+                    <IpcrPaperForm
+                        value={formPayload}
+                        mode="evaluator"
+                        onChange={setFormPayload}
+                    />
+                ) : (
+                    <div className="rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
+                        No draft form is available for this employee yet.
+                    </div>
+                )}
+
+                <div className="glass-card rounded-[26px] border border-border bg-card p-5 shadow-sm">
+                    <div className="mb-3 flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-[#4A7C3C] shadow-[0_0_0_4px_rgba(74,124,60,0.15)]" />
+                        <label className="text-sm font-semibold text-foreground">Evaluator Remarks</label>
+                    </div>
+                    <Textarea
+                        value={remarks}
+                        onChange={(event) => setRemarks(event.target.value)}
+                        placeholder="Summarize the evaluation findings and any corrective instructions for the employee."
+                        className="min-h-28 resize-y border-border bg-background"
+                    />
+                    <p className="mt-2 text-xs text-muted-foreground">
+                        Required — remarks are visible to the employee after finalization.
+                    </p>
+                </div>
+
+                <div className="flex flex-wrap justify-end gap-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                            setFormPayload(submission?.form_payload ?? draftFormPayload);
+                            setRemarks(submission?.remarks ?? '');
+                        }}
+                        disabled={processing}
+                    >
+                        Reset
+                    </Button>
+                    <Button
+                        type="button"
+                        disabled={!canSubmit}
+                        onClick={() => setConfirmOpen(true)}
+                    >
+                        {processing ? 'Saving...' : 'Submit Evaluation'}
+                    </Button>
+                </div>
+            </CardContent>
+
+            <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Confirm Evaluator Submission</DialogTitle>
+                        <DialogDescription>{confirmationMessage}</DialogDescription>
+                    </DialogHeader>
+                    {submission?.is_escalated && (
+                        <EscalationWarning reason={submission.escalation_reason} />
+                    )}
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setConfirmOpen(false)}
+                        >
+                            Cancel
                         </Button>
                         <Button
                             type="button"
-                            variant="default"
-                            className="w-40"
-                            disabled={!canSubmit}
-                            onClick={handleSave}
+                            onClick={handleSubmit}
+                            disabled={!canSubmit || processing}
                         >
-                            {processing ? "Saving..." : "Save Evaluation"}
+                            {processing ? 'Routing...' : 'Confirm and Route'}
                         </Button>
-                    </div>
-                </div>
-            </CardContent>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 }

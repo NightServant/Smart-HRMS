@@ -309,16 +309,7 @@ export default function LeaveRequestForm() {
 
     return (
         <div>
-            <div className="mb-2 flex items-center justify-between">
-                <div className ="animate-fade-in-down">
-                    <h1 className="flex items-center gap-2 text-3xl font-bold">
-                        <CalendarDays className="h-8 w-8" />
-                        Leave Request Form
-                    </h1>
-                    <p className="mt-1 text-muted-foreground">Submit leave requests based on office leave policy rules.</p>
-                </div>
-            </div>
-            <Card className="glass-card animate-fade-in-up border-primary/20 bg-card shadow-sm hover:shadow-md transition-shadow">
+            <Card className="glass-card animate-fade-in-up border-primary/20 bg-card shadow-sm transition-shadow hover:shadow-md">
                 <CardHeader className="space-y-3">
                     <CardTitle className="flex items-center gap-2">
                         <ShieldCheck className="h-5 w-5 text-primary" />
@@ -340,8 +331,8 @@ export default function LeaveRequestForm() {
                         </div>
                     <Separator className='my-6'/>
                     <form className="space-y-6">
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                            <div className="flex flex-col gap-2 lg:col-span-2">
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <div className="flex flex-col gap-2 md:col-span-2">
                                 <Label htmlFor="leaveType">Leave Type</Label>
                                 <Select value={selectedLeaveType} onValueChange={handleLeaveTypeChange}>
                                     <SelectTrigger id="leaveType" className="w-full bg-card">
@@ -394,7 +385,7 @@ export default function LeaveRequestForm() {
                                 <InputError message={dateValidationMessage ?? errors.endDate} />
                             </div>
 
-                            <div className="flex flex-col gap-2 lg:col-span-2">
+                            <div className="flex flex-col gap-2 md:col-span-2">
                                 <Label htmlFor="reason">Reason / Remarks</Label>
                                 <Textarea
                                     id="reason"
@@ -410,9 +401,9 @@ export default function LeaveRequestForm() {
                             </div>
 
                             {shouldShowSupportingDocuments && (
-                                <div className="rounded-lg border border-border bg-background/70 p-4 lg:col-span-2">
+                                <div className="rounded-lg border border-border bg-background/70 p-4 md:col-span-2">
                                     <h2 className="mb-3 text-sm font-semibold text-foreground">Required Supporting Documents</h2>
-                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                         {shouldUploadMedicalCertificate && (
                                             <div className="flex flex-col gap-2">
                                                 <Label htmlFor="medicalCertificate" className="flex items-center gap-2">
@@ -476,13 +467,14 @@ export default function LeaveRequestForm() {
 
                         </div>
                         <Separator />
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <Button type="button" variant="destructive" onClick={handleReset}>
+                        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                            <Button type="button" variant="destructive" className="w-full" onClick={handleReset}>
                                 Cancel
                             </Button>
                             <Button
                                 type="button"
                                 variant="default"
+                                className="w-full"
                                 disabled={Boolean(dateValidationMessage || dateNoticeMessage || processing)}
                                 onClick={handleSubmit}
                             >

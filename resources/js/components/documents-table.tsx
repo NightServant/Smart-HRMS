@@ -1,15 +1,15 @@
-import { Link, router, usePage } from "@inertiajs/react";
-import { FileText, Search } from "lucide-react";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Link, router, usePage } from '@inertiajs/react';
+import { FileText, Search } from 'lucide-react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
     Pagination,
     PaginationContent,
     PaginationItem,
     PaginationNext,
     PaginationPrevious,
-} from "@/components/ui/pagination";
+} from '@/components/ui/pagination';
 import {
     Select,
     SelectContent,
@@ -17,7 +17,7 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
     Table,
     TableBody,
@@ -26,10 +26,10 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from "@/components/ui/table";
-import { evaluationPage } from "@/routes";
-import { documentManagement } from "@/routes";
-import type { Auth } from "@/types";
+} from '@/components/ui/table';
+import { evaluationPage } from '@/routes';
+import { documentManagement } from '@/routes';
+import type { Auth } from '@/types';
 
 type DocumentEmployee = {
     id: number;
@@ -69,8 +69,8 @@ export default function DocumentsTable({
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ["employees", "search", "pagination"],
-            }
+                only: ['employees', 'search', 'pagination'],
+            },
         );
     };
 
@@ -82,8 +82,8 @@ export default function DocumentsTable({
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ["employees", "search", "pagination"],
-            }
+                only: ['employees', 'search', 'pagination'],
+            },
         );
     };
 
@@ -94,13 +94,17 @@ export default function DocumentsTable({
 
         router.get(
             documentManagement().url,
-            { search: searchTerm, page: pagination.currentPage - 1, perPage: pagination.perPage },
+            {
+                search: searchTerm,
+                page: pagination.currentPage - 1,
+                perPage: pagination.perPage,
+            },
             {
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ["employees", "search", "pagination"],
-            }
+                only: ['employees', 'search', 'pagination'],
+            },
         );
     };
 
@@ -111,39 +115,38 @@ export default function DocumentsTable({
 
         router.get(
             documentManagement().url,
-            { search: searchTerm, page: pagination.currentPage + 1, perPage: pagination.perPage },
+            {
+                search: searchTerm,
+                page: pagination.currentPage + 1,
+                perPage: pagination.perPage,
+            },
             {
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ["employees", "search", "pagination"],
-            }
+                only: ['employees', 'search', 'pagination'],
+            },
         );
     };
     const { auth } = usePage<{ auth: Auth }>().props;
 
     return (
-        <>
-            <div className="animate-slide-in-down">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="flex items-center gap-2 text-3xl font-bold">
-                            <FileText className="h-8 w-8" />
-                            Document Management
-                        </h1>
-                        <p className="mt-1 text-muted-foreground">
-                            Evaluate the performance of employees in the department.
-                        </p>
-                        <p className="mt-1 text-sm text-muted-foreground">
+        <div className="glass-card app-data-shell mx-auto w-full animate-zoom-in-soft bg-card shadow-sm">
+            <div className="app-data-shell__header">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                        <div className="inline-flex items-center gap-2 text-base font-semibold text-foreground">
+                            <FileText className="size-4 text-primary" />
+                            Assigned evaluation queue
+                        </div>
+                        <p className="text-sm text-muted-foreground">
                             Assigned Evaluator: {auth.user.name}
                         </p>
                     </div>
                 </div>
-            </div>
-            <div className="glass-card animate-zoom-in-soft mx-auto w-full rounded-md border border-border bg-card p-4 shadow-sm">
-                <div className="flex w-full items-center justify-between gap-4 py-6">
-                    <div className="animate-fade-in-left relative w-full max-w-sm">
-                        <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                <div className="app-filter-bar">
+                    <div className="relative w-full max-w-sm animate-fade-in-left">
+                        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             type="text"
                             placeholder="Search records..."
@@ -156,15 +159,18 @@ export default function DocumentsTable({
                         />
                     </div>
                 </div>
-                <div className="w-full overflow-x-auto">
+            </div>
+            <div className="app-table-scroll">
                 <Table className="w-full min-w-[900px]">
                     <TableHeader>
-                        <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
+                        <TableRow className="app-table-head-row text-sm font-bold">
                             <TableHead>Employee ID</TableHead>
                             <TableHead>Name</TableHead>
                             <TableHead>Email Address</TableHead>
                             <TableHead>Position</TableHead>
-                            <TableHead className="w-[26rem] text-center">Evaluation</TableHead>
+                            <TableHead className="w-[26rem] text-center">
+                                Evaluation
+                            </TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -172,25 +178,55 @@ export default function DocumentsTable({
                             <TableRow
                                 key={employee.id}
                                 style={{ animationDelay: `${index * 28}ms` }}
-                                className={`text-sm font-semibold text-foreground ${
-                                    index % 2 === 0 ? "bg-[#DDEFD7] dark:bg-[#345A34]/80" : "bg-[#BFDDB5] dark:bg-[#274827]/80"
-                                } animate-fade-in-up`}
+                                className={`animate-fade-in-up text-sm font-semibold text-foreground ${index % 2 === 0 ? 'app-table-row-even' : 'app-table-row-odd'}`}
                             >
                                 <TableCell>{employee.employeeId}</TableCell>
                                 <TableCell>{employee.name}</TableCell>
                                 <TableCell>{employee.email}</TableCell>
                                 <TableCell>{employee.position}</TableCell>
                                 <TableCell className="text-center">
-                                    {employee.submissionStatus === 'completed' || employee.submissionStage === 'evaluation_saved' ? (
-                                        <Button asChild type="button" variant="outline" className="bg-secondary px-3 py-2 w-1/2 text-xs font-bold shadow-md transition-colors">
-                                            <Link href={evaluationPage({ query: { employee_id: employee.employeeId ?? '' } }).url}>
-                                               View Results
+                                    {employee.submissionStatus ===
+                                        'completed' ||
+                                    employee.submissionStage ===
+                                        'evaluation_saved' ? (
+                                        <Button
+                                            asChild
+                                            type="button"
+                                            variant="outline"
+                                            className="w-1/2 bg-secondary px-3 py-2 text-xs font-bold shadow-md transition-colors"
+                                        >
+                                            <Link
+                                                href={
+                                                    evaluationPage({
+                                                        query: {
+                                                            employee_id:
+                                                                employee.employeeId ??
+                                                                '',
+                                                        },
+                                                    }).url
+                                                }
+                                            >
+                                                View Results
                                             </Link>
                                         </Button>
                                     ) : (
-                                        <Button asChild type="button" className="bg-secondary px-3 py-2 w-1/2 text-xs font-bold text-foreground shadow-md transition-colors hover:bg-secondary/90">
-                                            <Link href={evaluationPage({ query: { employee_id: employee.employeeId ?? '' } }).url}>
-                                               Evaluate
+                                        <Button
+                                            asChild
+                                            type="button"
+                                            className="w-1/2 bg-secondary px-3 py-2 text-xs font-bold text-foreground shadow-md transition-colors hover:bg-secondary/90"
+                                        >
+                                            <Link
+                                                href={
+                                                    evaluationPage({
+                                                        query: {
+                                                            employee_id:
+                                                                employee.employeeId ??
+                                                                '',
+                                                        },
+                                                    }).url
+                                                }
+                                            >
+                                                Evaluate
                                             </Link>
                                         </Button>
                                     )}
@@ -199,7 +235,10 @@ export default function DocumentsTable({
                         ))}
                         {employees.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={5} className="bg-[#DDEFD7] text-center dark:bg-[#345A34]/80">
+                                <TableCell
+                                    colSpan={5}
+                                    className="app-table-empty py-8"
+                                >
                                     No matching records found.
                                 </TableCell>
                             </TableRow>
@@ -211,16 +250,29 @@ export default function DocumentsTable({
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-2">
                                         <span>Rows per page</span>
-                                        <Select value={String(pagination.perPage)} onValueChange={handleRowsPerPageChange}>
+                                        <Select
+                                            value={String(pagination.perPage)}
+                                            onValueChange={
+                                                handleRowsPerPageChange
+                                            }
+                                        >
                                             <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent align="start">
                                                 <SelectGroup>
-                                                    <SelectItem value="5">5</SelectItem>
-                                                    <SelectItem value="10">10</SelectItem>
-                                                    <SelectItem value="25">25</SelectItem>
-                                                    <SelectItem value="50">50</SelectItem>
+                                                    <SelectItem value="5">
+                                                        5
+                                                    </SelectItem>
+                                                    <SelectItem value="10">
+                                                        10
+                                                    </SelectItem>
+                                                    <SelectItem value="25">
+                                                        25
+                                                    </SelectItem>
+                                                    <SelectItem value="50">
+                                                        50
+                                                    </SelectItem>
                                                 </SelectGroup>
                                             </SelectContent>
                                         </Select>
@@ -228,7 +280,8 @@ export default function DocumentsTable({
 
                                     <div className="flex items-center gap-4 self-end md:self-auto">
                                         <span>
-                                            Page {pagination.currentPage} of {pagination.lastPage}
+                                            Page {pagination.currentPage} of{' '}
+                                            {pagination.lastPage}
                                         </span>
                                         <Pagination className="mx-0 w-auto">
                                             <PaginationContent>
@@ -239,7 +292,12 @@ export default function DocumentsTable({
                                                             event.preventDefault();
                                                             goToPreviousPage();
                                                         }}
-                                                        className={pagination.currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                                                        className={
+                                                            pagination.currentPage ===
+                                                            1
+                                                                ? 'pointer-events-none opacity-50'
+                                                                : ''
+                                                        }
                                                     />
                                                 </PaginationItem>
                                                 <PaginationItem>
@@ -249,7 +307,12 @@ export default function DocumentsTable({
                                                             event.preventDefault();
                                                             goToNextPage();
                                                         }}
-                                                        className={pagination.currentPage === pagination.lastPage ? "pointer-events-none opacity-50" : ""}
+                                                        className={
+                                                            pagination.currentPage ===
+                                                            pagination.lastPage
+                                                                ? 'pointer-events-none opacity-50'
+                                                                : ''
+                                                        }
                                                     />
                                                 </PaginationItem>
                                             </PaginationContent>
@@ -260,8 +323,7 @@ export default function DocumentsTable({
                         </TableRow>
                     </TableFooter>
                 </Table>
-                </div>
             </div>
-        </>
+        </div>
     );
 }

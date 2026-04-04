@@ -48,7 +48,7 @@ export default function UserManagement(props: Props) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="User Management" />
-            <div className="flex w-full flex-col gap-6 p-4 md:p-6 xl:p-8 lg:items-stretch">
+            <div className="app-page-shell app-page-stack lg:items-stretch">
                 <AdminUserManagementTable {...props} />
             </div>
         </AppLayout>

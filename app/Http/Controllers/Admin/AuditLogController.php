@@ -7,6 +7,7 @@ use App\Models\IpcrSubmission;
 use App\Models\IwrAuditLog;
 use App\Models\LeaveRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -18,7 +19,6 @@ class AuditLogController extends Controller
         $documentType = trim((string) $request->string('documentType'));
         $routingAction = trim((string) $request->string('routingAction'));
         $compliance = trim((string) $request->string('compliance'));
-        $confidence = trim((string) $request->string('confidence'));
         $dateFrom = trim((string) $request->string('dateFrom'));
         $dateTo = trim((string) $request->string('dateTo'));
         $perPage = max(5, min(50, (int) $request->integer('perPage', 10)));
@@ -39,12 +39,7 @@ class AuditLogController extends Controller
             ->when($compliance === 'passed', fn ($query) => $query->where('iwr_audit_log.compliance_passed', true))
             ->when($compliance === 'failed', fn ($query) => $query->where('iwr_audit_log.compliance_passed', false))
             ->when($dateFrom !== '', fn ($query) => $query->whereDate('iwr_audit_log.logged_at', '>=', $dateFrom))
-            ->when($dateTo !== '', fn ($query) => $query->whereDate('iwr_audit_log.logged_at', '<=', $dateTo))
-            ->when($confidence === 'low', fn ($query) => $query->where('iwr_audit_log.confidence_pct', '<', 60))
-            ->when($confidence === 'medium', fn ($query) => $query->whereBetween('iwr_audit_log.confidence_pct', [60, 84.99]))
-            ->when($confidence === 'high', fn ($query) => $query->where('iwr_audit_log.confidence_pct', '>=', 85));
-
-        $summaryQuery = clone $baseQuery;
+            ->when($dateTo !== '', fn ($query) => $query->whereDate('iwr_audit_log.logged_at', '<=', $dateTo));
 
         $logs = (clone $baseQuery)
             ->latest('iwr_audit_log.logged_at')
@@ -78,7 +73,13 @@ class AuditLogController extends Controller
             ];
         })->all();
 
-        $summaryItems = $summaryQuery->get();
+        $summary = (clone $baseQuery)->select(DB::raw("
+            COUNT(*) as total,
+            SUM(iwr_audit_log.document_type = 'leave') as leave_events,
+            SUM(iwr_audit_log.document_type = 'ipcr') as ipcr_events,
+            SUM(iwr_audit_log.confidence_pct IS NOT NULL AND iwr_audit_log.confidence_pct < 60) as low_confidence_events,
+            SUM(iwr_audit_log.compliance_passed = 0) as failed_compliance_events
+        "))->first();
 
         return Inertia::render('admin/audit-logs', [
             'logs' => $entries,
@@ -87,16 +88,15 @@ class AuditLogController extends Controller
                 'documentType' => $documentType,
                 'routingAction' => $routingAction,
                 'compliance' => $compliance,
-                'confidence' => $confidence,
                 'dateFrom' => $dateFrom,
                 'dateTo' => $dateTo,
             ],
             'summary' => [
-                'total' => $summaryItems->count(),
-                'leaveEvents' => $summaryItems->where('document_type', 'leave')->count(),
-                'ipcrEvents' => $summaryItems->where('document_type', 'ipcr')->count(),
-                'lowConfidenceEvents' => $summaryItems->filter(fn ($log) => $log->confidence_pct !== null && (float) $log->confidence_pct < 60)->count(),
-                'failedComplianceEvents' => $summaryItems->where('compliance_passed', false)->count(),
+                'total' => (int) ($summary->total ?? 0),
+                'leaveEvents' => (int) ($summary->leave_events ?? 0),
+                'ipcrEvents' => (int) ($summary->ipcr_events ?? 0),
+                'lowConfidenceEvents' => (int) ($summary->low_confidence_events ?? 0),
+                'failedComplianceEvents' => (int) ($summary->failed_compliance_events ?? 0),
             ],
             'routingActions' => IwrAuditLog::query()
                 ->select('routing_action')

@@ -1,15 +1,16 @@
-import { router, usePage } from "@inertiajs/react";
-import { Search, UserSearch, Download, Upload, Trash2 } from "lucide-react";
-import { useState, useRef } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { router, usePage } from '@inertiajs/react';
+import { Search, UserSearch, Download, Upload, Trash2 } from 'lucide-react';
+import { useState, useRef } from 'react';
+import PageIntro from '@/components/page-intro';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
     Pagination,
     PaginationContent,
     PaginationItem,
     PaginationNext,
     PaginationPrevious,
-} from "@/components/ui/pagination";
+} from '@/components/ui/pagination';
 import {
     Select,
     SelectContent,
@@ -17,7 +18,7 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
 import {
     Table,
     TableBody,
@@ -26,9 +27,9 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-} from "@/components/ui/table";
-import * as admin from "@/routes/admin";
-import type { Auth } from "@/types";
+} from '@/components/ui/table';
+import * as admin from '@/routes/admin';
+import type { Auth } from '@/types';
 
 type Attendance = {
     id: number;
@@ -59,7 +60,7 @@ export function AttendanceTable({
     const [searchTerm, setSearchTerm] = useState(search);
     const [isImporting, setIsImporting] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-    const canManageAttendance = auth.user.role === "hr-personnel";
+    const canManageAttendance = auth.user.role === 'hr-personnel';
 
     const handleSearchChange = (value: string): void => {
         setSearchTerm(value);
@@ -70,8 +71,8 @@ export function AttendanceTable({
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ["attendances", "search", "pagination"],
-            }
+                only: ['attendances', 'search', 'pagination'],
+            },
         );
     };
 
@@ -83,8 +84,8 @@ export function AttendanceTable({
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ["attendances", "search", "pagination"],
-            }
+                only: ['attendances', 'search', 'pagination'],
+            },
         );
     };
 
@@ -92,13 +93,17 @@ export function AttendanceTable({
         if (pagination.currentPage <= 1) return;
         router.get(
             admin.attendanceManagement().url,
-            { search: searchTerm, page: pagination.currentPage - 1, perPage: pagination.perPage },
+            {
+                search: searchTerm,
+                page: pagination.currentPage - 1,
+                perPage: pagination.perPage,
+            },
             {
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ["attendances", "search", "pagination"],
-            }
+                only: ['attendances', 'search', 'pagination'],
+            },
         );
     };
 
@@ -106,13 +111,17 @@ export function AttendanceTable({
         if (pagination.currentPage >= pagination.lastPage) return;
         router.get(
             admin.attendanceManagement().url,
-            { search: searchTerm, page: pagination.currentPage + 1, perPage: pagination.perPage },
+            {
+                search: searchTerm,
+                page: pagination.currentPage + 1,
+                perPage: pagination.perPage,
+            },
             {
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ["attendances", "search", "pagination"],
-            }
+                only: ['attendances', 'search', 'pagination'],
+            },
         );
     };
 
@@ -125,15 +134,21 @@ export function AttendanceTable({
         fileInputRef.current?.click();
     };
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    const handleFileChange = (
+        event: React.ChangeEvent<HTMLInputElement>,
+    ): void => {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        router.post('/admin/attendance-management/import-csv', { file }, {
-            forceFormData: true,
-            onStart: () => setIsImporting(true),
-            onFinish: () => setIsImporting(false),
-        });
+        router.post(
+            '/admin/attendance-management/import-csv',
+            { file },
+            {
+                forceFormData: true,
+                onStart: () => setIsImporting(true),
+                onFinish: () => setIsImporting(false),
+            },
+        );
 
         // Reset file input
         if (fileInputRef.current) {
@@ -142,7 +157,11 @@ export function AttendanceTable({
     };
 
     const handleClearImport = (): void => {
-        if (!confirm('Are you sure you want to clear all attendance records? This action cannot be undone.')) {
+        if (
+            !confirm(
+                'Are you sure you want to clear all attendance records? This action cannot be undone.',
+            )
+        ) {
             return;
         }
 
@@ -151,21 +170,22 @@ export function AttendanceTable({
 
     return (
         <>
-            <div className="animate-slide-in-down top">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="flex items-center gap-2 text-3xl font-bold">
-                            <UserSearch className="h-8 w-8" />
-                            Daily Attendance Records
-                        </h1>
-                        <p className="mt-1 text-muted-foreground">List of all daily attendance records for the administrative office of the government.</p>
-                    </div>
-                </div>
-            </div>
-            <div className="glass-card animate-zoom-in-soft mx-auto w-full rounded-md border border-border bg-card p-4 shadow-sm">
-                <div className="flex w-full flex-col gap-4 py-6 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="animate-fade-in-left relative w-full max-w-sm">
-                        <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+            <PageIntro
+                eyebrow="HR Personnel · Attendance Management"
+                title="Daily Attendance Records"
+                description="List of all daily attendance records for the administrative office of the government."
+                className="animate-slide-in-down"
+                actions={
+                    <span className="app-info-pill">
+                        <UserSearch className="size-4 text-primary" />
+                        {pagination.total} total records
+                    </span>
+                }
+            />
+            <div className="glass-card app-data-shell mx-auto w-full animate-zoom-in-soft bg-card shadow-sm">
+                <div className="app-filter-bar py-2">
+                    <div className="relative w-full max-w-sm animate-fade-in-left">
+                        <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             type="text"
                             placeholder="Search attendance records..."
@@ -178,7 +198,7 @@ export function AttendanceTable({
                         />
                     </div>
                     {canManageAttendance && (
-                        <div className="flex flex-wrap animate-fade-in-right items-center gap-2">
+                        <div className="app-filter-bar__actions animate-fade-in-right items-center">
                             <input
                                 ref={fileInputRef}
                                 type="file"
@@ -220,14 +240,14 @@ export function AttendanceTable({
                     )}
                 </div>
 
-                <Table className="w-full">
+                <Table className="w-full min-w-[58rem]">
                     <TableHeader>
-                        <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
-                            <TableHead className="px-4 py-3">Employee Name</TableHead>
-                            <TableHead className="px-4 py-3">Date</TableHead>
-                            <TableHead className="px-4 py-3">Punch Time</TableHead>
-                            <TableHead className="px-4 py-3">Status</TableHead>
-                            <TableHead className="px-4 py-3">Source</TableHead>
+                        <TableRow className="app-table-head-row text-sm font-bold">
+                            <TableHead>Employee Name</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Punch Time</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Source</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -235,37 +255,49 @@ export function AttendanceTable({
                             <TableRow
                                 key={attendance.id}
                                 style={{ animationDelay: `${index * 24}ms` }}
-                                className={`animate-fade-in-up text-sm font-semibold text-foreground ${index % 2 === 0 ? "bg-[#DDEFD7] dark:bg-[#345A34]/80" : "bg-[#BFDDB5] dark:bg-[#274827]/80"
-                                    }`}
+                                className={`animate-fade-in-up text-sm font-semibold text-foreground ${index % 2 === 0 ? 'app-table-row-even' : 'app-table-row-odd'}`}
                             >
-                                <TableCell className="px-4 py-2">{attendance.employee_name}</TableCell>
-                                <TableCell className="px-4 py-2">{attendance.date}</TableCell>
-                                <TableCell className="px-4 py-2">{attendance.punch_time}</TableCell>
-                                <TableCell className="px-4 py-2">
-                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                        attendance.status === 'Present'
-                                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                            : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                                    }`}>
+                                <TableCell>
+                                    {attendance.employee_name}
+                                </TableCell>
+                                <TableCell>{attendance.date}</TableCell>
+                                <TableCell>{attendance.punch_time}</TableCell>
+                                <TableCell>
+                                    <span
+                                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                            attendance.status === 'Present'
+                                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                                : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                                        }`}
+                                    >
                                         {attendance.status}
                                     </span>
                                 </TableCell>
-                                <TableCell className="px-4 py-2">
-                                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                        attendance.source === 'biometric'
-                                            ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                                <TableCell>
+                                    <span
+                                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                            attendance.source === 'biometric'
+                                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
+                                                : attendance.source === 'manual'
+                                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+                                        }`}
+                                    >
+                                        {attendance.source === 'biometric'
+                                            ? 'Biometric'
                                             : attendance.source === 'manual'
-                                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                                              : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
-                                    }`}>
-                                        {attendance.source === 'biometric' ? 'Biometric' : attendance.source === 'manual' ? 'Manual' : 'Import'}
+                                              ? 'Manual'
+                                              : 'Import'}
                                     </span>
                                 </TableCell>
                             </TableRow>
                         ))}
                         {attendances.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={5} className="bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80">
+                                <TableCell
+                                    colSpan={5}
+                                    className="app-table-empty px-4 py-8"
+                                >
                                     No matching attendance records found.
                                 </TableCell>
                             </TableRow>
@@ -277,16 +309,29 @@ export function AttendanceTable({
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                     <div className="flex items-center gap-2">
                                         <span>Rows per page</span>
-                                        <Select value={String(pagination.perPage)} onValueChange={handleRowsPerPageChange}>
+                                        <Select
+                                            value={String(pagination.perPage)}
+                                            onValueChange={
+                                                handleRowsPerPageChange
+                                            }
+                                        >
                                             <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent align="start">
                                                 <SelectGroup>
-                                                    <SelectItem value="5">5</SelectItem>
-                                                    <SelectItem value="10">10</SelectItem>
-                                                    <SelectItem value="25">25</SelectItem>
-                                                    <SelectItem value="50">50</SelectItem>
+                                                    <SelectItem value="5">
+                                                        5
+                                                    </SelectItem>
+                                                    <SelectItem value="10">
+                                                        10
+                                                    </SelectItem>
+                                                    <SelectItem value="25">
+                                                        25
+                                                    </SelectItem>
+                                                    <SelectItem value="50">
+                                                        50
+                                                    </SelectItem>
                                                 </SelectGroup>
                                             </SelectContent>
                                         </Select>
@@ -294,7 +339,8 @@ export function AttendanceTable({
 
                                     <div className="flex items-center gap-4 self-end md:self-auto">
                                         <span>
-                                            Page {pagination.currentPage} of {pagination.lastPage}
+                                            Page {pagination.currentPage} of{' '}
+                                            {pagination.lastPage}
                                         </span>
                                         <Pagination className="mx-0 w-auto">
                                             <PaginationContent>
@@ -305,7 +351,12 @@ export function AttendanceTable({
                                                             event.preventDefault();
                                                             goToPreviousPage();
                                                         }}
-                                                        className={pagination.currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                                                        className={
+                                                            pagination.currentPage ===
+                                                            1
+                                                                ? 'pointer-events-none opacity-50'
+                                                                : ''
+                                                        }
                                                     />
                                                 </PaginationItem>
                                                 <PaginationItem>
@@ -315,7 +366,12 @@ export function AttendanceTable({
                                                             event.preventDefault();
                                                             goToNextPage();
                                                         }}
-                                                        className={pagination.currentPage === pagination.lastPage ? "pointer-events-none opacity-50" : ""}
+                                                        className={
+                                                            pagination.currentPage ===
+                                                            pagination.lastPage
+                                                                ? 'pointer-events-none opacity-50'
+                                                                : ''
+                                                        }
                                                     />
                                                 </PaginationItem>
                                             </PaginationContent>

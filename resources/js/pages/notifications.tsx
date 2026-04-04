@@ -13,6 +13,7 @@ type Notification = {
     message: string;
     documentType: string | null;
     documentId: number | null;
+    targetUrl: string | null;
     isRead: boolean;
     isImportant: boolean;
     time: string;
@@ -33,13 +34,14 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function Notifications() {
-    const { notifications, unreadCount, warningCount, todayCount } = usePage<PageProps>().props;
+    const { notifications, unreadCount, warningCount, todayCount } =
+        usePage<PageProps>().props;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Notifications" />
 
-            <div className="flex w-full flex-col gap-6 p-4 md:p-6 xl:p-8">
+            <div className="app-page-shell app-page-stack">
                 <NotificationsHeader unreadCount={unreadCount} />
                 <NotificationsSummaryCards
                     unreadCount={unreadCount}

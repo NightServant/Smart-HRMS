@@ -6,18 +6,13 @@ import type { BreadcrumbItem } from '@/types';
 
 type Seminar = {
     id: number;
-    title: string;
     description: string;
-    location: string;
-    time: string;
-    speaker: string;
     target_performance_area: string;
-    date: string;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Training Scheduling',
+        title: 'Training Suggestions',
         href: admin.trainingScheduling().url,
     },
 ];
@@ -25,7 +20,7 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function TrainingScheduling({ seminars }: { seminars: Seminar[] }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Training Scheduling" />
+            <Head title="Training Suggestions" />
             <div className="flex w-full flex-col gap-6 p-4 md:p-6 xl:p-8 lg:items-stretch">
                 <TrainingsSeminarsTable seminars={seminars} />
             </div>

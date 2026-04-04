@@ -26,7 +26,7 @@ export default function PredictivePerformance() {
         <DashboardPanelCard
             title="Predictive Performance Analysis"
             description="AI-powered analysis based on historical evaluation data."
-            className="col-span-2"
+            className="lg:col-span-2"
             accentClassName="right-8 bottom-0 size-40 rounded-full bg-complement-sky-300/20 blur-3xl dark:bg-complement-sky-500/10"
         >
             <PredictionDisplay
@@ -49,7 +49,7 @@ export default function PredictivePerformance() {
                         <Briefcase className="size-4 text-primary" />
                         Position: {employeeProfile?.job_title ?? 'N/A'}
                     </p>
-                    <p className="flex items-center justify-start gap-2 lg:justify-end">
+                    <p className="flex items-start justify-start gap-2 break-words lg:justify-end">
                         <MessageSquare className="size-4 text-primary" />
                         Remarks: {employeeProfile?.remarks ?? 'No remarks yet.'}
                     </p>

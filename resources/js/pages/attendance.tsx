@@ -21,16 +21,23 @@ export default function Attendance({
     records,
     employeeId,
     hasDevice,
+    manualPunchEnabled = false,
 }: {
     records: AttendanceRecord[];
     employeeId: string;
     hasDevice: boolean;
+    manualPunchEnabled?: boolean;
 }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Attendance" />
-            <div className="mx-auto flex w-full flex-col gap-6 p-4">
-                <AttendanceScanner records={records} employeeId={employeeId} hasDevice={hasDevice} />
+            <div className="app-page-shell app-page-stack">
+                <AttendanceScanner
+                    records={records}
+                    employeeId={employeeId}
+                    hasDevice={hasDevice}
+                    manualPunchEnabled={manualPunchEnabled}
+                />
             </div>
         </AppLayout>
     );

@@ -80,4 +80,11 @@ class UserFactory extends Factory
             'role' => User::ROLE_HR_PERSONNEL,
         ]);
     }
+
+    public function asPmt(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => User::ROLE_PMT,
+        ]);
+    }
 }

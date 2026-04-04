@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UpdateManualPunchStatusRequest;
 use App\Models\AttendanceRecord;
 use App\Models\BiometricDevice;
+use App\Models\Employee;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,10 +32,13 @@ class AttendanceRecordController extends Controller
 
         $hasDevice = BiometricDevice::query()->where('is_active', true)->exists();
 
+        $employee = \App\Models\Employee::find($employeeId);
+
         return Inertia::render('attendance', [
             'records' => $records,
             'employeeId' => $employeeId ?? '',
             'hasDevice' => $hasDevice,
+            'manualPunchEnabled' => (bool) ($employee?->manual_punch_enabled ?? false),
         ]);
     }
 
@@ -51,6 +56,12 @@ class AttendanceRecordController extends Controller
             return back()->withErrors(['employee_id' => 'Employee ID does not match your account.']);
         }
 
+        // Check if manual punch is enabled for this employee
+        $employee = \App\Models\Employee::find($inputEmployeeId);
+        if (! $employee?->manual_punch_enabled) {
+            return back()->withErrors(['employee_id' => 'Manual attendance punch is not enabled for your account. Contact your supervisor.']);
+        }
+
         $now = Carbon::now();
 
         AttendanceRecord::query()->create([
@@ -61,6 +72,19 @@ class AttendanceRecordController extends Controller
             'source' => 'manual',
         ]);
 
-        return back()->with('success', 'Attendance recorded successfully at ' . $now->format('h:i A') . '.');
+        return back()->with('success', 'Attendance recorded successfully at '.$now->format('h:i A').'.');
+    }
+
+    public function updateManualPunchStatus(UpdateManualPunchStatusRequest $request, Employee $employee): RedirectResponse
+    {
+        $manualPunchEnabled = $request->boolean('manual_punch_enabled');
+
+        $employee->update([
+            'manual_punch_enabled' => $manualPunchEnabled,
+        ]);
+
+        $status = $manualPunchEnabled ? 'enabled' : 'disabled';
+
+        return back()->with('success', "Manual punch {$status} for {$employee->name}.");
     }
 }

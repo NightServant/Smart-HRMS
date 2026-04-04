@@ -15,7 +15,39 @@ class LeaveRequestController extends Controller
 {
     public function create(): Response
     {
-        return Inertia::render('leave-application');
+        $user = request()->user();
+
+        $leaveHistory = LeaveRequest::query()
+            ->where('user_id', $user->id)
+            ->with(['employee:employee_id,job_title'])
+            ->latest()
+            ->get()
+            ->map(fn (LeaveRequest $lr): array => [
+                'id' => $lr->id,
+                'name' => $user->name,
+                'employeeId' => $lr->employee_id,
+                'jobTitle' => $lr->employee?->job_title,
+                'leaveType' => $lr->leave_type,
+                'startDate' => $lr->start_date?->format('Y-m-d') ?? '-',
+                'endDate' => $lr->end_date?->format('Y-m-d') ?? '-',
+                'daysRequested' => $lr->days_requested,
+                'leaveAccrual' => $lr->leaveAccrual(),
+                'reason' => $lr->reason,
+                'status' => $lr->status ?? 'pending',
+                'stage' => $lr->stage,
+                'dhDecision' => (int) $lr->dh_decision,
+                'hrDecision' => (int) $lr->hr_decision,
+                'rejectionReasonText' => $lr->rejection_reason_text,
+                'hasMedicalCertificate' => (bool) $lr->medical_certificate_path,
+                'hasMarriageCertificate' => (bool) $lr->marriage_certificate_path,
+                'hasSoloParentId' => (bool) $lr->solo_parent_id_path,
+                'createdAt' => $lr->created_at?->format('M d, Y g:i A'),
+            ])
+            ->toArray();
+
+        return Inertia::render('leave-application', [
+            'leaveHistory' => $leaveHistory,
+        ]);
     }
 
     public function store(StoreLeaveRequestRequest $request): RedirectResponse
@@ -89,6 +121,23 @@ class LeaveRequestController extends Controller
 
         if (! $path || ! Storage::disk('public')->exists($path)) {
             abort(404, 'Document not found.');
+        }
+
+        // Support inline preview via ?inline=1
+        if (request()->boolean('inline')) {
+            $fullPath = Storage::disk('public')->path($path);
+            $mimeType = mime_content_type($fullPath) ?: 'application/octet-stream';
+
+            return response()->stream(
+                function () use ($fullPath): void {
+                    readfile($fullPath);
+                },
+                200,
+                [
+                    'Content-Type' => $mimeType,
+                    'Content-Disposition' => 'inline; filename="'.basename($path).'"',
+                ]
+            );
         }
 
         return Storage::disk('public')->download($path);

@@ -55,9 +55,15 @@ Route::post('leave-application', [LeaveRequestController::class, 'store'])
     ->middleware(['auth', 'role:employee'])
     ->name('leave-application.store');
 
-Route::get('submit-evaluation', function () {
-    return Inertia::render('submit-evaluation');
-})->middleware(['auth', 'role:employee'])->name('submit-evaluation');
+Route::get('submit-evaluation', [IwrController::class, 'submitEvaluationPage'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('submit-evaluation');
+Route::get('ipcr/form', [IwrController::class, 'ipcrFormPage'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('ipcr.form');
+Route::get('ipcr/print', [IwrController::class, 'printableIpcrPage'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('ipcr.print');
 
 Route::get('attendance', [AttendanceRecordController::class, 'index'])
     ->middleware(['auth', 'role:employee'])
@@ -70,7 +76,7 @@ Route::post('attendance/biometric-punch', [AdmsController::class, 'simulate'])
     ->name('attendance.biometric-punch');
 
 Route::get('notifications', [NotificationController::class, 'index'])
-    ->middleware(['auth', 'role:employee,evaluator,hr-personnel'])
+    ->middleware(['auth', 'role:employee,evaluator,hr-personnel,pmt'])
     ->name('notifications');
 Route::post('notifications/{notification}/read', [NotificationController::class, 'markAsRead'])
     ->middleware(['auth'])
@@ -93,6 +99,9 @@ Route::get('admin/performance-dashboard', [SeminarsController::class, 'adminPerf
 Route::get('admin/employee-directory', [PaginationController::class, 'employeeDirectory'])
     ->middleware(['auth', 'role:evaluator,hr-personnel'])
     ->name('admin.employee-directory');
+Route::patch('admin/employee-directory/{employee}/employment-status', [PaginationController::class, 'updateEmployeeEmploymentStatus'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.employee-directory.employment-status');
 
 Route::get('document-management', [PaginationController::class, 'documentManagement'])
     ->middleware(['auth', 'role:evaluator'])
@@ -109,8 +118,15 @@ Route::delete('admin/historical-data/clear-imported', [Import_CSV_Controller::cl
     ->name('admin.historical-data.clear-imported');
 
 Route::get('admin/attendance-management', [PaginationController::class, 'attendanceManagement'])
-    ->middleware(['auth', 'role:evaluator,hr-personnel'])
+    ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.attendance-management');
+
+Route::get('admin/evaluator-attendance', [PaginationController::class, 'evaluatorAttendanceManagement'])
+    ->middleware(['auth', 'role:evaluator'])
+    ->name('admin.evaluator-attendance');
+Route::patch('admin/evaluator-attendance/toggle-manual-punch/{employee}', [AttendanceRecordController::class, 'updateManualPunchStatus'])
+    ->middleware(['auth', 'role:evaluator'])
+    ->name('admin.evaluator-attendance.toggle-manual-punch');
 Route::post('admin/attendance-management/import-csv', [AttendanceImportController::class, 'store'])
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.attendance-management.import-csv');
@@ -134,9 +150,18 @@ Route::get('api/flatfat/attendance-metrics', [FlatFatController::class, 'attenda
 Route::get('api/flatfat/quarter-scores', [FlatFatController::class, 'quarterScores'])
     ->middleware(['auth', 'role:administrator,employee,evaluator,hr-personnel'])
     ->name('api.flatfat.quarter-scores');
+Route::get('api/flatfat/semester-scores', [FlatFatController::class, 'semesterScores'])
+    ->middleware(['auth', 'role:administrator,employee,evaluator,hr-personnel'])
+    ->name('api.flatfat.semester-scores');
+Route::get('api/flatfat/evaluation-risk-summary', [FlatFatController::class, 'evaluationRiskSummary'])
+    ->middleware(['auth', 'role:administrator,employee,evaluator,hr-personnel'])
+    ->name('api.flatfat.evaluation-risk-summary');
 Route::get('api/flatfat/employee-quarter-scores', [FlatFatController::class, 'employeeQuarterScores'])
     ->middleware(['auth', 'role:employee'])
     ->name('api.flatfat.employee-quarter-scores');
+Route::get('api/flatfat/employee-semester-scores', [FlatFatController::class, 'employeeSemesterScores'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('api.flatfat.employee-semester-scores');
 
 Route::get('admin/leave-management', [PaginationController::class, 'leaveManagement'])
     ->middleware(['auth', 'role:evaluator'])
@@ -169,6 +194,38 @@ Route::get('evaluation-page', [IwrController::class, 'evaluationPage'])
     ->middleware(['auth', 'role:evaluator'])
     ->name('evaluation-page');
 
+// IWR IPCR v5.1 routes
+Route::get('admin/ipcr/hr-review', [IwrController::class, 'hrReviewPage'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.hr-review');
+Route::post('ipcr/hr-review/{submission}', [IwrController::class, 'saveHrReview'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('ipcr.hr-review');
+Route::post('admin/ipcr/period', [IwrController::class, 'updateIpcrPeriod'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.ipcr.period.update');
+Route::get('ipcr/appeal/{submission}', [IwrController::class, 'appealPage'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('ipcr.appeal');
+Route::post('ipcr/appeal/{submission}', [IwrController::class, 'submitAppeal'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('ipcr.appeal.submit');
+Route::post('ipcr/no-appeal/{submission}', [IwrController::class, 'submitNoAppeal'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('ipcr.no-appeal');
+Route::get('admin/ipcr/pmt-review', [IwrController::class, 'pmtReviewPage'])
+    ->middleware(['auth', 'role:pmt'])
+    ->name('admin.pmt-review');
+Route::post('ipcr/pmt-review/{submission}', [IwrController::class, 'savePmtReview'])
+    ->middleware(['auth', 'role:pmt'])
+    ->name('ipcr.pmt-review');
+Route::get('admin/ipcr/hr-finalize', [IwrController::class, 'hrFinalizePage'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.hr-finalize');
+Route::post('ipcr/finalize/{submission}', [IwrController::class, 'finalizeIpcr'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('ipcr.finalize');
+
 Route::get('training-scheduling', [SeminarsController::class, 'index'])
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('training-scheduling');
@@ -197,6 +254,10 @@ Route::prefix('admin')->middleware(['auth', 'role:administrator'])->name('admin.
 Route::resource('seminars', SeminarsController::class)
     ->only(['store', 'update', 'destroy'])
     ->middleware(['auth', 'role:hr-personnel']);
+
+Route::post('admin/training-suggestions/notify', [SeminarsController::class, 'triggerTrainingNotification'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.training-suggestions.notify');
 
 // PPE (Predictive Performance Evaluation) API
 Route::get('api/predict', [PredictionController::class, 'predict'])

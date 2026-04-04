@@ -39,7 +39,6 @@ type Filters = {
     documentType: string;
     routingAction: string;
     compliance: string;
-    confidence: string;
     dateFrom: string;
     dateTo: string;
 };
@@ -50,6 +49,11 @@ type PaginationMeta = {
     perPage: number;
     total: number;
 };
+
+function formatLabel(value: string | null | undefined): string {
+    if (!value) return '-';
+    return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export function AdminAuditLogsTable({
     logs,
@@ -66,7 +70,6 @@ export function AdminAuditLogsTable({
     const [documentType, setDocumentType] = useState(filters.documentType || 'all');
     const [routingAction, setRoutingAction] = useState(filters.routingAction || 'all');
     const [compliance, setCompliance] = useState(filters.compliance || 'all');
-    const [confidence, setConfidence] = useState(filters.confidence || 'all');
     const [dateFrom, setDateFrom] = useState(filters.dateFrom);
     const [dateTo, setDateTo] = useState(filters.dateTo);
 
@@ -78,7 +81,6 @@ export function AdminAuditLogsTable({
                 documentType: (params.documentType ?? documentType) === 'all' ? '' : params.documentType ?? documentType,
                 routingAction: (params.routingAction ?? routingAction) === 'all' ? '' : params.routingAction ?? routingAction,
                 compliance: (params.compliance ?? compliance) === 'all' ? '' : params.compliance ?? compliance,
-                confidence: (params.confidence ?? confidence) === 'all' ? '' : params.confidence ?? confidence,
                 dateFrom: params.dateFrom ?? dateFrom,
                 dateTo: params.dateTo ?? dateTo,
                 page: params.page ?? pagination.currentPage,
@@ -95,7 +97,7 @@ export function AdminAuditLogsTable({
 
     return (
         <div className="glass-card animate-zoom-in-soft mx-auto w-full rounded-md border border-border bg-card p-4 shadow-sm">
-            <div className="grid gap-4 py-6 xl:grid-cols-[minmax(0,1fr)_10rem_13rem_10rem_10rem_11rem_11rem]">
+            <div className="grid gap-4 py-6 xl:grid-cols-[minmax(0,1fr)_10rem_13rem_10rem_11rem_11rem]">
                 <div className="relative">
                     <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
                     <Input
@@ -156,22 +158,6 @@ export function AdminAuditLogsTable({
                         </SelectGroup>
                     </SelectContent>
                 </Select>
-                <Select value={confidence} onValueChange={(value) => {
-                    setConfidence(value);
-                    visit({ confidence: value, page: 1 });
-                }}>
-                    <SelectTrigger>
-                        <SelectValue placeholder="Confidence" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectGroup>
-                            <SelectItem value="all">All confidence</SelectItem>
-                            <SelectItem value="low">Low</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="high">High</SelectItem>
-                        </SelectGroup>
-                    </SelectContent>
-                </Select>
                 <Input type="date" value={dateFrom} onChange={(event) => {
                     setDateFrom(event.target.value);
                     visit({ dateFrom: event.target.value, page: 1 });
@@ -188,9 +174,8 @@ export function AdminAuditLogsTable({
                         <TableHead>Timestamp</TableHead>
                         <TableHead>Employee</TableHead>
                         <TableHead>Document</TableHead>
-                        <TableHead>Reference</TableHead>
+                        <TableHead>Document ID</TableHead>
                         <TableHead>Routing Action</TableHead>
-                        <TableHead>Confidence</TableHead>
                         <TableHead>Compliance</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Stage</TableHead>
@@ -212,21 +197,20 @@ export function AdminAuditLogsTable({
                             </TableCell>
                             <TableCell className="uppercase">{log.documentType}</TableCell>
                             <TableCell>{log.documentReference}</TableCell>
-                            <TableCell>{log.routingAction}</TableCell>
-                            <TableCell>{log.confidencePct !== null ? `${log.confidencePct.toFixed(2)}%` : 'N/A'}</TableCell>
+                            <TableCell>{formatLabel(log.routingAction)}</TableCell>
                             <TableCell>
                                 <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${log.compliancePassed ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
                                     {log.compliancePassed ? <ShieldCheck className="size-3" /> : <ShieldX className="size-3" />}
                                     {log.compliancePassed ? 'Passed' : 'Failed'}
                                 </span>
                             </TableCell>
-                            <TableCell>{log.status ?? '-'}</TableCell>
-                            <TableCell>{log.stage ?? '-'}</TableCell>
+                            <TableCell>{formatLabel(log.status)}</TableCell>
+                            <TableCell>{formatLabel(log.stage)}</TableCell>
                         </TableRow>
                     ))}
                     {logs.length === 0 && (
                         <TableRow>
-                            <TableCell colSpan={9} className="bg-[#DDEFD7] text-center dark:bg-[#345A34]/80">
+                            <TableCell colSpan={8} className="bg-[#DDEFD7] text-center dark:bg-[#345A34]/80">
                                 No audit log records found for the selected filters.
                             </TableCell>
                         </TableRow>
@@ -234,7 +218,7 @@ export function AdminAuditLogsTable({
                 </TableBody>
                 <TableFooter>
                     <TableRow className="bg-[#E8F4E4] text-sm font-semibold text-foreground dark:bg-[#1A2F1A] dark:text-[#EAF7E6]">
-                        <TableCell colSpan={9}>
+                        <TableCell colSpan={8}>
                             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                 <div className="flex items-center gap-2">
                                     <span>Rows per page</span>

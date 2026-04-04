@@ -5,7 +5,10 @@ namespace App\Providers;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\RedirectAsIntended;
 use App\Http\Responses\RegisterResponse;
+use App\Models\IpcrSubmission;
+use App\Models\LeaveRequest;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -32,6 +35,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        Relation::morphMap([
+            'leave' => LeaveRequest::class,
+            'ipcr' => IpcrSubmission::class,
+        ]);
     }
 
     /**

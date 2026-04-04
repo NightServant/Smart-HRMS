@@ -1,8 +1,13 @@
-import { Button } from "@/components/ui/button"
-import { Moon, Sun } from "lucide-react"
 import { useAppearance } from "@/hooks/use-appearance"
+import { cn } from "@/lib/utils"
+import { Moon, Sun } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
-export function ModeToggle() {
+type ModeToggleProps = {
+  className?: string
+}
+
+export function ModeToggle({ className }: ModeToggleProps) {
   const { resolvedAppearance, updateAppearance } = useAppearance()
   const isDark = resolvedAppearance === "dark"
   const nextMode = isDark ? "light" : "dark"
@@ -11,7 +16,7 @@ export function ModeToggle() {
     <Button
       variant="ghost"
       size="icon"
-      className="rounded-full"
+      className={cn("rounded-full", className)}
       aria-label="Toggle appearance"
       onClick={() => updateAppearance(nextMode)}
     >

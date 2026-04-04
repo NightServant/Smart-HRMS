@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class IwrAuditLog extends Model
 {
@@ -25,5 +26,10 @@ class IwrAuditLog extends Model
             'confidence_pct' => 'decimal:2',
             'compliance_passed' => 'boolean',
         ];
+    }
+
+    public function document(): MorphTo
+    {
+        return $this->morphTo(__FUNCTION__, 'document_type', 'document_id');
     }
 }

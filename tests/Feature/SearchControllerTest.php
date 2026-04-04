@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -65,9 +66,16 @@ test('employee directory search returns employee users only', function () {
 });
 
 test('document management search returns employee users only', function () {
+    Employee::query()->create([
+        'employee_id' => 'EMP-002',
+        'name' => 'Carol Employee',
+        'job_title' => 'Administrative Aide',
+        'employment_status' => 'regular',
+    ]);
     User::factory()->create([
         'name' => 'Carol Employee',
         'email' => 'carol@example.com',
+        'employee_id' => 'EMP-002',
     ]);
     User::factory()->asHrPersonnel()->create([
         'name' => 'Carol HR',
@@ -79,9 +87,10 @@ test('document management search returns employee users only', function () {
     $this->actingAs($evaluatorUser)
         ->get(route('document-management', ['search' => 'carol']))
         ->assertInertia(fn (Assert $page) => $page
-            ->component('document-management')
-            ->where('search', 'carol')
-            ->has('employees', 1)
-            ->where('employees.0.name', 'Carol Employee')
-            ->where('employees.0.role', User::ROLE_EMPLOYEE));
+            ->component('performance-evaluation')
+            ->where('roleView', 'evaluator')
+            ->where('evaluatorPanel.search', 'carol')
+            ->has('evaluatorPanel.employees', 1)
+            ->where('evaluatorPanel.employees.0.name', 'Carol Employee')
+            ->where('evaluatorPanel.employees.0.role', User::ROLE_EMPLOYEE));
 });

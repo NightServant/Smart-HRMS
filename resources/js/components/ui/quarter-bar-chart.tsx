@@ -27,15 +27,6 @@ ChartJS.register(
   Legend
 );
 
-const quarterLabels: Record<Quarter, string[]> = {
-  Q1: ['January', 'February', 'March'],
-  Q2: ['April', 'May', 'June'],
-  Q3: ['July', 'August', 'September'],
-  Q4: ['October', 'November', 'December'],
-};
-
-export type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4';
-
 const employeeBarPalette = [
   { background: '#4A7C3C', border: '#4A7C3C' },
   { background: '#2A6F97', border: '#2A6F97' },
@@ -53,7 +44,8 @@ type EmployeeScore = {
 };
 
 type QuarterScoresData = {
-  quarter: string;
+  year?: number | null;
+  period?: string;
   average_rating: number;
   employee_scores?: EmployeeScore[];
   aggregate?: {
@@ -64,14 +56,15 @@ type QuarterScoresData = {
 };
 
 type Props = {
-  quarter?: Quarter;
   data?: QuarterScoresData | null;
   className?: string;
 };
 
-export function QuarterBarChart({ quarter = 'Q1', data, className }: Props) {
+export function QuarterBarChart({ data, className }: Props) {
   const employeeScores = data?.employee_scores ?? [];
   const employeeBarColors = employeeScores.map((_, index) => employeeBarPalette[index % employeeBarPalette.length]);
+  const highestScore = employeeScores.reduce((max, score) => Math.max(max, score.final_rating), 0);
+  const yAxisMax = highestScore > 5 ? Math.ceil(highestScore / 10) * 10 : 5;
 
   const chartData = employeeScores.length > 0
     ? {
@@ -87,13 +80,13 @@ export function QuarterBarChart({ quarter = 'Q1', data, className }: Props) {
         ],
       }
     : {
-        labels: quarterLabels[quarter],
+        labels: ['No Data'],
         datasets: [
           {
             label: 'Performance Score',
-            data: [0, 0, 0],
-            backgroundColor: '#4A7C3C',
-            borderColor: '#4A7C3C',
+            data: [0],
+            backgroundColor: '#94a3b8',
+            borderColor: '#94a3b8',
             ...BAR_DATASET_DEFAULTS,
           },
         ],
@@ -119,11 +112,11 @@ export function QuarterBarChart({ quarter = 'Q1', data, className }: Props) {
       },
       y: {
         min: 0,
-        max: 5,
+        max: yAxisMax,
         border: { display: false },
         grid: { color: CHART_GRID_COLOR, drawTicks: false },
         ticks: {
-          stepSize: 1,
+          stepSize: yAxisMax > 5 ? Math.max(10, Math.ceil(yAxisMax / 5)) : 1,
           color: CHART_TICK_COLOR,
           padding: 10,
           font: CHART_TICK_FONT,

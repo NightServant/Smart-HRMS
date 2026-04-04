@@ -17,6 +17,26 @@ class IwrService
         return $this->call('route_leave', $payload);
     }
 
+    public function routeHrReview(array $payload): array
+    {
+        return $this->call('route_hr_review', $payload);
+    }
+
+    public function routeAppeal(array $payload): array
+    {
+        return $this->call('route_appeal', $payload);
+    }
+
+    public function routePmtReview(array $payload): array
+    {
+        return $this->call('route_pmt_review', $payload);
+    }
+
+    public function finalizeIpcr(array $payload): array
+    {
+        return $this->call('finalize_ipcr', $payload);
+    }
+
     private function call(string $action, array $payload): array
     {
         try {
