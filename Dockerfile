@@ -35,7 +35,7 @@ WORKDIR /var/www/html
 COPY composer.json composer.lock package.json package-lock.json ./
 COPY python ./python
 
-RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader
+RUN composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader --no-scripts
 RUN npm ci
 RUN python3 -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir --upgrade pip setuptools wheel \
@@ -46,6 +46,8 @@ RUN python3 -m venv /opt/venv \
 
 COPY . .
 
+RUN composer dump-autoload --optimize --no-dev \
+    && php artisan package:discover --ansi
 RUN npm run build
 
 EXPOSE 8080
