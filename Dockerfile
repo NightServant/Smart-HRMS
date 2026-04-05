@@ -54,6 +54,7 @@ COPY . .
 RUN composer dump-autoload --optimize --no-dev \
     && php artisan package:discover --ansi
 RUN npm run build
+RUN /opt/venv/bin/python python/iwr/setup.py
 
 EXPOSE 8080
 
