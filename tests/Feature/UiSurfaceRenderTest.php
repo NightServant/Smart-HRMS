@@ -70,6 +70,20 @@ test('evaluator, hr, pmt, and admin entry surfaces render expected components', 
             ->has('remarks')
             ->has('leaveOverview'));
 
+    $this->actingAs($hr)
+        ->get(route('admin.hr-review'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('performance-evaluation')
+            ->where('roleView', 'hr')
+            ->has('hrPanel.reviewQueue'));
+
+    $this->actingAs($hr)
+        ->get(route('admin.hr-finalize'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('performance-evaluation')
+            ->where('roleView', 'hr')
+            ->has('hrPanel.finalizationQueue'));
+
     $this->actingAs($pmt)
         ->get(route('admin.pmt-review'))
         ->assertInertia(fn (Assert $page) => $page

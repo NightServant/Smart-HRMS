@@ -22,7 +22,6 @@ import {
     Table,
     TableBody,
     TableCell,
-    TableFooter,
     TableHead,
     TableHeader,
     TableRow,
@@ -131,7 +130,7 @@ export default function DocumentsTable({
     const { auth } = usePage<{ auth: Auth }>().props;
 
     return (
-        <div className="glass-card app-data-shell mx-auto w-full animate-zoom-in-soft bg-card shadow-sm">
+        <div className="glass-card app-data-shell mx-auto w-full max-w-none animate-zoom-in-soft bg-card shadow-sm">
             <div className="app-data-shell__header">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-1">
@@ -161,7 +160,7 @@ export default function DocumentsTable({
                 </div>
             </div>
             <div className="app-table-scroll">
-                <Table className="w-full min-w-[900px]">
+                <Table className="w-full min-w-[1120px] xl:min-w-[1280px]">
                     <TableHeader>
                         <TableRow className="app-table-head-row text-sm font-bold">
                             <TableHead>Employee ID</TableHead>
@@ -244,85 +243,70 @@ export default function DocumentsTable({
                             </TableRow>
                         )}
                     </TableBody>
-                    <TableFooter>
-                        <TableRow className="bg-[#E8F4E4] text-sm font-semibold text-foreground dark:bg-[#1A2F1A] dark:text-[#EAF7E6]">
-                            <TableCell colSpan={5}>
-                                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <span>Rows per page</span>
-                                        <Select
-                                            value={String(pagination.perPage)}
-                                            onValueChange={
-                                                handleRowsPerPageChange
-                                            }
-                                        >
-                                            <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent align="start">
-                                                <SelectGroup>
-                                                    <SelectItem value="5">
-                                                        5
-                                                    </SelectItem>
-                                                    <SelectItem value="10">
-                                                        10
-                                                    </SelectItem>
-                                                    <SelectItem value="25">
-                                                        25
-                                                    </SelectItem>
-                                                    <SelectItem value="50">
-                                                        50
-                                                    </SelectItem>
-                                                </SelectGroup>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="flex items-center gap-4 self-end md:self-auto">
-                                        <span>
-                                            Page {pagination.currentPage} of{' '}
-                                            {pagination.lastPage}
-                                        </span>
-                                        <Pagination className="mx-0 w-auto">
-                                            <PaginationContent>
-                                                <PaginationItem>
-                                                    <PaginationPrevious
-                                                        href="#"
-                                                        onClick={(event) => {
-                                                            event.preventDefault();
-                                                            goToPreviousPage();
-                                                        }}
-                                                        className={
-                                                            pagination.currentPage ===
-                                                            1
-                                                                ? 'pointer-events-none opacity-50'
-                                                                : ''
-                                                        }
-                                                    />
-                                                </PaginationItem>
-                                                <PaginationItem>
-                                                    <PaginationNext
-                                                        href="#"
-                                                        onClick={(event) => {
-                                                            event.preventDefault();
-                                                            goToNextPage();
-                                                        }}
-                                                        className={
-                                                            pagination.currentPage ===
-                                                            pagination.lastPage
-                                                                ? 'pointer-events-none opacity-50'
-                                                                : ''
-                                                        }
-                                                    />
-                                                </PaginationItem>
-                                            </PaginationContent>
-                                        </Pagination>
-                                    </div>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    </TableFooter>
                 </Table>
+                <div className="app-table-pagination-bar text-sm font-semibold text-foreground dark:text-[#EAF7E6]">
+                    <div className="app-table-pagination-shell">
+                        <div className="app-table-pagination-page-size">
+                            <span>Rows per page</span>
+                            <Select
+                                value={String(pagination.perPage)}
+                                onValueChange={handleRowsPerPageChange}
+                            >
+                                <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent align="start">
+                                    <SelectGroup>
+                                        <SelectItem value="5">5</SelectItem>
+                                        <SelectItem value="10">10</SelectItem>
+                                        <SelectItem value="25">25</SelectItem>
+                                        <SelectItem value="50">50</SelectItem>
+                                    </SelectGroup>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="app-table-pagination-controls">
+                            <span className="app-table-pagination-status">
+                                Page {pagination.currentPage} of{' '}
+                                {pagination.lastPage}
+                            </span>
+                            <Pagination className="app-table-pagination-nav">
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious
+                                            href="#"
+                                            onClick={(event) => {
+                                                event.preventDefault();
+                                                goToPreviousPage();
+                                            }}
+                                            className={
+                                                pagination.currentPage === 1
+                                                    ? 'pointer-events-none opacity-50'
+                                                    : ''
+                                            }
+                                        />
+                                    </PaginationItem>
+                                    <PaginationItem>
+                                        <PaginationNext
+                                            href="#"
+                                            onClick={(event) => {
+                                                event.preventDefault();
+                                                goToNextPage();
+                                            }}
+                                            className={
+                                                pagination.currentPage ===
+                                                pagination.lastPage
+                                                    ? 'pointer-events-none opacity-50'
+                                                    : ''
+                                            }
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

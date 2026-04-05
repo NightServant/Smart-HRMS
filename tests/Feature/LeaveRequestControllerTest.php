@@ -3,6 +3,7 @@
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\User;
+use App\Services\IwrService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -104,5 +105,43 @@ test('paternity leave can upload marriage certificate', function () {
     $this->assertDatabaseHas('leave_requests', [
         'user_id' => $employeeUser->id,
         'leave_type' => 'paternity_leave',
+    ]);
+});
+
+test('employee sees a workflow error when leave routing is unavailable', function () {
+    Storage::fake('public');
+
+    Employee::query()->create([
+        'employee_id' => 'EMP-2001',
+        'name' => 'Railway Ready',
+        'job_title' => 'Administrative Aide',
+    ]);
+
+    $employeeUser = User::factory()->create([
+        'employee_id' => 'EMP-2001',
+    ]);
+
+    $mock = Mockery::mock(IwrService::class);
+    $mock->shouldReceive('routeLeave')->once()->andReturn([
+        'status' => 'error',
+        'notification' => 'IWR service is unavailable. Please try again later.',
+    ]);
+
+    app()->instance(IwrService::class, $mock);
+
+    $this->actingAs($employeeUser)
+        ->post(route('leave-application.store'), [
+            'leaveType' => 'force-leave',
+            'startDate' => '2026-03-10',
+            'endDate' => '2026-03-12',
+            'reason' => 'Planned leave.',
+        ])
+        ->assertRedirect(route('leave-application'))
+        ->assertSessionHasErrors(['workflow']);
+
+    $this->assertDatabaseHas('leave_requests', [
+        'user_id' => $employeeUser->id,
+        'status' => 'error',
+        'notification' => 'IWR service is unavailable. Please try again later.',
     ]);
 });

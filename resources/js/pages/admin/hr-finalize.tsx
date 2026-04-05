@@ -33,6 +33,14 @@ const breadcrumbs: BreadcrumbItem[] = [
     { title: 'IPCR Finalization', href: admin.hrFinalize().url },
 ];
 
+function computedRating(submission: IpcrSubmission): number | null {
+    return submission.form_payload.summary.computed_rating ?? submission.performance_rating;
+}
+
+function finalDisplayRating(submission: IpcrSubmission): number | null {
+    return submission.final_rating ?? computedRating(submission);
+}
+
 function StatCard({
     title,
     value,
@@ -72,7 +80,7 @@ export default function HrFinalize({
         if (selected) {
             setFinalRating(
                 String(
-                    selected.final_rating ?? selected.performance_rating ?? '',
+                    finalDisplayRating(selected) ?? '',
                 ),
             );
         }
@@ -170,7 +178,7 @@ export default function HrFinalize({
                                                 submission.employee_id}
                                         </td>
                                         <td className="px-4 py-3">
-                                            {submission.performance_rating?.toFixed(
+                                            {computedRating(submission)?.toFixed(
                                                 2,
                                             ) ?? '—'}
                                         </td>
@@ -216,7 +224,7 @@ export default function HrFinalize({
                     }
                 }}
             >
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-6xl">
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
                     <DialogHeader>
                         <DialogTitle>Finalize IPCR</DialogTitle>
                         <DialogDescription>

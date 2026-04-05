@@ -72,11 +72,11 @@ class ReportsDashboardController extends Controller
         $avgRating = round((float) ((clone $ipcrQuery)->whereNotNull('performance_rating')->avg('performance_rating') ?? 0), 2);
 
         $ratingDistribution = [
-            ['label' => 'Outstanding', 'count' => (clone $ipcrQuery)->whereBetween('performance_rating', [4.5, 5.0])->count()],
-            ['label' => 'Very Satisfactory', 'count' => (clone $ipcrQuery)->whereBetween('performance_rating', [3.5, 4.49])->count()],
-            ['label' => 'Satisfactory', 'count' => (clone $ipcrQuery)->whereBetween('performance_rating', [2.5, 3.49])->count()],
-            ['label' => 'Unsatisfactory', 'count' => (clone $ipcrQuery)->whereBetween('performance_rating', [1.5, 2.49])->count()],
-            ['label' => 'Poor', 'count' => (clone $ipcrQuery)->where('performance_rating', '<', 1.5)->whereNotNull('performance_rating')->count()],
+            ['label' => 'Outstanding', 'count' => (clone $ipcrQuery)->whereBetween('performance_rating', [4.71, 5.0])->count()],
+            ['label' => 'Very Outstanding', 'count' => (clone $ipcrQuery)->whereBetween('performance_rating', [3.75, 4.70])->count()],
+            ['label' => 'Satisfactory', 'count' => (clone $ipcrQuery)->whereBetween('performance_rating', [3.00, 3.74])->count()],
+            ['label' => 'Unsatisfactory', 'count' => (clone $ipcrQuery)->whereBetween('performance_rating', [2.01, 2.99])->count()],
+            ['label' => 'Poor', 'count' => (clone $ipcrQuery)->where('performance_rating', '<=', 2.00)->whereNotNull('performance_rating')->count()],
         ];
 
         // IWR metrics

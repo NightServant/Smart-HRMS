@@ -21,19 +21,19 @@ export function getAdjectivalRating(score: number | null): string | null {
         return null;
     }
 
-    if (score >= 4.5) {
+    if (score >= 4.71) {
         return 'Outstanding';
     }
 
-    if (score >= 3.5) {
-        return 'Very Satisfactory';
+    if (score >= 3.75) {
+        return 'Very Outstanding';
     }
 
-    if (score >= 2.5) {
+    if (score >= 3.0) {
         return 'Satisfactory';
     }
 
-    if (score >= 1.5) {
+    if (score >= 2.01) {
         return 'Unsatisfactory';
     }
 
@@ -66,7 +66,11 @@ export function recalculateIpcrFormPayload(payload: IpcrFormPayload): IpcrFormPa
     next.summary.rated_rows = ratedRows.length;
     next.summary.adjectival_rating = getAdjectivalRating(next.summary.computed_rating);
 
-    if (next.finalization.final_rating !== null && Number.isFinite(next.finalization.final_rating)) {
+    const hasLockedFinalRating = Boolean(next.finalization.finalized_at)
+        && next.finalization.final_rating !== null
+        && Number.isFinite(next.finalization.final_rating);
+
+    if (hasLockedFinalRating) {
         next.finalization.adjectival_rating = getAdjectivalRating(next.finalization.final_rating);
     } else {
         next.finalization.final_rating = next.summary.computed_rating;

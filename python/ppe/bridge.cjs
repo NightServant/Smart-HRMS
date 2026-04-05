@@ -7,17 +7,17 @@
 
 const { spawn } = require('child_process');
 const path = require('path');
+const { resolvePythonCommand } = require('../shared/resolve-python.cjs');
 
-const IS_WIN = process.platform === 'win32';
-const PYTHON = IS_WIN
-    ? path.resolve(__dirname, '..', 'iwr', '.venv', 'Scripts', 'python.exe')
-    : path.resolve(__dirname, '..', 'iwr', '.venv', 'bin', 'python');
+const PYTHON = resolvePythonCommand(__dirname, 'PPE_PYTHON_PATH', [
+    path.resolve(__dirname, '..', 'iwr'),
+]);
 const TIMEOUT = 15000;
 
 let input = '';
 process.stdin.on('data', (c) => { input += c; });
 process.stdin.on('end', () => {
-    const child = spawn(PYTHON, ['runner.py'], {
+    const child = spawn(PYTHON.command, [...PYTHON.args, 'runner.py'], {
         cwd: __dirname,
         timeout: TIMEOUT,
         stdio: ['pipe', 'pipe', 'pipe'],

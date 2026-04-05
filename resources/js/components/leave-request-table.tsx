@@ -25,7 +25,6 @@ import {
     Table,
     TableBody,
     TableCell,
-    TableFooter,
     TableHead,
     TableHeader,
     TableRow,
@@ -356,106 +355,104 @@ export default function LeaveRequestTable({
                             </TableRow>
                         )}
                     </TableBody>
-                    <TableFooter>
-                        <TableRow className="bg-[#E8F4E4] text-sm font-semibold text-foreground dark:bg-[#1A2F1A] dark:text-[#EAF7E6]">
-                            <TableCell colSpan={6} className="px-4 py-3">
-                                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm">
-                                            Rows per page
-                                        </span>
-                                        <Select
-                                            value={String(pagination.perPage)}
-                                            onValueChange={(v) =>
-                                                visit({
-                                                    perPage: Number(v),
-                                                    page: 1,
-                                                })
-                                            }
-                                        >
-                                            <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent align="start">
-                                                <SelectGroup>
-                                                    {[
-                                                        '5',
-                                                        '10',
-                                                        '25',
-                                                        '50',
-                                                    ].map((v) => (
-                                                        <SelectItem
-                                                            key={v}
-                                                            value={v}
-                                                        >
-                                                            {v}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectGroup>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="flex items-center gap-4 self-end md:self-auto">
-                                        <span>
-                                            Page {pagination.currentPage} of{' '}
-                                            {pagination.lastPage}
-                                        </span>
-                                        <Pagination className="mx-0 w-auto">
-                                            <PaginationContent>
-                                                <PaginationItem>
-                                                    <PaginationPrevious
-                                                        href="#"
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            if (
-                                                                pagination.currentPage >
-                                                                1
-                                                            )
-                                                                visit({
-                                                                    page:
-                                                                        pagination.currentPage -
-                                                                        1,
-                                                                });
-                                                        }}
-                                                        className={
-                                                            pagination.currentPage ===
-                                                            1
-                                                                ? 'pointer-events-none opacity-50'
-                                                                : ''
-                                                        }
-                                                    />
-                                                </PaginationItem>
-                                                <PaginationItem>
-                                                    <PaginationNext
-                                                        href="#"
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            if (
-                                                                pagination.currentPage <
-                                                                pagination.lastPage
-                                                            )
-                                                                visit({
-                                                                    page:
-                                                                        pagination.currentPage +
-                                                                        1,
-                                                                });
-                                                        }}
-                                                        className={
-                                                            pagination.currentPage ===
-                                                            pagination.lastPage
-                                                                ? 'pointer-events-none opacity-50'
-                                                                : ''
-                                                        }
-                                                    />
-                                                </PaginationItem>
-                                            </PaginationContent>
-                                        </Pagination>
-                                    </div>
-                                </div>
-                            </TableCell>
-                        </TableRow>
-                    </TableFooter>
                 </Table>
+            </div>
+            <div className="app-table-pagination-bar">
+                <div className="app-table-pagination-shell">
+                    <div className="app-table-pagination-page-size">
+                        <span className="text-sm">
+                            Rows per page
+                        </span>
+                        <Select
+                            value={String(pagination.perPage)}
+                            onValueChange={(v) =>
+                                visit({
+                                    perPage: Number(v),
+                                    page: 1,
+                                })
+                            }
+                        >
+                            <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent align="start">
+                                <SelectGroup>
+                                    {[
+                                        '5',
+                                        '10',
+                                        '25',
+                                        '50',
+                                    ].map((v) => (
+                                        <SelectItem
+                                            key={v}
+                                            value={v}
+                                        >
+                                            {v}
+                                        </SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="app-table-pagination-controls">
+                        <span className="app-table-pagination-status">
+                            Page {pagination.currentPage} of{' '}
+                            {pagination.lastPage}
+                        </span>
+                        <Pagination className="app-table-pagination-nav">
+                            <PaginationContent>
+                                <PaginationItem>
+                                    <PaginationPrevious
+                                        href="#"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            if (
+                                                pagination.currentPage >
+                                                1
+                                            ) {
+                                                visit({
+                                                    page:
+                                                        pagination.currentPage -
+                                                        1,
+                                                });
+                                            }
+                                        }}
+                                        className={
+                                            pagination.currentPage ===
+                                            1
+                                                ? 'pointer-events-none opacity-50'
+                                                : ''
+                                        }
+                                    />
+                                </PaginationItem>
+                                <PaginationItem>
+                                    <PaginationNext
+                                        href="#"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            if (
+                                                pagination.currentPage <
+                                                pagination.lastPage
+                                            ) {
+                                                visit({
+                                                    page:
+                                                        pagination.currentPage +
+                                                        1,
+                                                });
+                                            }
+                                        }}
+                                        className={
+                                            pagination.currentPage ===
+                                            pagination.lastPage
+                                                ? 'pointer-events-none opacity-50'
+                                                : ''
+                                        }
+                                    />
+                                </PaginationItem>
+                            </PaginationContent>
+                        </Pagination>
+                    </div>
+                </div>
             </div>
 
             {/* Leave detail dialog */}

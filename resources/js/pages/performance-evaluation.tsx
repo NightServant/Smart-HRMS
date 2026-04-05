@@ -32,9 +32,10 @@ import {
     PaginationNext,
     PaginationPrevious,
 } from '@/components/ui/pagination';
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
+import { getAdjectivalRating } from '@/lib/ipcr';
 import { cn } from '@/lib/utils';
 import { evaluationPage, submitEvaluation, documentManagement } from '@/routes';
 import * as admin from '@/routes/admin';
@@ -128,6 +129,14 @@ function statusLabel(status: string | null): string {
     return status
         ? status.replaceAll('_', ' ').replace(/\b\w/g, (value) => value.toUpperCase())
         : 'Draft';
+}
+
+function computedRating(submission: IpcrSubmission): number | null {
+    return submission.form_payload.summary.computed_rating ?? submission.performance_rating;
+}
+
+function finalDisplayRating(submission: IpcrSubmission): number | null {
+    return submission.final_rating ?? computedRating(submission);
 }
 
 function evaluatorActionState(employee: EvaluatorEmployee, periodOpen: boolean): {
@@ -351,8 +360,7 @@ function EmployeeOverview({
                                                         Rating
                                                     </p>
                                                     <p className="mt-1 font-medium text-foreground">
-                                                        {submission.final_rating?.toFixed(2) ??
-                                                            submission.performance_rating?.toFixed(2) ??
+                                                        {finalDisplayRating(submission)?.toFixed(2) ??
                                                             'Pending'}
                                                     </p>
                                                 </div>
@@ -525,16 +533,16 @@ function EvaluatorOverview({
                         </Button>
                     </div>
 
-                    <div className="glass-card overflow-x-auto rounded-md border border-border bg-card shadow-sm">
-                        <Table className="min-w-[1020px]">
+                    <div className="glass-card w-full min-w-0 overflow-hidden rounded-md border border-border bg-card shadow-sm">
+                        <Table className="w-full min-w-[1280px] xl:min-w-[1400px]">
                             <TableHeader>
                                 <TableRow className={tableHeaderClasses}>
-                                    <TableHead className="w-[10rem]">Employee ID</TableHead>
-                                    <TableHead className="w-[18rem]">Name</TableHead>
-                                    <TableHead className="w-[14rem]">Position</TableHead>
-                                    <TableHead className="w-[12rem]">Status</TableHead>
-                                    <TableHead className="w-[16rem]">Stage</TableHead>
-                                    <TableHead className="text-right">Action</TableHead>
+                                    <TableHead className="w-[11rem] min-w-[11rem]">Employee ID</TableHead>
+                                    <TableHead className="w-[22rem] min-w-[22rem]">Name</TableHead>
+                                    <TableHead className="w-[18rem] min-w-[18rem]">Position</TableHead>
+                                    <TableHead className="w-[12rem] min-w-[12rem]">Status</TableHead>
+                                    <TableHead className="w-[18rem] min-w-[18rem]">Stage</TableHead>
+                                    <TableHead className="w-[14rem] min-w-[14rem] text-right">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -573,62 +581,58 @@ function EvaluatorOverview({
                                     );
                                 })}
                             </TableBody>
-                            <TableFooter>
-                                <TableRow className="bg-[#E8F4E4] text-sm font-semibold text-foreground dark:bg-[#1A2F1A] dark:text-[#EAF7E6]">
-                                    <TableCell colSpan={6}>
-                                        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <span>Rows per page</span>
-                                                <Select
-                                                    value={String(evaluatorPanel?.pagination.perPage ?? 10)}
-                                                    onValueChange={handleRowsPerPageChange}
-                                                >
-                                                    <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
-                                                        <SelectValue />
-                                                    </SelectTrigger>
-                                                    <SelectContent align="start">
-                                                        <SelectItem value="5">5</SelectItem>
-                                                        <SelectItem value="10">10</SelectItem>
-                                                        <SelectItem value="25">25</SelectItem>
-                                                        <SelectItem value="50">50</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-
-                                            <div className="flex items-center gap-4 self-end md:self-auto">
-                                                <span>
-                                                    Page {evaluatorPanel?.pagination.currentPage ?? 1} of {evaluatorPanel?.pagination.lastPage ?? 1}
-                                                </span>
-                                                <Pagination className="mx-0 w-auto">
-                                                    <PaginationContent>
-                                                        <PaginationItem>
-                                                            <PaginationPrevious
-                                                                href="#"
-                                                                onClick={(event) => {
-                                                                    event.preventDefault();
-                                                                    goToPreviousPage();
-                                                                }}
-                                                                className={(evaluatorPanel?.pagination.currentPage ?? 1) === 1 ? 'pointer-events-none opacity-50' : ''}
-                                                            />
-                                                        </PaginationItem>
-                                                        <PaginationItem>
-                                                            <PaginationNext
-                                                                href="#"
-                                                                onClick={(event) => {
-                                                                    event.preventDefault();
-                                                                    goToNextPage();
-                                                                }}
-                                                                className={(evaluatorPanel?.pagination.currentPage ?? 1) === (evaluatorPanel?.pagination.lastPage ?? 1) ? 'pointer-events-none opacity-50' : ''}
-                                                            />
-                                                        </PaginationItem>
-                                                    </PaginationContent>
-                                                </Pagination>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            </TableFooter>
                         </Table>
+                    </div>
+                    <div className="app-table-pagination-bar">
+                        <div className="app-table-pagination-shell">
+                            <div className="app-table-pagination-page-size">
+                                <span>Rows per page</span>
+                                <Select
+                                    value={String(evaluatorPanel?.pagination.perPage ?? 10)}
+                                    onValueChange={handleRowsPerPageChange}
+                                >
+                                    <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent align="start">
+                                        <SelectItem value="5">5</SelectItem>
+                                        <SelectItem value="10">10</SelectItem>
+                                        <SelectItem value="25">25</SelectItem>
+                                        <SelectItem value="50">50</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="app-table-pagination-controls">
+                                <span className="app-table-pagination-status">
+                                    Page {evaluatorPanel?.pagination.currentPage ?? 1} of {evaluatorPanel?.pagination.lastPage ?? 1}
+                                </span>
+                                <Pagination className="app-table-pagination-nav">
+                                    <PaginationContent>
+                                        <PaginationItem>
+                                            <PaginationPrevious
+                                                href="#"
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    goToPreviousPage();
+                                                }}
+                                                className={(evaluatorPanel?.pagination.currentPage ?? 1) === 1 ? 'pointer-events-none opacity-50' : ''}
+                                            />
+                                        </PaginationItem>
+                                        <PaginationItem>
+                                            <PaginationNext
+                                                href="#"
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    goToNextPage();
+                                                }}
+                                                className={(evaluatorPanel?.pagination.currentPage ?? 1) === (evaluatorPanel?.pagination.lastPage ?? 1) ? 'pointer-events-none opacity-50' : ''}
+                                            />
+                                        </PaginationItem>
+                                    </PaginationContent>
+                                </Pagination>
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -672,7 +676,7 @@ function HrOverview({
 
     useEffect(() => {
         if (selectedFinalize) {
-            setFinalRating(String(selectedFinalize.final_rating ?? selectedFinalize.performance_rating ?? ''));
+            setFinalRating(String(finalDisplayRating(selectedFinalize) ?? ''));
         }
     }, [selectedFinalize]);
 
@@ -681,24 +685,7 @@ function HrOverview({
     const adjectivalPreview = useMemo(() => {
         const numeric = Number(finalRating);
 
-        if (Number.isNaN(numeric)) {
-            return 'Pending';
-        }
-
-        if (numeric >= 4.5) {
-            return 'Outstanding';
-        }
-        if (numeric >= 3.5) {
-            return 'Very Satisfactory';
-        }
-        if (numeric >= 2.5) {
-            return 'Satisfactory';
-        }
-        if (numeric >= 1.5) {
-            return 'Unsatisfactory';
-        }
-
-        return 'Poor';
+        return Number.isNaN(numeric) ? 'Pending' : (getAdjectivalRating(numeric) ?? 'Pending');
     }, [finalRating]);
 
     return (
@@ -809,7 +796,7 @@ function HrOverview({
                                             </TableCell>
                                             <TableCell>{statusLabel(submission.status)}</TableCell>
                                             <TableCell>{stageLabel(submission.stage)}</TableCell>
-                                            <TableCell>{submission.final_rating?.toFixed(2) ?? submission.performance_rating?.toFixed(2) ?? 'Pending'}</TableCell>
+                                            <TableCell>{finalDisplayRating(submission)?.toFixed(2) ?? 'Pending'}</TableCell>
                                             <TableCell className="text-right">
                                                 <Button
                                                     type="button"
@@ -848,7 +835,7 @@ function HrOverview({
             </Card>
 
             <Dialog open={selectedReview !== null} onOpenChange={(open) => !open && setSelectedReview(null)}>
-                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl">
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
                     {selectedReview && (
                         (() => {
                             const isReviewEditable = selectedReview.stage === 'sent_to_hr';
@@ -900,10 +887,20 @@ function HrOverview({
                                     type="button"
                                     disabled={!isReviewEditable || !hrDecision || (hrDecision === 'rejected' && !hrRemarks.trim())}
                                     onClick={() => {
-                                        router.post(`/ipcr/hr-review/${selectedReview.id}`, {
-                                            hr_decision: hrDecision,
-                                            hr_remarks: hrDecision === 'rejected' ? hrRemarks.trim() : null,
-                                        });
+                                        router.post(
+                                            `/ipcr/hr-review/${selectedReview.id}`,
+                                            {
+                                                hr_decision: hrDecision,
+                                                hr_remarks: hrDecision === 'rejected' ? hrRemarks.trim() : null,
+                                            },
+                                            {
+                                                onSuccess: () => {
+                                                    setSelectedReview(null);
+                                                    setHrDecision('');
+                                                    setHrRemarks('');
+                                                },
+                                            },
+                                        );
                                     }}
                                 >
                                     {isReviewEditable ? 'Save HR Review' : 'Review Already Recorded'}
@@ -917,7 +914,7 @@ function HrOverview({
             </Dialog>
 
             <Dialog open={selectedFinalize !== null} onOpenChange={(open) => !open && setSelectedFinalize(null)}>
-                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl">
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
                     {selectedFinalize && (
                         (() => {
                             const isFinalizeEditable = selectedFinalize.stage === 'sent_to_hr_finalize';
@@ -950,9 +947,18 @@ function HrOverview({
                                     type="button"
                                     disabled={!isFinalizeEditable || !finalRating}
                                     onClick={() => {
-                                        router.post(`/ipcr/finalize/${selectedFinalize.id}`, {
-                                            final_rating: Number(finalRating),
-                                        });
+                                        router.post(
+                                            `/ipcr/finalize/${selectedFinalize.id}`,
+                                            {
+                                                final_rating: Number(finalRating),
+                                            },
+                                            {
+                                                onSuccess: () => {
+                                                    setSelectedFinalize(null);
+                                                    setFinalRating('');
+                                                },
+                                            },
+                                        );
                                     }}
                                 >
                                     {isFinalizeEditable ? 'Finalize IPCR' : 'Already Finalized'}
@@ -1028,7 +1034,7 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
             </Card>
 
             <Dialog open={selectedSubmission !== null} onOpenChange={(open) => !open && setSelectedSubmission(null)}>
-                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-5xl">
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
                     {selectedSubmission && (
                         <>
                             <DialogHeader>
@@ -1081,10 +1087,20 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                                     type="button"
                                     disabled={!decision || (decision === 'rejected' && !remarks.trim())}
                                     onClick={() => {
-                                        router.post(`/ipcr/pmt-review/${selectedSubmission.id}`, {
-                                            pmt_decision: decision,
-                                            pmt_remarks: decision === 'rejected' ? remarks.trim() : null,
-                                        });
+                                        router.post(
+                                            `/ipcr/pmt-review/${selectedSubmission.id}`,
+                                            {
+                                                pmt_decision: decision,
+                                                pmt_remarks: decision === 'rejected' ? remarks.trim() : null,
+                                            },
+                                            {
+                                                onSuccess: () => {
+                                                    setSelectedSubmission(null);
+                                                    setDecision('');
+                                                    setRemarks('');
+                                                },
+                                            },
+                                        );
                                     }}
                                 >
                                     Save PMT Review

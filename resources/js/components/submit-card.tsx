@@ -87,8 +87,8 @@ export default function SubmitCard() {
     }
 
     return (
-        <div className="grid gap-6 animate-fade-in-up">
-            <Card className="glass-card border border-border bg-card shadow-sm">
+        <div className="grid min-w-0 gap-6 animate-fade-in-up">
+            <Card className="glass-card min-w-0 border border-border bg-card shadow-sm">
                 <CardHeader className="gap-4">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>

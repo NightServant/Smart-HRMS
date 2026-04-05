@@ -42,7 +42,7 @@ export default function DocumentManagement({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Document Management" />
-            <div className="app-page-shell app-page-stack">
+            <div className="app-page-shell app-page-stack !max-w-[1720px]">
                 <PageIntro
                     eyebrow="Evaluator · Document Management"
                     title="Manage assigned employee evaluation records"

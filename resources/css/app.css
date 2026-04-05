@@ -607,6 +607,101 @@
     .app-table-scroll {
         overflow-x: auto;
         padding-bottom: 0.15rem;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .app-table-scroll::-webkit-scrollbar {
+        display: none;
+    }
+
+    .drag-scroll-region {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        touch-action: pan-y;
+    }
+
+    .drag-scroll-region::-webkit-scrollbar {
+        display: none;
+    }
+
+    .app-table-pagination-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .app-table-pagination-bar {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        margin-top: 0.75rem;
+        border: 1px solid rgb(191 208 186 / 0.62);
+        border-radius: 1rem;
+        background: rgb(232 244 228 / 0.95);
+        backdrop-filter: blur(18px) saturate(142%);
+        padding: 0.85rem 1rem;
+        box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.32),
+            0 16px 32px -28px rgb(52 90 42 / 0.16);
+    }
+
+    .app-table-pagination-page-size {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .app-table-pagination-controls {
+        display: flex;
+        width: 100%;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .app-table-pagination-status {
+        font-size: 0.875rem;
+        color: color-mix(in srgb, var(--foreground) 72%, transparent);
+    }
+
+    .app-table-pagination-nav {
+        margin-inline: 0;
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    @media (min-width: 640px) {
+        .app-table-pagination-controls {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .app-table-pagination-nav {
+            width: auto;
+        }
+    }
+
+    @media (min-width: 768px) {
+        .app-table-pagination-shell {
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .app-table-pagination-controls {
+            width: auto;
+            justify-content: flex-end;
+        }
+    }
+
+    .dark .app-table-pagination-bar {
+        border-color: rgb(47 84 122 / 0.58);
+        background: rgb(26 47 26 / 0.94);
+        box-shadow:
+            inset 0 1px 0 rgb(255 255 255 / 0.04),
+            0 18px 36px -28px rgb(2 6 23 / 0.42);
     }
 
     .app-table-head-row {

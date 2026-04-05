@@ -7,34 +7,18 @@
 
 const { spawn } = require('child_process');
 const path = require('path');
+const { resolvePythonCommand } = require('../shared/resolve-python.cjs');
 
-// Detect Python path - try common locations
-const IS_WIN = process.platform === 'win32';
-const PYTHON = [
-    IS_WIN
-        ? path.resolve(__dirname, '..', 'iwr', '.venv', 'Scripts', 'python.exe')
-        : path.resolve(__dirname, '..', 'iwr', '.venv', 'bin', 'python'),
-    IS_WIN
-        ? path.resolve(__dirname, '.venv', 'Scripts', 'python.exe')
-        : path.resolve(__dirname, '.venv', 'bin', 'python'),
-    'python3',
-    'python',
-].find(p => {
-    try {
-        if (require('fs').existsSync(p)) return true;
-        if (p === 'python3' || p === 'python') return true;
-    } catch {
-        return false;
-    }
-    return false;
-});
+const PYTHON = resolvePythonCommand(__dirname, 'FLATFAT_PYTHON_PATH', [
+    path.resolve(__dirname, '..', 'iwr'),
+]);
 
 const TIMEOUT = 30000; // 30s timeout for FlatFAT
 
 let input = '';
 process.stdin.on('data', (c) => { input += c; });
 process.stdin.on('end', () => {
-    const child = spawn(PYTHON, ['runner.py'], {
+    const child = spawn(PYTHON.command, [...PYTHON.args, 'runner.py'], {
         cwd: __dirname,
         timeout: TIMEOUT,
         stdio: ['pipe', 'pipe', 'pipe'],

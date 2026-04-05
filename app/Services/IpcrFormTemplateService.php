@@ -79,12 +79,19 @@ class IpcrFormTemplateService
             ? $this->adjectivalRating($computedRating)
             : null;
 
-        if (($finalization['final_rating'] ?? null) !== null && $finalization['final_rating'] !== '') {
+        $hasLockedFinalRating = ($finalization['final_rating'] ?? null) !== null
+            && $finalization['final_rating'] !== ''
+            && ! empty($finalization['finalized_at']);
+
+        if ($hasLockedFinalRating) {
             $finalization['final_rating'] = round((float) $finalization['final_rating'], 2);
             $finalization['adjectival_rating'] = $this->adjectivalRating((float) $finalization['final_rating']);
         } elseif ($computedRating !== null) {
             $finalization['final_rating'] = $computedRating;
             $finalization['adjectival_rating'] = $summary['adjectival_rating'];
+        } else {
+            $finalization['final_rating'] = null;
+            $finalization['adjectival_rating'] = null;
         }
 
         return [
@@ -117,19 +124,19 @@ class IpcrFormTemplateService
 
     public function adjectivalRating(float $score): string
     {
-        if ($score >= 4.5) {
+        if ($score >= 4.71) {
             return 'Outstanding';
         }
 
-        if ($score >= 3.5) {
-            return 'Very Satisfactory';
+        if ($score >= 3.75) {
+            return 'Very Outstanding';
         }
 
-        if ($score >= 2.5) {
+        if ($score >= 3.0) {
             return 'Satisfactory';
         }
 
-        if ($score >= 1.5) {
+        if ($score >= 2.01) {
             return 'Unsatisfactory';
         }
 

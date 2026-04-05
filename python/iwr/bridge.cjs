@@ -8,20 +8,16 @@
  */
 
 const { spawn } = require('child_process');
-const path = require('path');
+const { resolvePythonCommand } = require('../shared/resolve-python.cjs');
 
 const IWR_DIR = __dirname;
-const IS_WIN = process.platform === 'win32';
-const VENV_PYTHON = IS_WIN
-    ? path.join(IWR_DIR, '.venv', 'Scripts', 'python.exe')
-    : path.join(IWR_DIR, '.venv', 'bin', 'python');
-const PYTHON_PATH = process.env.IWR_PYTHON_PATH || VENV_PYTHON;
+const PYTHON = resolvePythonCommand(IWR_DIR, 'IWR_PYTHON_PATH');
 const TIMEOUT_MS = 30000;
 
 let input = '';
 process.stdin.on('data', (chunk) => { input += chunk; });
 process.stdin.on('end', () => {
-    const child = spawn(PYTHON_PATH, ['runner.py'], {
+    const child = spawn(PYTHON.command, [...PYTHON.args, 'runner.py'], {
         cwd: IWR_DIR,
         timeout: TIMEOUT_MS,
         stdio: ['pipe', 'pipe', 'pipe'],

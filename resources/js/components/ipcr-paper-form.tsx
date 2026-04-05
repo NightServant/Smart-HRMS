@@ -146,19 +146,30 @@ export default function IpcrPaperForm({
         sky: 'bg-sky-500 shadow-[0_0_0_6px_rgba(14,165,233,0.14)]',
         amber: 'bg-amber-500 shadow-[0_0_0_6px_rgba(245,158,11,0.14)]',
     }[ratingMonitor.tone];
+    const formTableWidthClasses = isPrintPresentation
+        ? showRatings || showRemarks
+            ? 'min-w-[86rem]'
+            : 'min-w-[64rem]'
+        : showRatings || showRemarks
+            ? 'min-w-[72rem] xl:min-w-[86rem]'
+            : 'min-w-[56rem] xl:min-w-[68rem]';
+    const actualColumnClasses = showRatings || showRemarks
+        ? 'w-[20rem] min-w-[20rem] xl:w-[24rem] xl:min-w-[24rem]'
+        : 'w-[20rem] min-w-[20rem] xl:w-[28rem] xl:min-w-[28rem]';
+    const remarksColumnClasses = 'w-[14rem] min-w-[14rem] xl:w-[16rem] xl:min-w-[16rem]';
 
     return (
         <Card
             className={cn(
                 isPrintPresentation
-                    ? 'overflow-hidden border border-slate-300 bg-white shadow-none print:border-none'
-                    : 'glass-card overflow-hidden border border-border bg-card shadow-sm',
+                    ? 'w-full min-w-0 overflow-hidden border border-slate-300 bg-white shadow-none print:border-none'
+                    : 'glass-card w-full min-w-0 overflow-hidden border border-border bg-card shadow-sm',
                 className,
             )}
         >
-            <CardHeader className={cn('gap-5 border-b bg-card', isPrintPresentation ? 'border-slate-200 bg-white print:border-slate-300' : 'border-border')}>
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-2">
+            <CardHeader className={cn('gap-5 border-b bg-card px-4 py-5 sm:px-6', isPrintPresentation ? 'border-slate-200 bg-white print:border-slate-300' : 'border-border')}>
+                <div className="flex min-w-0 flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
+                    <div className="min-w-0 space-y-2">
                         <div className="inline-flex items-center gap-2 rounded-full border border-[#2F5E2B]/20 bg-[#DDEFD7] px-3 py-1 text-xs font-semibold tracking-[0.24em] text-[#2F5E2B] uppercase shadow-sm dark:border-[#4A7C3C]/40 dark:bg-[#274827]/80 dark:text-[#EAF7E6]">
                             <FileSpreadsheet className="size-3.5" />
                             Performance Evaluation
@@ -171,7 +182,7 @@ export default function IpcrPaperForm({
                         </p>
                     </div>
 
-                    <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="grid w-full gap-2 sm:grid-cols-2 2xl:w-auto 2xl:grid-cols-3">
                         <div className={infoTileClasses}>
                             <p className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Progress</p>
                             <p className="mt-1 text-lg font-semibold text-foreground">
@@ -193,7 +204,7 @@ export default function IpcrPaperForm({
                     </div>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+                <div className="grid min-w-0 gap-3 md:grid-cols-2 2xl:grid-cols-4">
                     <div className="rounded-2xl border border-brand-300 bg-white/75 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                         <p className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">Department</p>
                         <p className="mt-1 text-sm font-semibold text-foreground">{readOnlyValue(value.metadata.department)}</p>
@@ -243,10 +254,10 @@ export default function IpcrPaperForm({
                 </div>
             </CardHeader>
 
-            <CardContent className="space-y-6 px-4 py-5 sm:px-6">
+            <CardContent className="space-y-6 px-3 py-4 sm:px-6 sm:py-5">
                 {renderedSections.map((section, sectionIndex) => (
                     <div key={section.id} className="space-y-4">
-                        <div className={cn(sectionPanelClasses, 'flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between')}>
+                        <div className={cn(sectionPanelClasses, 'flex min-w-0 flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between')}>
                             <div>
                                 <p className="text-[11px] tracking-[0.22em] text-muted-foreground uppercase">
                                     Section {isPrintPresentation ? sectionIndex + 1 : currentStep + 1} of {sections.length}
@@ -259,7 +270,7 @@ export default function IpcrPaperForm({
                                 </p>
                             </div>
                             {!isPrintPresentation && (
-                                <div className="flex gap-2 self-start lg:self-auto">
+                                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:self-start xl:self-auto">
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -284,24 +295,24 @@ export default function IpcrPaperForm({
 
                         <div className={cn(
                             'glass-card rounded-[26px] border bg-card shadow-sm',
-                            isPrintPresentation ? 'overflow-visible border-slate-300 bg-white shadow-none' : 'overflow-x-auto border-border',
+                            isPrintPresentation ? 'overflow-visible border-slate-300 bg-white shadow-none' : 'overflow-hidden border-border',
                         )}>
-                            <Table className="min-w-[1500px]">
+                            <Table className={formTableWidthClasses}>
                                 <TableHeader>
                                     <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:border-r [&_th]:border-white/10 [&_th]:text-white">
-                                        <TableHead className="w-[22rem]">Administrative Services Criteria</TableHead>
-                                        <TableHead className="w-[15rem]">Success Measures</TableHead>
-                                        <TableHead className="w-[12rem]">Accountable Office</TableHead>
-                                        <TableHead className="w-[40rem] min-w-[40rem]">Actual Accomplishment</TableHead>
+                                        <TableHead className="w-[14rem] min-w-[14rem] xl:w-[16rem] xl:min-w-[16rem]">Administrative Services Criteria</TableHead>
+                                        <TableHead className="w-[11rem] min-w-[11rem] xl:w-[13rem] xl:min-w-[13rem]">Success Measures</TableHead>
+                                        <TableHead className="w-[9rem] min-w-[9rem] xl:w-[10rem] xl:min-w-[10rem]">Accountable Office</TableHead>
+                                        <TableHead className={actualColumnClasses}>Actual Accomplishment</TableHead>
                                         {showRatings && (
                                             <>
-                                                <TableHead className="w-[6rem] text-center">Q</TableHead>
-                                                <TableHead className="w-[6rem] text-center">E</TableHead>
-                                                <TableHead className="w-[6rem] text-center">T</TableHead>
-                                                <TableHead className="w-[8rem] text-center">Average</TableHead>
+                                                <TableHead className="w-[4.5rem] min-w-[4.5rem] text-center">Q</TableHead>
+                                                <TableHead className="w-[4.5rem] min-w-[4.5rem] text-center">E</TableHead>
+                                                <TableHead className="w-[4.5rem] min-w-[4.5rem] text-center">T</TableHead>
+                                                <TableHead className="w-[6.5rem] min-w-[6.5rem] text-center">Average</TableHead>
                                             </>
                                         )}
-                                        {showRemarks && <TableHead className="w-[18rem] min-w-[18rem]">Remarks</TableHead>}
+                                        {showRemarks && <TableHead className={remarksColumnClasses}>Remarks</TableHead>}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -324,7 +335,7 @@ export default function IpcrPaperForm({
                                                 <TableCell className="align-top">
                                                     <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{row.accountable}</p>
                                                 </TableCell>
-                                                <TableCell className="min-w-[40rem] align-top">
+                                                <TableCell className={cn(actualColumnClasses, 'align-top')}>
                                                     {canEditActual ? (
                                                         <Textarea
                                                             value={row.actual_accomplishment}
@@ -333,10 +344,10 @@ export default function IpcrPaperForm({
                                                                 actual_accomplishment: event.target.value,
                                                             }))}
                                                             placeholder="Describe the actual accomplishment for this criterion."
-                                                            className="h-48 min-w-[38rem] resize-none border-border bg-background text-base leading-7"
+                                                            className="min-h-[11rem] w-full min-w-0 resize-y border-border bg-background text-sm leading-6 [field-sizing:fixed] md:text-base md:leading-7"
                                                         />
                                                     ) : (
-                                                        <div className="min-h-48 min-w-[38rem] rounded-2xl border border-border bg-card px-4 py-3 text-base leading-7 text-foreground shadow-sm">
+                                                        <div className="min-h-[11rem] w-full min-w-0 rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-6 whitespace-pre-wrap text-foreground shadow-sm md:text-base md:leading-7">
                                                             {readOnlyValue(row.actual_accomplishment)}
                                                         </div>
                                                     )}
@@ -371,7 +382,7 @@ export default function IpcrPaperForm({
                                                     </>
                                                 )}
                                                 {showRemarks && (
-                                                    <TableCell className="min-w-[18rem] align-top">
+                                                    <TableCell className={cn(remarksColumnClasses, 'align-top')}>
                                                         {canEditRatings ? (
                                                             <Textarea
                                                                 value={row.remarks}
@@ -380,10 +391,10 @@ export default function IpcrPaperForm({
                                                                     remarks: event.target.value,
                                                                 }))}
                                                                 placeholder="Add evaluator remarks for this criterion if needed."
-                                                                className="h-24 min-w-[17rem] resize-none border-border bg-background text-sm leading-6"
+                                                                className="min-h-24 w-full min-w-0 resize-y border-border bg-background text-sm leading-6"
                                                             />
                                                         ) : (
-                                                            <div className="min-h-24 min-w-[17rem] rounded-2xl border border-border bg-card px-3 py-2 text-sm leading-6 text-foreground shadow-sm">
+                                                            <div className="min-h-24 w-full min-w-0 rounded-2xl border border-border bg-card px-3 py-2 text-sm leading-6 whitespace-pre-wrap text-foreground shadow-sm">
                                                                 {readOnlyValue(row.remarks)}
                                                             </div>
                                                         )}

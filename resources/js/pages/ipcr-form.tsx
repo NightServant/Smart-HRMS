@@ -64,7 +64,7 @@ export default function IpcrFormPage() {
                 />
 
                 {selectedSubmission ? (
-                    <Card className="glass-card overflow-hidden border border-border bg-card shadow-sm">
+                    <Card className="glass-card min-w-0 overflow-hidden border border-border bg-card shadow-sm">
                         <CardHeader className="border-b border-border bg-card">
                             <CardTitle className="text-xl">
                                 Selected Evaluation Snapshot

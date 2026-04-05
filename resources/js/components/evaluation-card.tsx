@@ -90,7 +90,7 @@ export default function EvaluationCard({
     }
 
     return (
-        <Card className="glass-card mx-auto w-full max-w-7xl overflow-hidden border border-border bg-card shadow-sm">
+        <Card className="glass-card mx-auto w-full min-w-0 max-w-7xl overflow-hidden border border-border bg-card shadow-sm">
             <CardHeader className="gap-4 border-b border-border bg-card">
                 <div className="space-y-1">
                     <div className="inline-flex items-center gap-2 rounded-full border border-[#2F5E2B]/20 bg-[#DDEFD7] px-3 py-1 text-xs font-semibold tracking-[0.22em] text-[#2F5E2B] uppercase shadow-sm dark:border-[#4A7C3C]/40 dark:bg-[#274827]/80 dark:text-[#EAF7E6]">

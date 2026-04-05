@@ -222,12 +222,13 @@ class IwrController extends Controller
 
         ActivityLogger::logIpcrSubmission($submission, $request);
 
-        $this->notificationService->createFromIwrResult(
-            $iwrResult,
-            'ipcr',
-            $submission->id,
-            $employeeId,
-        );
+        if ($this->iwrFailed($iwrResult)) {
+            return to_route('submit-evaluation')->withErrors([
+                'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+            ]);
+        }
+
+        $this->notificationService->createFromIwrResult($iwrResult, 'ipcr', $submission->id, $employeeId);
 
         return to_route('submit-evaluation')->with(
             'success',
@@ -239,6 +240,7 @@ class IwrController extends Controller
     {
         $employeeId = $request->validated('employee_id');
         $remarks = $request->validated('remarks');
+        $user = $request->user();
 
         $submission = IpcrSubmission::query()
             ->where('employee_id', $employeeId)
@@ -256,7 +258,7 @@ class IwrController extends Controller
                 ],
                 'sign_off' => [
                     'ratee_name' => $employee?->name ?? $employeeId,
-                    'reviewed_by_name' => $submission->evaluator?->name,
+                    'reviewed_by_name' => $user->name,
                     'reviewed_by_date' => now()->toIso8601String(),
                 ],
             ],
@@ -299,12 +301,13 @@ class IwrController extends Controller
 
         ActivityLogger::logIpcrEvaluation($submission, $request);
 
-        $this->notificationService->createFromIwrResult(
-            $iwrResult,
-            'ipcr',
-            $submission->id,
-            $employeeId,
-        );
+        if ($this->iwrFailed($iwrResult)) {
+            return to_route('document-management')->withErrors([
+                'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+            ]);
+        }
+
+        $this->notificationService->createFromIwrResult($iwrResult, 'ipcr', $submission->id, $employeeId);
 
         if (in_array($iwrResult['stage'] ?? '', ['data_saved', 'remarks_saved'], true)) {
             $submission->update([
@@ -336,6 +339,12 @@ class IwrController extends Controller
         $iwrResult = $this->routeLeaveRequest($leaveRequest);
 
         ActivityLogger::logLeaveApproval($leaveRequest, $request);
+
+        if ($this->iwrFailed($iwrResult)) {
+            return to_route($user->hasRole('hr-personnel') ? 'admin.hr-leave-management' : 'admin.leave-management')->withErrors([
+                'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+            ]);
+        }
 
         $message = $iwrResult['notification'] ?? 'Leave application approved.';
 
@@ -389,6 +398,12 @@ class IwrController extends Controller
 
         $route = $user->hasRole('hr-personnel') ? 'admin.hr-leave-management' : 'admin.leave-management';
 
+        if ($this->iwrFailed($iwrResult)) {
+            return to_route($route)->withErrors([
+                'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+            ]);
+        }
+
         return to_route($route)->with('success', $message);
     }
 
@@ -425,12 +440,14 @@ class IwrController extends Controller
             $iwrResult,
         );
 
-        $this->notificationService->createFromIwrResult(
-            $iwrResult,
-            'leave',
-            $leaveRequest->id,
-            $leaveRequest->employee_id,
-        );
+        if (! $this->iwrFailed($iwrResult)) {
+            $this->notificationService->createFromIwrResult(
+                $iwrResult,
+                'leave',
+                $leaveRequest->id,
+                $leaveRequest->employee_id,
+            );
+        }
 
         return $iwrResult;
     }
@@ -485,8 +502,18 @@ class IwrController extends Controller
     {
         $user = $request->user();
         $currentHrCycles = $submission->hr_cycle_count;
+        $formPayload = $this->ipcrFormTemplateService->hydrate(
+            $submission->form_payload,
+            $submission->employee,
+            [
+                'workflow_notes' => [
+                    'hr_remarks' => $request->validated('hr_remarks'),
+                ],
+            ],
+        );
 
         $submission->update([
+            'form_payload' => $formPayload,
             'hr_reviewer_id' => $user->employee_id,
             'hr_decision' => $request->validated('hr_decision'),
             'hr_remarks' => $request->validated('hr_remarks'),
@@ -530,6 +557,13 @@ class IwrController extends Controller
         $submission->update($updateData);
 
         $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
+
+        if ($this->iwrFailed($iwrResult)) {
+            return to_route('admin.hr-review')->withErrors([
+                'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+            ]);
+        }
+
         $this->notificationService->notifyV51($submission->fresh(['employee']), $iwrResult['routing_action'] ?? '', $request->validated('hr_remarks') ?? '');
 
         return to_route('admin.hr-review')->with('success', $iwrResult['notification'] ?? 'HR review saved.');
@@ -572,6 +606,13 @@ class IwrController extends Controller
         ]);
 
         $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
+
+        if ($this->iwrFailed($iwrResult)) {
+            return to_route('submit-evaluation')->withErrors([
+                'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+            ]);
+        }
+
         $this->notificationService->notifyV51($submission->fresh(['employee']), 'route_to_pmt');
 
         return to_route('submit-evaluation')->with('success', 'Results accepted. Your IPCR was sent to PMT review.');
@@ -629,6 +670,13 @@ class IwrController extends Controller
         ]);
 
         $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
+
+        if ($this->iwrFailed($iwrResult)) {
+            return to_route('submit-evaluation')->withErrors([
+                'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+            ]);
+        }
+
         $this->notificationService->notifyV51($submission->fresh(['employee']), 'route_to_pmt');
 
         return to_route('submit-evaluation')->with('success', $iwrResult['notification'] ?? 'Appeal submitted.');
@@ -663,8 +711,22 @@ class IwrController extends Controller
     {
         $user = $request->user();
         $currentPmtCycles = $submission->pmt_cycle_count;
+        $formPayload = $this->ipcrFormTemplateService->hydrate(
+            $submission->form_payload,
+            $submission->employee,
+            [
+                'workflow_notes' => [
+                    'pmt_remarks' => $request->validated('pmt_remarks'),
+                ],
+                'sign_off' => [
+                    'pmt_chair_name' => $user->name,
+                    'pmt_date' => now()->toIso8601String(),
+                ],
+            ],
+        );
 
         $submission->update([
+            'form_payload' => $formPayload,
             'pmt_reviewer_id' => $user->employee_id,
             'pmt_decision' => $request->validated('pmt_decision'),
             'pmt_remarks' => $request->validated('pmt_remarks'),
@@ -699,6 +761,13 @@ class IwrController extends Controller
         $submission->update($updateData);
 
         $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
+
+        if ($this->iwrFailed($iwrResult)) {
+            return to_route('admin.pmt-review')->withErrors([
+                'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+            ]);
+        }
+
         $this->notificationService->notifyV51($submission->fresh(['employee']), $iwrResult['routing_action'] ?? '', $request->validated('pmt_remarks') ?? '');
 
         return to_route('admin.pmt-review')->with('success', $iwrResult['notification'] ?? 'PMT review saved.');
@@ -803,6 +872,13 @@ class IwrController extends Controller
         ]);
 
         $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
+
+        if ($this->iwrFailed($iwrResult)) {
+            return to_route('admin.hr-finalize')->withErrors([
+                'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+            ]);
+        }
+
         $this->notificationService->notifyV51($submission->fresh(['employee']), 'finalized');
 
         return to_route('admin.hr-finalize')->with('success', $iwrResult['notification'] ?? 'IPCR finalized.');
@@ -934,6 +1010,7 @@ class IwrController extends Controller
     {
         $submission->loadMissing(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal']);
         $payloadWorkflowNotes = $submission->form_payload['workflow_notes'] ?? [];
+        $payloadSignOff = $submission->form_payload['sign_off'] ?? [];
 
         $formPayload = $this->ipcrFormTemplateService->hydrate(
             $submission->form_payload,
@@ -947,14 +1024,32 @@ class IwrController extends Controller
                 ],
                 'sign_off' => [
                     'ratee_name' => $submission->employee?->name ?? $submission->employee_id,
-                    'reviewed_by_name' => $this->resolveReviewerName($submission->evaluator?->name, $submission->evaluator_id),
-                    'pmt_chair_name' => $this->resolveReviewerName($submission->pmtReviewer?->name, $submission->pmt_reviewer_id),
-                    'final_rater_name' => $this->resolveReviewerName($submission->hrReviewer?->name, $submission->hr_reviewer_id),
-                    'head_of_agency_name' => $this->resolveReviewerName($submission->hrReviewer?->name, $submission->hr_reviewer_id),
+                    'reviewed_by_name' => $this->resolveSignOffName(
+                        $payloadSignOff['reviewed_by_name'] ?? null,
+                        $submission->evaluator?->name,
+                        $submission->evaluator_id,
+                    ),
+                    'pmt_chair_name' => $this->resolveSignOffName(
+                        $payloadSignOff['pmt_chair_name'] ?? null,
+                        $submission->pmtReviewer?->name,
+                        $submission->pmt_reviewer_id,
+                    ),
+                    'final_rater_name' => $this->resolveSignOffName(
+                        $payloadSignOff['final_rater_name'] ?? null,
+                        $submission->hrReviewer?->name,
+                        $submission->hr_reviewer_id,
+                    ),
+                    'head_of_agency_name' => $this->resolveSignOffName(
+                        $payloadSignOff['head_of_agency_name'] ?? null,
+                        $submission->hrReviewer?->name,
+                        $submission->hr_reviewer_id,
+                    ),
                     'ratee_date' => $submission->created_at?->toIso8601String(),
-                    'reviewed_by_date' => $submission->performance_rating !== null ? $submission->updated_at?->toIso8601String() : null,
-                    'pmt_date' => $submission->pmt_decision ? $submission->updated_at?->toIso8601String() : null,
-                    'finalized_date' => $submission->finalized_at?->toIso8601String(),
+                    'reviewed_by_date' => $payloadSignOff['reviewed_by_date']
+                        ?? ($submission->performance_rating !== null ? $submission->updated_at?->toIso8601String() : null),
+                    'pmt_date' => $payloadSignOff['pmt_date']
+                        ?? ($submission->pmt_decision ? $submission->updated_at?->toIso8601String() : null),
+                    'finalized_date' => $payloadSignOff['finalized_date'] ?? $submission->finalized_at?->toIso8601String(),
                 ],
                 'finalization' => [
                     'final_rating' => $submission->final_rating,
@@ -1007,8 +1102,27 @@ class IwrController extends Controller
         ];
     }
 
+    private function resolveSignOffName(?string $savedName, ?string $employeeName, ?string $employeeId): ?string
+    {
+        if ($savedName) {
+            return $savedName;
+        }
+
+        return $this->resolveReviewerName($employeeName, $employeeId);
+    }
+
     private function resolveReviewerName(?string $employeeName, ?string $employeeId): ?string
     {
+        if ($employeeId) {
+            $userName = User::query()
+                ->where('employee_id', $employeeId)
+                ->value('name');
+
+            if ($userName) {
+                return $userName;
+            }
+        }
+
         if ($employeeName) {
             return $employeeName;
         }
@@ -1017,9 +1131,12 @@ class IwrController extends Controller
             return null;
         }
 
-        return User::query()
-            ->where('employee_id', $employeeId)
-            ->value('name');
+        return null;
+    }
+
+    private function iwrFailed(array $result): bool
+    {
+        return ($result['status'] ?? null) === 'error';
     }
 
     private function notifyEvaluationPeriodOpened(string $periodLabel): void

@@ -97,6 +97,13 @@ class LeaveRequestController extends Controller
         if ($employeeId) {
             $iwrController = app(IwrController::class);
             $iwrResult = $iwrController->routeLeaveRequest($leaveRequest);
+
+            if (($iwrResult['status'] ?? null) === 'error') {
+                return to_route('leave-application')->withErrors([
+                    'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+                ]);
+            }
+
             $message = $iwrResult['notification'] ?? 'Leave request submitted and routed successfully.';
         } else {
             $message = 'Leave request submitted successfully.';

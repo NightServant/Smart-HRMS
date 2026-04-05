@@ -171,6 +171,7 @@ function mockIwrService(array $methodResults): void
 
 test('evaluator submission requires remarks and routes to hr', function () {
     ['employee' => $employee, 'employeeUser' => $employeeUser, 'evaluatorUser' => $evaluatorUser] = seedIpcrUsersAndEmployees();
+    $evaluatorUser->update(['name' => 'Mark Reyes']);
 
     SystemSetting::set('ipcr_period_open', 'true', $employeeUser->id);
     SystemSetting::set('ipcr_period_label', 'January to June 2026', $employeeUser->id);
@@ -212,7 +213,40 @@ test('evaluator submission requires remarks and routes to hr', function () {
 
     expect($submission->stage)->toBe('sent_to_hr')
         ->and($submission->status)->toBe('routed')
-        ->and((float) $submission->performance_rating)->toBe(4.0);
+        ->and((float) $submission->performance_rating)->toBe(4.0)
+        ->and(data_get($submission->form_payload, 'sign_off.reviewed_by_name'))->toBe('Mark Reyes');
+
+    $this->actingAs($employeeUser)
+        ->get(route('submit-evaluation'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('performance-evaluation')
+            ->where('latestSubmission.form_payload.sign_off.reviewed_by_name', 'Mark Reyes')
+        );
+});
+
+test('employee sees a workflow error when ipcr routing is unavailable', function () {
+    ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
+
+    SystemSetting::set('ipcr_period_open', 'true', $employeeUser->id);
+    SystemSetting::set('ipcr_period_label', 'January to June 2026', $employeeUser->id);
+
+    mockIwrService(['routeIpcr' => [
+        'status' => 'error',
+        'notification' => 'IWR service is unavailable. Please try again later.',
+    ]]);
+
+    $this->actingAs($employeeUser)->post(route('ipcr.submit'), [
+        'employee_id' => $employee->employee_id,
+        'period' => 'January to June 2026',
+        'form_payload' => employeeFormPayload($employee),
+    ])->assertRedirect(route('submit-evaluation'))
+        ->assertSessionHasErrors(['workflow']);
+
+    $submission = IpcrSubmission::query()->latest()->firstOrFail();
+
+    expect($submission->status)->toBe('error')
+        ->and($submission->notification)->toBe('IWR service is unavailable. Please try again later.');
 });
 
 test('hr approve opens the appeal window', function () {
@@ -421,8 +455,8 @@ test('hr finalization completes the submission and notifies the employee', funct
         'stage' => 'finalized',
         'routing_action' => 'finalized',
         'final_rating' => 4.25,
-        'adjectival_rating' => 'Very Satisfactory',
-        'notification' => 'IPCR finalized. Rating: 4.25 (Very Satisfactory).',
+        'adjectival_rating' => 'Very Outstanding',
+        'notification' => 'IPCR finalized. Rating: 4.25 (Very Outstanding).',
     ]]);
 
     $this->actingAs($hrUser)->post(route('ipcr.finalize', $submission), [
@@ -439,6 +473,23 @@ test('hr finalization completes the submission and notifies the employee', funct
         ->where('user_id', $employeeUser->id)
         ->where('type', 'ipcr_finalized')
         ->exists())->toBeTrue();
+});
+
+test('pre-finalization payload keeps final rating synced with the current computed rating', function () {
+    ['employee' => $employee] = seedIpcrUsersAndEmployees();
+
+    $service = app(IpcrFormTemplateService::class);
+    $payload = evaluatorFormPayload($employee, 4.0);
+
+    $payload['finalization']['final_rating'] = 2.0;
+    $payload['finalization']['adjectival_rating'] = 'Satisfactory';
+    $payload['finalization']['finalized_at'] = null;
+
+    $hydrated = $service->hydrate($payload, $employee);
+
+    expect($hydrated['summary']['computed_rating'])->toBe(4.0)
+        ->and($hydrated['finalization']['final_rating'])->toBe(4.0)
+        ->and($hydrated['finalization']['adjectival_rating'])->toBe('Very Outstanding');
 });
 
 test('submit evaluation page returns workflow and form props', function () {
@@ -620,7 +671,7 @@ test('hr review page includes reviewed and finalized ipcr records', function () 
         'stage' => 'finalized',
         'status' => 'completed',
         'final_rating' => 4.25,
-        'adjectival_rating' => 'Very Satisfactory',
+        'adjectival_rating' => 'Very Outstanding',
         'finalized_at' => now(),
     ]);
 

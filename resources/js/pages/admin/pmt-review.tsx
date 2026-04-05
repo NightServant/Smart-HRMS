@@ -248,7 +248,7 @@ export default function PmtReview({
                     }
                 }}
             >
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-6xl">
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
                     <DialogHeader>
                         <DialogTitle>PMT Review</DialogTitle>
                         <DialogDescription>

@@ -17,8 +17,8 @@ export default function EvaluationResults({ employee, submission }: Props) {
     const pmtRemarks = submission.pmt_remarks ?? submission.form_payload.workflow_notes.pmt_remarks ?? null;
 
     return (
-        <div className="mx-auto w-full max-w-7xl space-y-6">
-            <Card className="border-primary/20 bg-card shadow-sm">
+        <div className="mx-auto w-full min-w-0 max-w-7xl space-y-6">
+            <Card className="min-w-0 border-primary/20 bg-card shadow-sm">
                 <CardHeader className="space-y-4">
                     <div className="space-y-2">
                         <CardTitle>IPCR Evaluation Snapshot</CardTitle>
