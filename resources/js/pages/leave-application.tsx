@@ -16,6 +16,7 @@ import LeaveRequestForm from '@/components/leave-request-form';
 import PageIntro from '@/components/page-intro';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Table,
     TableBody,
@@ -178,183 +179,202 @@ export default function LeaveApplication({
                     />
                 </div>
 
-                <div className="flex flex-col items-stretch gap-6">
-                    <div className="min-w-0 xl:flex-1">
-                        <LeaveRequestForm />
-                    </div>
-                    {/* Leave History Table */}
-                    <Card className="glass-card min-w-0 max-w-none animate-fade-in-up border-primary/20 bg-card shadow-sm transition-shadow hover:shadow-md xl:flex-1">
-                        <CardHeader className="space-y-2">
-                            <CardTitle className="flex items-center gap-2">
-                                <FileText className="size-5 text-primary" />
-                                My Leave Records
-                            </CardTitle>
-                            <p className="text-sm text-muted-foreground">
-                                Review the status and routing progress of your
-                                recent leave requests.
-                            </p>
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            <div className="space-y-3 px-4 pb-4 md:hidden">
-                                {leaveHistory.length === 0 ? (
-                                    <div className="rounded-2xl border border-border/70 bg-background/45 px-4 py-8 text-center text-sm text-muted-foreground">
-                                        No leave records found. Submit your first request above.
-                                    </div>
-                                ) : (
-                                    leaveHistory.map((lr) => (
-                                        <div
-                                            key={lr.id}
-                                            className="glass-card rounded-2xl border border-border/70 bg-background/40 p-4"
-                                        >
-                                            <div className="flex items-start justify-between gap-3">
-                                                <div className="space-y-2">
-                                                    <StatusBadge status={lr.status} />
-                                                    <p className="text-sm font-semibold text-foreground">
-                                                        {formatLeaveType(lr.leaveType)}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        Filed {lr.createdAt ?? '—'}
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="shrink-0 border-[#2F5E2B]/30 bg-white/60 text-[#2F5E2B] hover:bg-[#2F5E2B] hover:text-white dark:border-[#4A7C3C]/50 dark:bg-transparent dark:text-[#7DC46B] dark:hover:bg-[#2F5E2B] dark:hover:text-white"
-                                                    onClick={() => setSelectedLeave(lr)}
-                                                >
-                                                    <Eye className="size-3.5" />
-                                                    View
-                                                </Button>
-                                            </div>
+                <Tabs defaultValue="apply" className="w-full">
+                    <TabsList className="grid h-auto w-full grid-cols-1 gap-2 rounded-2xl bg-transparent p-0 sm:grid-cols-2">
+                        <TabsTrigger
+                            value="apply"
+                            className="min-h-11 rounded-2xl border border-border/70 bg-background/70 px-4 text-sm font-semibold data-[state=active]:border-primary/40 data-[state=active]:bg-primary/10"
+                        >
+                            Apply for Leave
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="records"
+                            className="min-h-11 rounded-2xl border border-border/70 bg-background/70 px-4 text-sm font-semibold data-[state=active]:border-primary/40 data-[state=active]:bg-primary/10"
+                        >
+                            My Leave Records
+                        </TabsTrigger>
+                    </TabsList>
 
-                                            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                                                <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-2">
-                                                    <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                                                        Date From
-                                                    </p>
-                                                    <p className="mt-1 font-medium text-foreground">
-                                                        {lr.startDate}
-                                                    </p>
-                                                </div>
-                                                <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-2">
-                                                    <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                                                        Date To
-                                                    </p>
-                                                    <p className="mt-1 font-medium text-foreground">
-                                                        {lr.endDate}
-                                                    </p>
-                                                </div>
-                                                <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-2">
-                                                    <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                                                        Days
-                                                    </p>
-                                                    <p className="mt-1 font-medium text-foreground">
-                                                        {formatLeaveAccrual(lr.leaveAccrual)}
-                                                    </p>
-                                                </div>
-                                            </div>
+                    <TabsContent value="apply" className="mt-5">
+                        <div className="min-w-0">
+                            <LeaveRequestForm />
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="records" className="mt-5">
+                        <Card className="glass-card min-w-0 max-w-none animate-fade-in-up border-primary/20 bg-card shadow-sm transition-shadow hover:shadow-md">
+                            <CardHeader className="space-y-2">
+                                <CardTitle className="flex items-center gap-2">
+                                    <FileText className="size-5 text-primary" />
+                                    My Leave Records
+                                </CardTitle>
+                                <p className="text-sm text-muted-foreground">
+                                    Review the status and routing progress of your
+                                    recent leave requests.
+                                </p>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                <div className="space-y-3 px-4 pb-4 md:hidden">
+                                    {leaveHistory.length === 0 ? (
+                                        <div className="rounded-2xl border border-border/70 bg-background/45 px-4 py-8 text-center text-sm text-muted-foreground">
+                                            No leave records found. Submit your first request above.
                                         </div>
-                                    ))
-                                )}
-                            </div>
-
-                            <div className="hidden overflow-x-auto md:block">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
-                                            <TableHead className="px-4 py-3">
-                                                Status
-                                            </TableHead>
-                                            <TableHead className="px-4 py-3">
-                                                Filing Date
-                                            </TableHead>
-                                            <TableHead className="px-4 py-3">
-                                                Leave Type
-                                            </TableHead>
-                                            <TableHead className="px-4 py-3">
-                                                Date From
-                                            </TableHead>
-                                            <TableHead className="px-4 py-3">
-                                                Date To
-                                            </TableHead>
-                                            <TableHead className="px-4 py-3 text-center">
-                                                Days
-                                            </TableHead>
-                                            <TableHead className="px-4 py-3 text-center">
-                                                Action
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {leaveHistory.map((lr, index) => (
-                                            <TableRow
+                                    ) : (
+                                        leaveHistory.map((lr) => (
+                                            <div
                                                 key={lr.id}
-                                                style={{
-                                                    animationDelay: `${index * 24}ms`,
-                                                }}
-                                                className={`animate-fade-in-up text-sm font-medium text-foreground ${
-                                                    index % 2 === 0
-                                                        ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80'
-                                                        : 'bg-[#BFDDB5] dark:bg-[#274827]/80'
-                                                }`}
+                                                className="glass-card rounded-2xl border border-border/70 bg-background/40 p-4"
                                             >
-                                                <TableCell className="px-4 py-3">
-                                                    <StatusBadge
-                                                        status={lr.status}
-                                                    />
-                                                </TableCell>
-                                                <TableCell className="px-4 py-3 text-sm">
-                                                    {lr.createdAt ?? '—'}
-                                                </TableCell>
-                                                <TableCell className="px-4 py-3 font-semibold">
-                                                    {formatLeaveType(
-                                                        lr.leaveType,
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="px-4 py-3 text-sm">
-                                                    {lr.startDate}
-                                                </TableCell>
-                                                <TableCell className="px-4 py-3 text-sm">
-                                                    {lr.endDate}
-                                                </TableCell>
-                                                <TableCell className="px-4 py-3 text-center text-sm">
-                                                    {formatLeaveAccrual(
-                                                        lr.leaveAccrual,
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="px-4 py-3 text-center">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="space-y-2">
+                                                        <StatusBadge status={lr.status} />
+                                                        <p className="text-sm font-semibold text-foreground">
+                                                            {formatLeaveType(lr.leaveType)}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            Filed {lr.createdAt ?? '—'}
+                                                        </p>
+                                                    </div>
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
-                                                        className="w-full gap-1.5 border-[#2F5E2B]/30 bg-white/60 text-[#2F5E2B] hover:bg-[#2F5E2B] hover:text-white sm:w-auto dark:border-[#4A7C3C]/50 dark:bg-transparent dark:text-[#7DC46B] dark:hover:bg-[#2F5E2B] dark:hover:text-white"
-                                                        onClick={() =>
-                                                            setSelectedLeave(lr)
-                                                        }
+                                                        className="shrink-0 border-[#2F5E2B]/30 bg-white/60 text-[#2F5E2B] hover:bg-[#2F5E2B] hover:text-white dark:border-[#4A7C3C]/50 dark:bg-transparent dark:text-[#7DC46B] dark:hover:bg-[#2F5E2B] dark:hover:text-white"
+                                                        onClick={() => setSelectedLeave(lr)}
                                                     >
                                                         <Eye className="size-3.5" />
                                                         View
                                                     </Button>
-                                                </TableCell>
+                                                </div>
+
+                                                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                                    <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-2">
+                                                        <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                                            Date From
+                                                        </p>
+                                                        <p className="mt-1 font-medium text-foreground">
+                                                            {lr.startDate}
+                                                        </p>
+                                                    </div>
+                                                    <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-2">
+                                                        <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                                            Date To
+                                                        </p>
+                                                        <p className="mt-1 font-medium text-foreground">
+                                                            {lr.endDate}
+                                                        </p>
+                                                    </div>
+                                                    <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-2">
+                                                        <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                                            Days
+                                                        </p>
+                                                        <p className="mt-1 font-medium text-foreground">
+                                                            {formatLeaveAccrual(lr.leaveAccrual)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                <div className="hidden overflow-x-auto md:block">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
+                                                <TableHead className="px-4 py-3">
+                                                    Status
+                                                </TableHead>
+                                                <TableHead className="px-4 py-3">
+                                                    Filing Date
+                                                </TableHead>
+                                                <TableHead className="px-4 py-3">
+                                                    Leave Type
+                                                </TableHead>
+                                                <TableHead className="px-4 py-3">
+                                                    Date From
+                                                </TableHead>
+                                                <TableHead className="px-4 py-3">
+                                                    Date To
+                                                </TableHead>
+                                                <TableHead className="px-4 py-3 text-center">
+                                                    Days
+                                                </TableHead>
+                                                <TableHead className="px-4 py-3 text-center">
+                                                    Action
+                                                </TableHead>
                                             </TableRow>
-                                        ))}
-                                        {leaveHistory.length === 0 && (
-                                            <TableRow>
-                                                <TableCell
-                                                    colSpan={7}
-                                                    className="bg-[#DDEFD7] px-4 py-8 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                        </TableHeader>
+                                        <TableBody>
+                                            {leaveHistory.map((lr, index) => (
+                                                <TableRow
+                                                    key={lr.id}
+                                                    style={{
+                                                        animationDelay: `${index * 24}ms`,
+                                                    }}
+                                                    className={`animate-fade-in-up text-sm font-medium text-foreground ${
+                                                        index % 2 === 0
+                                                            ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80'
+                                                            : 'bg-[#BFDDB5] dark:bg-[#274827]/80'
+                                                    }`}
                                                 >
-                                                    No leave records found.
-                                                    Submit your first request
-                                                    above.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
+                                                    <TableCell className="px-4 py-3">
+                                                        <StatusBadge
+                                                            status={lr.status}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell className="px-4 py-3 text-sm">
+                                                        {lr.createdAt ?? '—'}
+                                                    </TableCell>
+                                                    <TableCell className="px-4 py-3 font-semibold">
+                                                        {formatLeaveType(
+                                                            lr.leaveType,
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="px-4 py-3 text-sm">
+                                                        {lr.startDate}
+                                                    </TableCell>
+                                                    <TableCell className="px-4 py-3 text-sm">
+                                                        {lr.endDate}
+                                                    </TableCell>
+                                                    <TableCell className="px-4 py-3 text-center text-sm">
+                                                        {formatLeaveAccrual(
+                                                            lr.leaveAccrual,
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="px-4 py-3 text-center">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="w-full gap-1.5 border-[#2F5E2B]/30 bg-white/60 text-[#2F5E2B] hover:bg-[#2F5E2B] hover:text-white sm:w-auto dark:border-[#4A7C3C]/50 dark:bg-transparent dark:text-[#7DC46B] dark:hover:bg-[#2F5E2B] dark:hover:text-white"
+                                                            onClick={() =>
+                                                                setSelectedLeave(lr)
+                                                            }
+                                                        >
+                                                            <Eye className="size-3.5" />
+                                                            View
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                            {leaveHistory.length === 0 && (
+                                                <TableRow>
+                                                    <TableCell
+                                                        colSpan={7}
+                                                        className="bg-[#DDEFD7] px-4 py-8 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                                    >
+                                                        No leave records found.
+                                                        Submit your first request
+                                                        above.
+                                                    </TableCell>
+                                                </TableRow>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
             </div>
 
             <LeaveDetailDialog

@@ -36,15 +36,30 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user()?->loadMissing('employee');
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user ? [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'avatar' => $user->avatar ?? null,
+                    'email_verified_at' => $user->email_verified_at?->toIso8601String(),
+                    'two_factor_enabled' => ! empty($user->two_factor_secret),
+                    'is_active' => $user->is_active,
+                    'created_at' => $user->created_at?->toIso8601String(),
+                    'updated_at' => $user->updated_at?->toIso8601String(),
+                    'employee_id' => $user->employee_id,
+                    'position' => $user->employee?->job_title,
+                ] : null,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-            'unreadNotificationCount' => fn () => $request->user()
-                ? Notification::where('user_id', $request->user()->id)->unread()->count()
+            'unreadNotificationCount' => fn () => $user
+                ? Notification::where('user_id', $user->id)->unread()->count()
                 : 0,
         ];
     }
