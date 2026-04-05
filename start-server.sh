@@ -21,16 +21,11 @@ fi
 
 # Wait for MySQL to be reachable
 echo "Waiting for database..."
-timeout=30
-while ! php -r "new PDO('mysql:host=${DB_HOST};port=${DB_PORT:-3306}', '${DB_USERNAME}', '${DB_PASSWORD}');" 2>/dev/null; do
-    timeout=$((timeout - 1))
-    if [ "$timeout" -le 0 ]; then
-        echo "Database connection timed out."
-        exit 1
-    fi
-    sleep 1
+attempts=30
+until php artisan db:monitor --databases=mysql 2>/dev/null || [ "$attempts" -le 0 ]; do
+    attempts=$((attempts - 1))
+    sleep 2
 done
-echo "Database connected."
 
 php artisan migrate --force
 php artisan config:cache
