@@ -8,21 +8,26 @@ ENV APP_ENV=production \
     FLATFAT_PYTHON_PATH=/opt/venv/bin/python
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     curl \
     git \
+    gnupg \
     libfreetype6-dev \
     libicu-dev \
     libjpeg62-turbo-dev \
+    libonig-dev \
     libpng-dev \
     libxml2-dev \
     libzip-dev \
-    nodejs \
-    npm \
     python3 \
     python3-pip \
     python3-venv \
     unzip \
     zip \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y --no-install-recommends nodejs \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install -j"$(nproc)" bcmath gd intl mbstring pcntl pdo_mysql zip \
     && apt-get clean \
