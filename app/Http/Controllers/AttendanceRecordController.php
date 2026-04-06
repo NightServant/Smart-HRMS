@@ -62,6 +62,30 @@ class AttendanceRecordController extends Controller
             return back()->withErrors(['employee_id' => 'Manual attendance punch is not enabled for your account. Contact your supervisor.']);
         }
 
+        // Auto-disable if the scheduled date range has expired
+        $today = Carbon::today();
+        $startDate = $employee->manual_punch_start_date !== null
+            ? Carbon::parse($employee->manual_punch_start_date)
+            : null;
+        $endDate = $employee->manual_punch_end_date !== null
+            ? Carbon::parse($employee->manual_punch_end_date)
+            : null;
+
+        if ($startDate !== null && $endDate !== null) {
+            $withinRange = $today->greaterThanOrEqualTo($startDate) && $today->lessThanOrEqualTo($endDate);
+
+            if (! $withinRange) {
+                $employee->update([
+                    'manual_punch_enabled' => false,
+                    'manual_punch_reason' => null,
+                    'manual_punch_start_date' => null,
+                    'manual_punch_end_date' => null,
+                ]);
+
+                return back()->withErrors(['employee_id' => 'Your manual punch permission has expired. Contact your supervisor.']);
+            }
+        }
+
         $now = Carbon::now();
 
         AttendanceRecord::query()->create([
@@ -79,12 +103,36 @@ class AttendanceRecordController extends Controller
     {
         $manualPunchEnabled = $request->boolean('manual_punch_enabled');
 
-        $employee->update([
-            'manual_punch_enabled' => $manualPunchEnabled,
-        ]);
+        if ($manualPunchEnabled) {
+            $startDate = Carbon::parse($request->string('start_date')->toString());
+            $endDate = Carbon::parse($request->string('end_date')->toString());
+            $today = Carbon::today();
 
-        $status = $manualPunchEnabled ? 'enabled' : 'disabled';
+            // Only set enabled to true if today falls within the scheduled range
+            $withinRange = $today->greaterThanOrEqualTo($startDate) && $today->lessThanOrEqualTo($endDate);
 
-        return back()->with('success', "Manual punch {$status} for {$employee->name}.");
+            $employee->update([
+                'manual_punch_enabled' => $withinRange,
+                'manual_punch_reason' => $request->string('reason')->toString(),
+                'manual_punch_start_date' => $startDate->toDateString(),
+                'manual_punch_end_date' => $endDate->toDateString(),
+            ]);
+
+            $status = $withinRange ? 'enabled' : 'scheduled';
+            $message = $withinRange
+                ? "Manual punch enabled for {$employee->name}."
+                : "Manual punch scheduled for {$employee->name} from {$startDate->format('M d, Y')} to {$endDate->format('M d, Y')}.";
+        } else {
+            $employee->update([
+                'manual_punch_enabled' => false,
+                'manual_punch_reason' => null,
+                'manual_punch_start_date' => null,
+                'manual_punch_end_date' => null,
+            ]);
+
+            $message = "Manual punch disabled for {$employee->name}.";
+        }
+
+        return back()->with('success', $message);
     }
 }

@@ -118,26 +118,41 @@ class FlatFatController extends Controller
         try {
             $quarter = $request->query('quarter');
             $today = now();
-            $startOfMonth = $today->copy()->startOfMonth();
-            $endOfMonth = $today->copy()->endOfMonth();
 
-            // Get attendance records for current month
+            // Support optional month filter (format: YYYY-MM); defaults to current month
+            $monthParam = $request->query('month');
+            if ($monthParam && preg_match('/^\d{4}-\d{2}$/', $monthParam)) {
+                $referenceDate = \Carbon\Carbon::createFromFormat('Y-m', $monthParam)->startOfMonth();
+            } else {
+                $referenceDate = $today->copy()->startOfMonth();
+            }
+
+            $startOfMonth = $referenceDate->copy()->startOfMonth();
+            $endOfMonth = $referenceDate->copy()->endOfMonth();
+
+            // The "today" used for point-in-time counts is the last day of the selected
+            // month (or actual today if the selected month is the current month).
+            $pointInTime = $referenceDate->format('Y-m') === $today->format('Y-m')
+                ? $today
+                : $endOfMonth;
+
+            // Get attendance records for the selected month
             $attendanceRecords = AttendanceRecord::whereBetween('date', [$startOfMonth, $endOfMonth])->get();
 
             $totalEmployees = Employee::count();
             $presentCount = $attendanceRecords->where('status', 'Present')->count();
             $lateCount = $attendanceRecords->where('status', 'Late')->count();
 
-            // Employees on approved leave today
+            // Employees on approved leave on the point-in-time date
             $onLeaveCount = LeaveRequest::where('status', 'approved')
-                ->where('start_date', '<=', $today->toDateString())
-                ->where('end_date', '>=', $today->toDateString())
+                ->where('start_date', '<=', $pointInTime->toDateString())
+                ->where('end_date', '>=', $pointInTime->toDateString())
                 ->count();
 
-            // Employees with no attendance record today
+            // Employees with attendance record on the point-in-time date
             $employeesWithRecordToday = $attendanceRecords
                 ->filter(
-                    fn (AttendanceRecord $record): bool => $record->date?->toDateString() === $today->toDateString()
+                    fn (AttendanceRecord $record): bool => $record->date?->toDateString() === $pointInTime->toDateString()
                 )
                 ->pluck('employee_id')
                 ->unique()
@@ -275,6 +290,11 @@ class FlatFatController extends Controller
             $recordsForPeriod = $recordsForYear
                 ->where('period', $selectedPeriod)
                 ->values();
+            $yearEmployeeCount = $recordsForYear
+                ->pluck('employee_name')
+                ->filter()
+                ->unique()
+                ->count();
 
             $employeeScores = $recordsForPeriod
                 ->groupBy('employee_name')
@@ -299,6 +319,7 @@ class FlatFatController extends Controller
                     'employee_scores' => $employeeScores->all(),
                     'aggregate' => [
                         'total_employees' => $employeeScores->count(),
+                        'year_total_employees' => $yearEmployeeCount,
                         'high_risk_count' => $highRiskCount,
                         'satisfactory_count' => max(0, $employeeScores->count() - $highRiskCount),
                     ],
@@ -316,15 +337,35 @@ class FlatFatController extends Controller
 
     /**
      * Get risk summary based on latest evaluation results.
+     * Accepts optional `semester` query param: 'S1' (Jan–Jun), 'S2' (Jul–Dec), or 'all' (default).
      */
-    public function evaluationRiskSummary(): JsonResponse
+    public function evaluationRiskSummary(Request $request): JsonResponse
     {
         try {
+            $semester = strtoupper(trim((string) $request->string('semester', 'all')));
+
             $employees = Employee::query()
                 ->whereNotIn('employee_id', self::EXCLUDED_EMPLOYEE_IDS)
                 ->with('latestRatedSubmission')
                 ->get()
-                ->filter(fn (Employee $employee): bool => $employee->latestRatedSubmission !== null)
+                ->filter(function (Employee $employee) use ($semester): bool {
+                    if ($employee->latestRatedSubmission === null) {
+                        return false;
+                    }
+
+                    if ($semester === 'S1' || $semester === 'S2') {
+                        $updatedAt = $employee->latestRatedSubmission->updated_at;
+                        if ($updatedAt === null) {
+                            return false;
+                        }
+                        $month = (int) $updatedAt->format('n');
+                        $inS1 = $month >= 1 && $month <= 6;
+
+                        return $semester === 'S1' ? $inS1 : ! $inS1;
+                    }
+
+                    return true;
+                })
                 ->values();
 
             $totalEmployees = $employees->count();

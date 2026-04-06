@@ -67,6 +67,6 @@ class LeaveRequest extends Model
             return null;
         }
 
-        return round(((float) $this->days_requested) / 12, 2);
+        return round((float) $this->days_requested, 2);
     }
 }

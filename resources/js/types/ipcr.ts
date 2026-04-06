@@ -65,6 +65,24 @@ export type IpcrFormPayload = {
     };
 };
 
+export type IpcrTarget = {
+    id: number;
+    employee_id: string;
+    semester: 1 | 2;
+    target_year: number;
+    form_payload: IpcrFormPayload | null;
+    status: 'draft' | 'submitted';
+    submitted_at: string | null;
+};
+
+export type IpcrTargetPeriod = {
+    semester: 1 | 2;
+    year: number;
+    label: string;
+    submissionOpen: boolean;
+    submissionWindowLabel: string;
+};
+
 export type IpcrAppeal = {
     id: number;
     appeal_reason: string;

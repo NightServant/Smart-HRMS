@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Middleware\CheckMaintenanceMode;
-use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\EnsureUserHasRole;
+use App\Http\Middleware\HandleAppearance;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;

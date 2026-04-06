@@ -10,9 +10,9 @@ class FlatFatService
     /**
      * Calculate performance score for a single employee.
      *
-     * @param string $employeeId Employee ID
-     * @param array $data Employee metrics (performance_rating, attendance_pct, task_completion_pct)
-     * @param string|null $quarter Quarter string (Q1, Q2, Q3, Q4)
+     * @param  string  $employeeId  Employee ID
+     * @param  array  $data  Employee metrics (performance_rating, attendance_pct, task_completion_pct)
+     * @param  string|null  $quarter  Quarter string (Q1, Q2, Q3, Q4)
      * @return array Score with breakdown and risk status
      */
     public function calculateEmployeeScore(string $employeeId, array $data, ?string $quarter = null): array
@@ -82,9 +82,9 @@ class FlatFatService
     /**
      * Aggregate performance scores by department.
      *
-     * @param string $departmentId Department ID
-     * @param array $employeeScores List of employee score arrays
-     * @param string|null $quarter Quarter string
+     * @param  string  $departmentId  Department ID
+     * @param  array  $employeeScores  List of employee score arrays
+     * @param  string|null  $quarter  Quarter string
      * @return array Aggregated department metrics
      */
     public function calculateDepartmentAggregate(string $departmentId, array $employeeScores, ?string $quarter = null): array
@@ -157,8 +157,8 @@ class FlatFatService
     /**
      * Aggregate performance scores organization-wide.
      *
-     * @param array $employeeScores List of employee score arrays
-     * @param string|null $quarter Quarter string
+     * @param  array  $employeeScores  List of employee score arrays
+     * @param  string|null  $quarter  Quarter string
      * @return array Organization-wide aggregate metrics
      */
     public function calculateOrganizationAggregate(array $employeeScores, ?string $quarter = null): array

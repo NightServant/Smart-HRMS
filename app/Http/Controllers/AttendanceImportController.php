@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ImportAttendanceRequest;
 use App\Models\AttendanceRecord;
-use App\Services\ActivityLogger;
 use App\Models\Employee;
+use App\Services\ActivityLogger;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
@@ -188,7 +188,7 @@ class AttendanceImportController extends Controller
                 $header = fread($handle, 4);
                 fclose($handle);
                 // PK signature (ZIP/XLSX) or OLE2 signature (XLS)
-                if ($header !== false && (str_starts_with($header, "PK") || str_starts_with($header, "\xD0\xCF\x11\xE0"))) {
+                if ($header !== false && (str_starts_with($header, 'PK') || str_starts_with($header, "\xD0\xCF\x11\xE0"))) {
                     $isExcel = true;
                 }
             }

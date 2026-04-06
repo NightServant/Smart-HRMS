@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\EmployeeDirectoryController;
 use App\Http\Controllers\Admin\ReportsDashboardController;
 use App\Http\Controllers\Admin\SystemDashboardController;
 use App\Http\Controllers\Admin\SystemSettingController;
@@ -64,6 +65,12 @@ Route::get('ipcr/form', [IwrController::class, 'ipcrFormPage'])
 Route::get('ipcr/print', [IwrController::class, 'printableIpcrPage'])
     ->middleware(['auth', 'role:employee'])
     ->name('ipcr.print');
+Route::get('ipcr/target', [IwrController::class, 'ipcrTargetPage'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('ipcr.target');
+Route::post('ipcr/target', [IwrController::class, 'saveIpcrTarget'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('ipcr.target.save');
 
 Route::get('attendance', [AttendanceRecordController::class, 'index'])
     ->middleware(['auth', 'role:employee'])
@@ -102,6 +109,15 @@ Route::get('admin/employee-directory', [PaginationController::class, 'employeeDi
 Route::patch('admin/employee-directory/{employee}/employment-status', [PaginationController::class, 'updateEmployeeEmploymentStatus'])
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.employee-directory.employment-status');
+Route::post('admin/employee-directory', [EmployeeDirectoryController::class, 'store'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.employee-directory.store');
+Route::put('admin/employee-directory/{employee}', [EmployeeDirectoryController::class, 'update'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.employee-directory.update');
+Route::delete('admin/employee-directory/{employee}', [EmployeeDirectoryController::class, 'destroy'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.employee-directory.destroy');
 
 Route::get('document-management', [PaginationController::class, 'documentManagement'])
     ->middleware(['auth', 'role:evaluator'])
@@ -193,6 +209,9 @@ Route::get('leave/{leaveRequest}/document/{type}', [LeaveRequestController::clas
 Route::get('evaluation-page', [IwrController::class, 'evaluationPage'])
     ->middleware(['auth', 'role:evaluator'])
     ->name('evaluation-page');
+Route::get('ipcr/target-review', [IwrController::class, 'reviewerTargetPage'])
+    ->middleware(['auth', 'role:evaluator,hr-personnel,pmt'])
+    ->name('ipcr.target.review');
 
 // IWR IPCR v5.1 routes
 Route::get('admin/ipcr/hr-review', [IwrController::class, 'hrReviewPage'])
@@ -204,6 +223,9 @@ Route::post('ipcr/hr-review/{submission}', [IwrController::class, 'saveHrReview'
 Route::post('admin/ipcr/period', [IwrController::class, 'updateIpcrPeriod'])
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.ipcr.period.update');
+Route::post('admin/ipcr/target-notify', [IwrController::class, 'notifyIpcrTargetWindow'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.ipcr.target.notify');
 Route::get('ipcr/appeal/{submission}', [IwrController::class, 'appealPage'])
     ->middleware(['auth', 'role:employee'])
     ->name('ipcr.appeal');

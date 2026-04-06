@@ -108,6 +108,7 @@ test('semester scores endpoint filters semestral records and normalizes historic
         ->assertJsonPath('data.available_years.0', 2026)
         ->assertJsonPath('data.available_years.1', 2025)
         ->assertJsonPath('data.aggregate.total_employees', 2)
+        ->assertJsonPath('data.aggregate.year_total_employees', 2)
         ->assertJsonPath('data.aggregate.high_risk_count', 1)
         ->assertJsonPath('data.aggregate.satisfactory_count', 1)
         ->assertJsonPath('data.average_rating', 3.25)
@@ -115,6 +116,66 @@ test('semester scores endpoint filters semestral records and normalizes historic
         ->assertJsonPath('data.employee_scores.0.final_rating', 4.5)
         ->assertJsonPath('data.employee_scores.1.employee_name', 'Bravo Employee')
         ->assertJsonPath('data.employee_scores.1.final_rating', 2);
+});
+
+test('semester scores endpoint exposes year employee count separately from the selected semester list', function () {
+    $evaluator = User::factory()->asEvaluator()->create();
+
+    HistoricalDataRecord::query()->create([
+        'employee_name' => 'Alpha Employee',
+        'department_name' => 'Administrative Office',
+        'year' => 2026,
+        'quarter' => 'Q1',
+        'period' => null,
+        'attendance_punctuality_rate' => '98%',
+        'absenteeism_days' => 0,
+        'tardiness_incidents' => 1,
+        'training_completion_status' => 1,
+        'evaluated_performance_score' => 90,
+    ]);
+    HistoricalDataRecord::query()->create([
+        'employee_name' => 'Bravo Employee',
+        'department_name' => 'Administrative Office',
+        'year' => 2026,
+        'quarter' => 'Q2',
+        'period' => 'S1',
+        'attendance_punctuality_rate' => '87%',
+        'absenteeism_days' => 3,
+        'tardiness_incidents' => 2,
+        'training_completion_status' => 1,
+        'evaluated_performance_score' => 40,
+    ]);
+    HistoricalDataRecord::query()->create([
+        'employee_name' => 'Delta Employee',
+        'department_name' => 'Administrative Office',
+        'year' => 2026,
+        'quarter' => 'Q3',
+        'period' => 'S2',
+        'attendance_punctuality_rate' => '91%',
+        'absenteeism_days' => 1,
+        'tardiness_incidents' => 1,
+        'training_completion_status' => 1,
+        'evaluated_performance_score' => 84,
+    ]);
+    HistoricalDataRecord::query()->create([
+        'employee_name' => 'Charlie Employee',
+        'department_name' => 'Administrative Office',
+        'year' => 2025,
+        'quarter' => 'Q4',
+        'period' => null,
+        'attendance_punctuality_rate' => '83%',
+        'absenteeism_days' => 2,
+        'tardiness_incidents' => 2,
+        'training_completion_status' => 1,
+        'evaluated_performance_score' => 60,
+    ]);
+
+    $this->actingAs($evaluator)
+        ->getJson(route('api.flatfat.semester-scores', ['year' => 2026, 'period' => 'S1']))
+        ->assertOk()
+        ->assertJsonPath('status', 'success')
+        ->assertJsonPath('data.aggregate.total_employees', 2)
+        ->assertJsonPath('data.aggregate.year_total_employees', 3);
 });
 
 test('evaluation risk summary uses the latest rated submission per employee', function () {

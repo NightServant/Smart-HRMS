@@ -45,9 +45,154 @@ class LeaveRequestController extends Controller
             ])
             ->toArray();
 
+        [$vlCredits, $slCredits] = $this->computeLeaveCredits($user);
+
         return Inertia::render('leave-application', [
             'leaveHistory' => $leaveHistory,
+            'vlCredits' => round($vlCredits, 2),
+            'slCredits' => round($slCredits, 2),
+            'leaveCreditsByType' => $this->leaveCreditsByType($vlCredits, $slCredits),
+            'holidays' => $this->philippineHolidays(now()->year),
         ]);
+    }
+
+    /**
+     * Compute the employee's remaining VL and SL credits using CSC rules.
+     * Earns 1.25 VL and 1.25 SL per completed month of service.
+     *
+     * @return array{float, float}
+     */
+    private function computeLeaveCredits(mixed $user): array
+    {
+        $employee = $user->employee;
+
+        if (! $employee || ! $employee->date_hired) {
+            return [0.0, 0.0];
+        }
+
+        $monthsWorked = (int) Carbon::parse($employee->date_hired)
+            ->diffInMonths(Carbon::today());
+
+        $totalEarned = $monthsWorked * 1.25;
+
+        /** @var \Illuminate\Support\Collection<int, LeaveRequest> $approvedLeaves */
+        $approvedLeaves = LeaveRequest::query()
+            ->where('user_id', $user->id)
+            ->where('status', 'completed')
+            ->where('hr_decision', 1)
+            ->get(['leave_type', 'days_requested']);
+
+        $vlTypes = ['vacation_leave', 'force_leave'];
+        $slTypes = ['sick_leave'];
+
+        $usedVl = $approvedLeaves
+            ->whereIn('leave_type', $vlTypes)
+            ->sum('days_requested');
+
+        $usedSl = $approvedLeaves
+            ->whereIn('leave_type', $slTypes)
+            ->sum('days_requested');
+
+        return [
+            max(0.0, $totalEarned - (float) $usedVl),
+            max(0.0, $totalEarned - (float) $usedSl),
+        ];
+    }
+
+    /**
+     * @return list<array{value: string, label: string, creditDisplay: string}>
+     */
+    private function leaveCreditsByType(float $vlCredits, float $slCredits): array
+    {
+        return [
+            [
+                'value' => 'vacation-leave',
+                'label' => 'Vacation Leave',
+                'creditDisplay' => number_format($vlCredits, 2).' days',
+            ],
+            [
+                'value' => 'force-leave',
+                'label' => 'Force Leave',
+                'creditDisplay' => '5 days',
+            ],
+            [
+                'value' => 'special-privilege-leave',
+                'label' => 'Special Privilege Leave',
+                'creditDisplay' => '3 days',
+            ],
+            [
+                'value' => 'wellness-leave',
+                'label' => 'Wellness Leave',
+                'creditDisplay' => '5 days',
+            ],
+            [
+                'value' => 'sick-leave',
+                'label' => 'Sick Leave',
+                'creditDisplay' => number_format($slCredits, 2).' days',
+            ],
+            [
+                'value' => 'special-sick-leave-women',
+                'label' => 'Special Sick Leave (Women)',
+                'creditDisplay' => '3 months',
+            ],
+            [
+                'value' => 'maternity-leave',
+                'label' => 'Maternity Leave',
+                'creditDisplay' => 'Not specified',
+            ],
+            [
+                'value' => 'paternity-leave',
+                'label' => 'Paternity Leave',
+                'creditDisplay' => 'Not specified',
+            ],
+            [
+                'value' => 'solo-parent-leave',
+                'label' => 'Solo Parent Leave',
+                'creditDisplay' => '7 days',
+            ],
+        ];
+    }
+
+    /**
+     * Returns Philippine public holidays for the given year as YYYY-MM-DD strings.
+     *
+     * @return list<string>
+     */
+    private function philippineHolidays(int $year): array
+    {
+        // Regular holidays (fixed dates)
+        $fixed = [
+            "{$year}-01-01", // New Year's Day
+            "{$year}-02-25", // People Power Anniversary
+            "{$year}-04-09", // Araw ng Kagitingan
+            "{$year}-05-01", // Labor Day
+            "{$year}-06-12", // Independence Day
+            "{$year}-11-30", // Bonifacio Day
+            "{$year}-12-25", // Christmas Day
+            "{$year}-12-30", // Rizal Day
+        ];
+
+        // Moveable holy week holidays (these are hardcoded for 2025/2026;
+        // a full implementation would use a computus algorithm or external table)
+        $moveable = match ($year) {
+            2025 => [
+                '2025-04-17', // Maundy Thursday
+                '2025-04-18', // Good Friday
+                '2025-08-25', // National Heroes Day (last Monday of August)
+                '2025-11-01', // All Saints' Day
+                '2025-11-02', // All Souls' Day
+            ],
+            2026 => [
+                '2026-04-02', // Maundy Thursday
+                '2026-04-03', // Good Friday
+                '2026-08-31', // National Heroes Day (last Monday of August)
+                '2026-11-01', // All Saints' Day
+                '2026-11-02', // All Souls' Day
+            ],
+            default => [],
+        };
+
+        return array_values(array_unique([...$fixed, ...$moveable]));
     }
 
     public function store(StoreLeaveRequestRequest $request): RedirectResponse

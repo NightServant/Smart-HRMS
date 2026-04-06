@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\FinalizeIpcrRequest;
 use App\Http\Requests\SaveEvaluationRequest;
 use App\Http\Requests\SaveHrReviewRequest;
+use App\Http\Requests\SaveIpcrTargetRequest;
 use App\Http\Requests\SavePmtReviewRequest;
 use App\Http\Requests\SubmitAppealRequest;
 use App\Http\Requests\SubmitIpcrRequest;
@@ -12,6 +13,7 @@ use App\Http\Requests\UpdateIpcrPeriodRequest;
 use App\Models\Employee;
 use App\Models\IpcrAppeal;
 use App\Models\IpcrSubmission;
+use App\Models\IpcrTarget;
 use App\Models\IwrAuditLog;
 use App\Models\LeaveRequest;
 use App\Models\Notification;
@@ -25,6 +27,7 @@ use App\Services\NotificationService;
 use App\Services\PpeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -78,6 +81,10 @@ class IwrController extends Controller
         $canStartNewSubmission = $employee !== null
             && ($latestSubmission === null || $latestSubmission->stage === 'finalized');
 
+        $currentTarget = $employee
+            ? $this->findEmployeeTargetForPeriod($employee, $currentPeriod['label'], $currentPeriod['year'])
+            : null;
+
         return Inertia::render('ipcr-form', [
             'employee' => $employee ? $this->employeeResource($employee) : null,
             'currentPeriod' => $currentPeriod,
@@ -92,6 +99,7 @@ class IwrController extends Controller
             'selectedSubmission' => $selectedSubmission
                 ? $this->submissionResource($selectedSubmission)
                 : null,
+            'currentTarget' => $currentTarget ? $this->targetResource($currentTarget) : null,
         ]);
     }
 
@@ -131,6 +139,67 @@ class IwrController extends Controller
         ]);
     }
 
+    public function ipcrTargetPage(Request $request): Response
+    {
+        $employee = $request->user()->employee;
+        abort_unless($employee, 404);
+
+        $targetPeriod = $this->currentTargetSubmissionPeriod();
+
+        $existingTarget = IpcrTarget::query()
+            ->where('employee_id', $employee->employee_id)
+            ->where('semester', $targetPeriod['semester'])
+            ->where('target_year', $targetPeriod['year'])
+            ->first();
+
+        return Inertia::render('ipcr-target', [
+            'employee' => $this->employeeResource($employee),
+            'targetPeriod' => $targetPeriod,
+            'existingTarget' => $existingTarget ? $this->targetResource($existingTarget) : null,
+            'draftFormPayload' => $this->ipcrFormTemplateService->draft($employee, $targetPeriod['label']),
+        ]);
+    }
+
+    public function saveIpcrTarget(SaveIpcrTargetRequest $request): RedirectResponse
+    {
+        $employee = $request->user()->employee;
+        abort_unless($employee, 403);
+
+        $semester = (int) $request->validated('semester');
+        $targetYear = (int) $request->validated('target_year');
+        $action = $request->validated('action');
+        $targetPeriod = $this->currentTargetSubmissionPeriod();
+
+        if (! $targetPeriod['submissionOpen']
+            || $semester !== $targetPeriod['semester']
+            || $targetYear !== $targetPeriod['year']) {
+            throw ValidationException::withMessages([
+                'target_period' => 'IPCR target submissions are only available during the '.$targetPeriod['submissionWindowLabel'].' window for '.$targetPeriod['label'].'.',
+            ]);
+        }
+
+        $status = $action === 'submit' ? 'submitted' : 'draft';
+
+        IpcrTarget::query()->updateOrCreate(
+            [
+                'employee_id' => $employee->employee_id,
+                'semester' => $semester,
+                'target_year' => $targetYear,
+            ],
+            [
+                'form_payload' => $request->validated('form_payload'),
+                'status' => $status,
+                'submitted_at' => $action === 'submit' ? now() : null,
+            ],
+        );
+
+        $message = $action === 'submit'
+            ? 'IPCR targets submitted successfully.'
+            : 'IPCR targets saved as draft.';
+
+        return back()->with('success', $message);
+    }
+
     public function evaluationPage(Request $request): Response
     {
         $employeeId = $request->query('employee_id');
@@ -151,6 +220,39 @@ class IwrController extends Controller
                 ? $this->ipcrFormTemplateService->draft($employee, $this->currentPeriod()['label'])
                 : null,
             'submission' => $submission ? $this->submissionResource($submission) : null,
+        ]);
+    }
+
+    public function reviewerTargetPage(Request $request): Response
+    {
+        $submissionId = $request->integer('submission_id');
+        $submission = $submissionId
+            ? IpcrSubmission::query()
+                ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
+                ->find($submissionId)
+            : null;
+        $employeeId = $submission?->employee_id ?: (string) $request->string('employee_id');
+        $employee = $employeeId !== '' ? Employee::query()->find($employeeId) : null;
+        $currentPeriod = $this->currentPeriod();
+        $targetPeriodLabel = $submission
+            ? (string) data_get($submission->form_payload, 'metadata.period', $currentPeriod['label'])
+            : $currentPeriod['label'];
+        $currentTarget = $employee
+            ? $this->findEmployeeTargetForPeriod($employee, $targetPeriodLabel, $currentPeriod['year'])
+            : null;
+        ['backUrl' => $backUrl, 'backLabel' => $backLabel] = $this->reviewerTargetBackLink(
+            $request->user()->role,
+            (string) $request->string('source'),
+        );
+
+        return Inertia::render('ipcr-target-review', [
+            'viewerRole' => $this->normalizeReviewerRole($request->user()->role),
+            'employee' => $employee ? $this->employeeResource($employee) : null,
+            'submission' => $submission ? $this->submissionResource($submission) : null,
+            'currentTarget' => $currentTarget ? $this->targetResource($currentTarget) : null,
+            'targetPeriodLabel' => $targetPeriodLabel,
+            'backUrl' => $backUrl,
+            'backLabel' => $backLabel,
         ]);
     }
 
@@ -484,6 +586,7 @@ class IwrController extends Controller
         return Inertia::render('performance-evaluation', [
             'roleView' => 'hr',
             'currentPeriod' => $this->currentPeriod(),
+            'currentTargetPeriod' => $this->currentTargetSubmissionPeriod(),
             'hrPanel' => [
                 'defaultView' => 'review',
                 'reviewQueue' => $reviewQueue,
@@ -805,6 +908,7 @@ class IwrController extends Controller
         return Inertia::render('performance-evaluation', [
             'roleView' => 'hr',
             'currentPeriod' => $this->currentPeriod(),
+            'currentTargetPeriod' => $this->currentTargetSubmissionPeriod(),
             'hrPanel' => [
                 'defaultView' => 'finalization',
                 'reviewQueue' => $reviewQueue,
@@ -836,6 +940,21 @@ class IwrController extends Controller
         return back()->with('success', $validated['is_open']
             ? 'The IPCR submission and evaluation period is now open.'
             : 'The IPCR submission and evaluation period is now closed.');
+    }
+
+    public function notifyIpcrTargetWindow(Request $request): RedirectResponse
+    {
+        $targetPeriod = $this->currentTargetSubmissionPeriod();
+
+        if (! $targetPeriod['submissionOpen']) {
+            return back()->withErrors([
+                'target_notification' => 'Target notifications can only be sent during the '.$targetPeriod['submissionWindowLabel'].' target window.',
+            ]);
+        }
+
+        $this->notifyTargetWindowOpened($targetPeriod['label']);
+
+        return back()->with('success', 'Employees were notified to set their '.$targetPeriod['label'].' IPCR targets.');
     }
 
     public function finalizeIpcr(FinalizeIpcrRequest $request, IpcrSubmission $submission): RedirectResponse
@@ -991,6 +1110,110 @@ class IwrController extends Controller
     }
 
     /**
+     * @param  array{label: string, year: int}  $currentPeriod
+     * @return array{semester: 1|2, year: int}
+     */
+    private function resolveSubmissionTargetPeriod(array $currentPeriod): array
+    {
+        [$semester, $targetYear] = $this->resolveSemesterAndYearFromLabel(
+            $currentPeriod['label'],
+            $currentPeriod['year'],
+        );
+
+        return [
+            'semester' => $semester,
+            'year' => $targetYear,
+        ];
+    }
+
+    private function findEmployeeTargetForPeriod(Employee $employee, string $periodLabel, int $fallbackYear): ?IpcrTarget
+    {
+        [$semester, $targetYear] = $this->resolveSemesterAndYearFromLabel($periodLabel, $fallbackYear);
+
+        return IpcrTarget::query()
+            ->where('employee_id', $employee->employee_id)
+            ->forPeriod($semester, $targetYear)
+            ->first();
+    }
+
+    /**
+     * @return array{backUrl: string, backLabel: string}
+     */
+    private function reviewerTargetBackLink(string $role, string $source): array
+    {
+        if ($role === User::ROLE_HR_PERSONNEL) {
+            return $source === 'hr-finalize'
+                ? ['backUrl' => route('admin.hr-finalize'), 'backLabel' => 'Back to HR Finalization']
+                : ['backUrl' => route('admin.hr-review'), 'backLabel' => 'Back to HR Review'];
+        }
+
+        if ($role === User::ROLE_PMT) {
+            return ['backUrl' => route('admin.pmt-review'), 'backLabel' => 'Back to PMT Review'];
+        }
+
+        return ['backUrl' => route('document-management'), 'backLabel' => 'Back to Evaluator Queue'];
+    }
+
+    private function normalizeReviewerRole(string $role): string
+    {
+        return $role === User::ROLE_HR_PERSONNEL ? 'hr' : $role;
+    }
+
+    /**
+     * @return array{semester: 1|2, year: int, label: string, submissionOpen: bool, submissionWindowLabel: string}
+     */
+    private function currentTargetSubmissionPeriod(): array
+    {
+        $month = (int) now()->month;
+        $year = (int) now()->year;
+
+        if ($month === 11) {
+            return $this->targetPeriodPayload(1, $year + 1, true, 'November '.$year);
+        }
+
+        if ($month === 5) {
+            return $this->targetPeriodPayload(2, $year, true, 'May '.$year);
+        }
+
+        if ($month >= 6) {
+            return $this->targetPeriodPayload(1, $year + 1, false, 'November '.$year);
+        }
+
+        return $this->targetPeriodPayload(2, $year, false, 'May '.$year);
+    }
+
+    /**
+     * @return array{semester: 1|2, year: int, label: string, submissionOpen: bool, submissionWindowLabel: string}
+     */
+    private function targetPeriodPayload(int $semester, int $year, bool $submissionOpen, string $submissionWindowLabel): array
+    {
+        $semesterLabel = $semester === 1 ? 'First Semester' : 'Second Semester';
+
+        return [
+            'semester' => $semester,
+            'year' => $year,
+            'label' => "{$semesterLabel} {$year}",
+            'submissionOpen' => $submissionOpen,
+            'submissionWindowLabel' => $submissionWindowLabel,
+        ];
+    }
+
+    /**
+     * @return array{0: 1|2, 1: int}
+     */
+    private function resolveSemesterAndYearFromLabel(string $periodLabel, int $fallbackYear): array
+    {
+        preg_match('/(20\d{2})/', $periodLabel, $yearMatches);
+
+        $normalizedLabel = strtolower(str_replace(['–', '—'], '-', $periodLabel));
+        $resolvedYear = isset($yearMatches[1]) ? (int) $yearMatches[1] : $fallbackYear;
+        $isSecondSemester = str_contains($normalizedLabel, 'second')
+            || (str_contains($normalizedLabel, 'july') && str_contains($normalizedLabel, 'december'));
+
+        return [$isSecondSemester ? 2 : 1, $resolvedYear];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function employeeResource(Employee $employee): array
@@ -1000,6 +1223,22 @@ class IwrController extends Controller
             'name' => $employee->name,
             'job_title' => $employee->job_title,
             'supervisor_id' => $employee->supervisor_id,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function targetResource(IpcrTarget $target): array
+    {
+        return [
+            'id' => $target->id,
+            'employee_id' => $target->employee_id,
+            'semester' => $target->semester,
+            'target_year' => $target->target_year,
+            'form_payload' => $target->form_payload,
+            'status' => $target->status,
+            'submitted_at' => $target->submitted_at?->toIso8601String(),
         ];
     }
 
@@ -1153,6 +1392,23 @@ class IwrController extends Controller
                 'message' => $user->role === User::ROLE_EMPLOYEE
                     ? "The {$periodLabel} IPCR submission period is now open. You may start your Performance Evaluation form."
                     : "The {$periodLabel} IPCR evaluation period is now open. Employee submissions can now move through Performance Evaluation.",
+                'is_important' => true,
+            ]);
+        }
+    }
+
+    private function notifyTargetWindowOpened(string $periodLabel): void
+    {
+        $users = User::query()
+            ->where('role', User::ROLE_EMPLOYEE)
+            ->get(['id']);
+
+        foreach ($users as $user) {
+            Notification::query()->create([
+                'user_id' => $user->id,
+                'type' => 'ipcr_target_window_opened',
+                'title' => 'IPCR Target Setting Window Open',
+                'message' => "The {$periodLabel} IPCR target-setting window is now open. Please complete your IPCR target form.",
                 'is_important' => true,
             ]);
         }

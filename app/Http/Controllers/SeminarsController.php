@@ -60,19 +60,19 @@ class SeminarsController extends Controller
             ->all();
     }
 
-    public function performanceDashboard(): Response
+    public function performanceDashboard(Request $request): Response
     {
         return Inertia::render('performanceDashboard', [
             'remarks' => $this->remarksPayload(),
-            'leaveOverview' => $this->evaluatorLeaveOverviewPayload(),
+            'leaveOverview' => $this->evaluatorLeaveOverviewPayload($request->query('leave_month')),
         ]);
     }
 
-    public function adminPerformanceDashboard(): Response
+    public function adminPerformanceDashboard(Request $request): Response
     {
         return Inertia::render('admin/performance-dashboard', [
             'remarks' => $this->remarksPayload(),
-            'leaveOverview' => $this->hrLeaveOverviewPayload(),
+            'leaveOverview' => $this->hrLeaveOverviewPayload($request->query('leave_month')),
         ]);
     }
 
@@ -81,9 +81,15 @@ class SeminarsController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function evaluatorLeaveOverviewPayload(): array
+    private function evaluatorLeaveOverviewPayload(?string $leaveMonth = null): array
     {
         $requests = LeaveRequest::query();
+
+        if ($leaveMonth && preg_match('/^\d{4}-\d{2}$/', $leaveMonth)) {
+            $start = \Carbon\Carbon::createFromFormat('Y-m', $leaveMonth)->startOfMonth();
+            $end = $start->copy()->endOfMonth();
+            $requests->whereBetween('created_at', [$start, $end]);
+        }
 
         return [
             'routed' => (clone $requests)->where('stage', 'sent_to_department_head')->count(),
@@ -98,9 +104,15 @@ class SeminarsController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function hrLeaveOverviewPayload(): array
+    private function hrLeaveOverviewPayload(?string $leaveMonth = null): array
     {
         $requests = LeaveRequest::query();
+
+        if ($leaveMonth && preg_match('/^\d{4}-\d{2}$/', $leaveMonth)) {
+            $start = \Carbon\Carbon::createFromFormat('Y-m', $leaveMonth)->startOfMonth();
+            $end = $start->copy()->endOfMonth();
+            $requests->whereBetween('created_at', [$start, $end]);
+        }
 
         return [
             'routed' => (clone $requests)->where('stage', 'sent_to_hr')->count(),

@@ -35,6 +35,7 @@ type SemesterScoresData = {
     }[];
     aggregate?: {
         total_employees: number;
+        year_total_employees?: number;
         high_risk_count: number;
         satisfactory_count: number;
     };
@@ -113,7 +114,7 @@ export default function QuarterPerformanceTrends() {
 
     return (
         <DashboardPanelCard
-            title="Semestral Performance Trends"
+            title="Semestral Performance"
             description="Evaluation scores for the selected semester, showing who is performing well and who may need coaching."
             accentClassName="-left-10 top-10 size-28 rounded-full bg-brand-300/20 blur-3xl dark:bg-brand-500/10"
             className="gap-4"
@@ -229,7 +230,8 @@ export default function QuarterPerformanceTrends() {
                             <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-2.5 text-center shadow-sm backdrop-blur-md sm:p-3 dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                                 <Users className="size-4 text-primary sm:size-5" />
                                 <span className="text-lg font-bold sm:text-xl">
-                                    {semesterData.aggregate.total_employees}
+                                    {semesterData.aggregate.year_total_employees ??
+                                        semesterData.aggregate.total_employees}
                                 </span>
                                 <span className="text-[11px] text-muted-foreground sm:text-xs">
                                     Employees

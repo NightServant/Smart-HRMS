@@ -1,6 +1,14 @@
 import { useForm } from '@inertiajs/react';
-import { addDays, addMonths, differenceInCalendarDays, format, startOfDay } from 'date-fns';
-import { CalendarDays, FileCheck2, ShieldCheck, Upload } from 'lucide-react';
+import {
+    addDays,
+    addMonths,
+    differenceInCalendarDays,
+    eachDayOfInterval,
+    format,
+    getDay,
+    startOfDay,
+} from 'date-fns';
+import { FileCheck2, ShieldCheck, Upload, Wallet } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -15,26 +23,52 @@ import { Textarea } from '@/components/ui/textarea';
 type LeaveOption = {
     value: string;
     label: string;
-    category: 'Vacation Leave' | 'Sick Leave' | 'Special Leave';
+};
+
+type LeaveCreditItem = {
+    value: string;
+    label: string;
+    creditDisplay: string;
 };
 
 const leaveOptions: LeaveOption[] = [
-    { value: 'vacation-leave', label: 'Vacation Leave', category: 'Vacation Leave' },
-    { value: 'force-leave', label: 'Force Leave', category: 'Vacation Leave' },
-    { value: 'special-privilege-leave', label: 'Special Privilege Leave', category: 'Vacation Leave' },
-    { value: 'wellness-leave', label: 'Wellness Leave', category: 'Vacation Leave' },
-    { value: 'sick-leave', label: 'Sick Leave', category: 'Sick Leave' },
-    { value: 'special-sick-leave-women', label: 'Special Sick Leave (Women)', category: 'Sick Leave' },
-    { value: 'maternity-leave', label: 'Maternity Leave', category: 'Special Leave' },
-    { value: 'paternity-leave', label: 'Paternity Leave', category: 'Special Leave' },
-    { value: 'solo-parent-leave', label: 'Solo Parent Leave', category: 'Special Leave' },
+    {
+        value: 'vacation-leave',
+        label: 'Vacation Leave',
+    },
+    {
+        value: 'force-leave',
+        label: 'Force Leave',
+    },
+    {
+        value: 'special-privilege-leave',
+        label: 'Special Privilege Leave',
+    },
+    {
+        value: 'wellness-leave',
+        label: 'Wellness Leave',
+    },
+    {
+        value: 'sick-leave',
+        label: 'Sick Leave',
+    },
+    {
+        value: 'special-sick-leave-women',
+        label: 'Special Sick Leave (Women)',
+    },
+    {
+        value: 'maternity-leave',
+        label: 'Maternity Leave',
+    },
+    {
+        value: 'paternity-leave',
+        label: 'Paternity Leave',
+    },
+    {
+        value: 'solo-parent-leave',
+        label: 'Solo Parent Leave',
+    },
 ];
-
-const groupedLeaveOptions = {
-    'Vacation Leave': leaveOptions.filter((option) => option.category === 'Vacation Leave'),
-    'Sick Leave': leaveOptions.filter((option) => option.category === 'Sick Leave'),
-    'Special Leave': leaveOptions.filter((option) => option.category === 'Special Leave'),
-};
 
 const defaultRequirements = [
     'Approval hierarchy: Department Head -> HR Personnel.',
@@ -82,6 +116,106 @@ const leaveRequirements: Record<string, string[]> = {
     ],
 };
 
+function defaultLeaveCreditsByType(
+    vlCredits: number,
+    slCredits: number,
+): LeaveCreditItem[] {
+    return [
+        {
+            value: 'vacation-leave',
+            label: 'Vacation Leave',
+            creditDisplay: `${vlCredits.toFixed(2)} days`,
+        },
+        {
+            value: 'force-leave',
+            label: 'Force Leave',
+            creditDisplay: '5 days',
+        },
+        {
+            value: 'special-privilege-leave',
+            label: 'Special Privilege Leave',
+            creditDisplay: '3 days',
+        },
+        {
+            value: 'wellness-leave',
+            label: 'Wellness Leave',
+            creditDisplay: '5 days',
+        },
+        {
+            value: 'sick-leave',
+            label: 'Sick Leave',
+            creditDisplay: `${slCredits.toFixed(2)} days`,
+        },
+        {
+            value: 'special-sick-leave-women',
+            label: 'Special Sick Leave (Women)',
+            creditDisplay: '3 months',
+        },
+        {
+            value: 'maternity-leave',
+            label: 'Maternity Leave',
+            creditDisplay: 'Not specified',
+        },
+        {
+            value: 'paternity-leave',
+            label: 'Paternity Leave',
+            creditDisplay: 'Not specified',
+        },
+        {
+            value: 'solo-parent-leave',
+            label: 'Solo Parent Leave',
+            creditDisplay: '7 days',
+        },
+    ];
+}
+
+/**
+ * Counts working days between start and end dates (inclusive),
+ * excluding weekends (Sat/Sun) and any dates in the holidays array.
+ */
+function countBusinessDays(
+    start: string,
+    end: string,
+    holidays: string[],
+): number {
+    const holidaySet = new Set(holidays);
+    const startDate = new Date(start + 'T00:00:00');
+    const endDate = new Date(end + 'T00:00:00');
+
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return 0;
+    }
+
+    if (endDate < startDate) {
+        return 0;
+    }
+
+    return eachDayOfInterval({ start: startDate, end: endDate }).filter(
+        (day) => {
+            const dow = getDay(day);
+            const iso = format(day, 'yyyy-MM-dd');
+            return dow !== 0 && dow !== 6 && !holidaySet.has(iso);
+        },
+    ).length;
+}
+
+/** Which credit pool does this leave type deduct from? */
+function creditDeductionType(
+    leaveType: string,
+): 'vl' | 'sl' | 'none' {
+    if (leaveType === 'vacation-leave' || leaveType === 'force-leave') {
+        return 'vl';
+    }
+
+    if (
+        leaveType === 'sick-leave'
+    ) {
+        return 'sl';
+    }
+
+    return 'none';
+}
+
 function resolveMaximumEndDate(start: Date | undefined, leaveType: string): Date | undefined {
     if (!start) {
         return undefined;
@@ -107,7 +241,17 @@ function resolveMaximumEndDate(start: Date | undefined, leaveType: string): Date
     return undefined;
 }
 
-export default function LeaveRequestForm() {
+export default function LeaveRequestForm({
+    vlCredits = 0,
+    slCredits = 0,
+    leaveCreditsByType = [],
+    holidays = [],
+}: {
+    vlCredits?: number;
+    slCredits?: number;
+    leaveCreditsByType?: LeaveCreditItem[];
+    holidays?: string[];
+} = {}) {
     const [selectedLeaveType, setSelectedLeaveType] = useState('force-leave');
     const [startDate, setStartDate] = useState<Date>();
     const [endDate, setEndDate] = useState<Date>();
@@ -136,6 +280,13 @@ export default function LeaveRequestForm() {
 
         return leaveRequirements[selectedLeaveType] ?? defaultRequirements;
     }, [selectedLeaveType]);
+    const displayedLeaveCredits = useMemo(() => {
+        if (leaveCreditsByType.length > 0) {
+            return leaveCreditsByType;
+        }
+
+        return defaultLeaveCreditsByType(vlCredits, slCredits);
+    }, [leaveCreditsByType, slCredits, vlCredits]);
 
     const maxDaysByLeaveType: Record<string, number> = {
         'force-leave': 5,
@@ -174,6 +325,72 @@ export default function LeaveRequestForm() {
 
         return false;
     }, [endDate, maxDays, maximumEndDate, startDate, totalLeaveDays]);
+
+    const businessDays = useMemo(() => {
+        if (!data.startDate || !data.endDate) {
+            return null;
+        }
+
+        return countBusinessDays(data.startDate, data.endDate, holidays);
+    }, [data.startDate, data.endDate, holidays]);
+
+    const deductionType = useMemo(
+        () => creditDeductionType(selectedLeaveType),
+        [selectedLeaveType],
+    );
+    const selectedReductionSummary = useMemo(() => {
+        if (businessDays === null) {
+            return null;
+        }
+
+        if (deductionType === 'vl') {
+            const projectedBalance = Math.max(0, vlCredits - businessDays);
+
+            return {
+                primaryValue: `${projectedBalance.toFixed(2)} days after request`,
+                secondaryValue: `Current balance: ${vlCredits.toFixed(2)} days`,
+                preview:
+                    businessDays > vlCredits
+                        ? `Real-time reduction: -${businessDays.toFixed(2)} days, exceeds VL by ${(businessDays - vlCredits).toFixed(2)} day(s)`
+                        : `Real-time reduction: -${businessDays.toFixed(2)} days from vacation leave`,
+                tone:
+                    businessDays > vlCredits
+                        ? 'text-destructive'
+                        : 'text-emerald-600 dark:text-emerald-400',
+            };
+        }
+
+        if (deductionType === 'sl') {
+            const projectedBalance = Math.max(0, slCredits - businessDays);
+
+            return {
+                primaryValue: `${projectedBalance.toFixed(2)} days after request`,
+                secondaryValue: `Current balance: ${slCredits.toFixed(2)} days`,
+                preview:
+                    businessDays > slCredits
+                        ? `Real-time reduction: -${businessDays.toFixed(2)} days, exceeds SL by ${(businessDays - slCredits).toFixed(2)} day(s)`
+                        : `Real-time reduction: -${businessDays.toFixed(2)} days from sick leave`,
+                tone:
+                    businessDays > slCredits
+                        ? 'text-destructive'
+                        : 'text-emerald-600 dark:text-emerald-400',
+            };
+        }
+
+        return {
+            primaryValue: 'No credit deduction',
+            secondaryValue: 'Current balance stays unchanged',
+            preview: 'Real-time reduction: 0.00 days from VL/SL credits',
+            tone: 'text-emerald-600 dark:text-emerald-400',
+        };
+    }, [businessDays, deductionType, slCredits, vlCredits]);
+    const selectedLeaveCreditLabel = useMemo(() => {
+        const selectedLeave = leaveOptions.find(
+            (option) => option.value === selectedLeaveType,
+        );
+
+        return selectedLeave?.label ?? 'Selected Leave';
+    }, [selectedLeaveType]);
 
     const shouldUploadMedicalCertificate = selectedLeaveType === 'sick-leave' && (totalLeaveDays ?? 0) > 6;
     const shouldUploadMarriageCertificate = selectedLeaveType === 'paternity-leave' || selectedLeaveType === 'maternity-leave';
@@ -230,7 +447,6 @@ export default function LeaveRequestForm() {
 
         return undefined;
     }, [endDate, exceedsConfiguredLimit, maxDays, maxMonths, startDate]);
-
     const handleLeaveTypeChange = (value: string): void => {
         setSelectedLeaveType(value);
         setData('leaveType', value);
@@ -330,6 +546,71 @@ export default function LeaveRequestForm() {
                             </ul>
                         </div>
                     <Separator className='my-6'/>
+
+                    {/* Leave Credits Summary */}
+                    <div className="rounded-lg border border-border bg-background/70 p-4">
+                        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                            <Wallet className="h-4 w-4 text-primary" />
+                            Leave Credits
+                        </h2>
+                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            {displayedLeaveCredits.map((leaveCredit) => {
+                                const isSelected = leaveCredit.value === selectedLeaveType;
+
+                                return (
+                                    <div
+                                        key={leaveCredit.value}
+                                        className={`rounded-md px-3 py-3 transition-colors ${
+                                            isSelected
+                                                ? 'border border-primary/30 bg-primary/8'
+                                                : 'border border-border/70 bg-background/60'
+                                        }`}
+                                    >
+                                        <span className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                            {leaveCredit.label}
+                                        </span>
+                                        <p className="mt-2 text-xl font-bold text-foreground">
+                                            {leaveCredit.creditDisplay}
+                                        </p>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <div className="mt-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-3">
+                            <span className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                {selectedLeaveCreditLabel}
+                            </span>
+                            <p className="mt-1 text-sm text-muted-foreground">
+                                {deductionType === 'vl'
+                                    ? 'Uses vacation leave credits.'
+                                    : deductionType === 'sl'
+                                      ? 'Uses sick leave credits.'
+                                      : 'Does not deduct from vacation or sick leave credits.'}
+                            </p>
+                            {selectedReductionSummary !== null && (
+                                <div className="mt-2 space-y-1">
+                                    <p className="text-base font-bold text-foreground">
+                                        {selectedReductionSummary.primaryValue}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {selectedReductionSummary.secondaryValue}
+                                    </p>
+                                    <p
+                                        className={`text-xs font-semibold ${selectedReductionSummary.tone}`}
+                                    >
+                                        {selectedReductionSummary.preview}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                        {businessDays !== null && (
+                            <p className="mt-2 text-xs text-muted-foreground">
+                                Business days requested (excl. weekends &amp; holidays): <strong>{businessDays}</strong>
+                            </p>
+                        )}
+                    </div>
+
+                    <Separator className='my-6'/>
                     <form className="space-y-6">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div className="flex flex-col gap-2 md:col-span-2">
@@ -339,22 +620,7 @@ export default function LeaveRequestForm() {
                                         <SelectValue placeholder="Select leave type" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Vacation Leave</div>
-                                        {groupedLeaveOptions['Vacation Leave'].map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-
-                                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Sick Leave</div>
-                                        {groupedLeaveOptions['Sick Leave'].map((option) => (
-                                            <SelectItem key={option.value} value={option.value}>
-                                                {option.label}
-                                            </SelectItem>
-                                        ))}
-
-                                        <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">Special Leave</div>
-                                        {groupedLeaveOptions['Special Leave'].map((option) => (
+                                        {leaveOptions.map((option) => (
                                             <SelectItem key={option.value} value={option.value}>
                                                 {option.label}
                                             </SelectItem>

@@ -2,25 +2,17 @@
 
 use App\Models\Seminars;
 use App\Models\User;
-use Illuminate\Support\Str;
 
-function createVerifiedUser(): User
+function createVerifiedHrUser(): User
 {
-    $user = User::query()->create([
+    return User::factory()->asHrPersonnel()->create([
         'name' => 'Test User',
-        'email' => Str::uuid().'@example.com',
-        'password' => 'password',
-    ]);
-
-    $user->forceFill([
         'email_verified_at' => now(),
-    ])->save();
-
-    return $user;
+    ]);
 }
 
 test('training scheduling page is displayed', function () {
-    $user = createVerifiedUser();
+    $user = createVerifiedHrUser();
 
     $response = $this
         ->actingAs($user)
@@ -30,7 +22,7 @@ test('training scheduling page is displayed', function () {
 });
 
 test('seminar can be created', function () {
-    $user = createVerifiedUser();
+    $user = createVerifiedHrUser();
 
     $response = $this
         ->actingAs($user)
@@ -53,7 +45,7 @@ test('seminar can be created', function () {
 });
 
 test('seminar can be updated', function () {
-    $user = createVerifiedUser();
+    $user = createVerifiedHrUser();
     $seminar = Seminars::query()->create([
         'title' => 'Initial Seminar',
         'description' => 'Initial description',
@@ -86,7 +78,7 @@ test('seminar can be updated', function () {
 });
 
 test('seminar can be deleted', function () {
-    $user = createVerifiedUser();
+    $user = createVerifiedHrUser();
     $seminar = Seminars::query()->create([
         'title' => 'Delete Me',
         'description' => 'Delete description',

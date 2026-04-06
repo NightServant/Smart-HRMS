@@ -16,7 +16,6 @@ import LeaveRequestForm from '@/components/leave-request-form';
 import PageIntro from '@/components/page-intro';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
     Table,
     TableBody,
@@ -25,9 +24,16 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
 import { leaveApplication } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
+
+type LeaveCreditItem = {
+    value: string;
+    label: string;
+    creditDisplay: string;
+};
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -114,8 +120,16 @@ function StatCard({
 
 export default function LeaveApplication({
     leaveHistory = [],
+    vlCredits = 0,
+    slCredits = 0,
+    leaveCreditsByType = [],
+    holidays = [],
 }: {
     leaveHistory?: LeaveRequestDetail[];
+    vlCredits?: number;
+    slCredits?: number;
+    leaveCreditsByType?: LeaveCreditItem[];
+    holidays?: string[];
 }) {
     const [selectedLeave, setSelectedLeave] =
         useState<LeaveRequestDetail | null>(null);
@@ -197,7 +211,12 @@ export default function LeaveApplication({
 
                     <TabsContent value="apply" className="mt-5">
                         <div className="min-w-0">
-                            <LeaveRequestForm />
+                            <LeaveRequestForm
+                                vlCredits={vlCredits}
+                                slCredits={slCredits}
+                                leaveCreditsByType={leaveCreditsByType}
+                                holidays={holidays}
+                            />
                         </div>
                     </TabsContent>
 

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { DashboardChartSurface, DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
 import { AdminDashboardDoughnutChart } from '@/components/admin-system-dashboard-charts';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 type RiskData = {
     total_employees: number;
@@ -12,10 +13,19 @@ type RiskData = {
     average_rating: number;
 };
 
+type SemesterFilter = 'all' | 'S1' | 'S2';
+
+const SEMESTER_FILTERS: { label: string; value: SemesterFilter }[] = [
+    { label: 'All Time', value: 'all' },
+    { label: '1st Semester', value: 'S1' },
+    { label: '2nd Semester', value: 'S2' },
+];
+
 export default function RiskEmployeeAlert() {
     const [riskData, setRiskData] = useState<RiskData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [semesterFilter, setSemesterFilter] = useState<SemesterFilter>('all');
 
     useEffect(() => {
         const fetchRiskData = async (): Promise<void> => {
@@ -23,7 +33,14 @@ export default function RiskEmployeeAlert() {
                 setIsLoading(true);
                 setError(null);
 
-                const response = await fetch('/api/flatfat/evaluation-risk-summary', {
+                const params = new URLSearchParams();
+                if (semesterFilter !== 'all') {
+                    params.set('semester', semesterFilter);
+                }
+
+                const url = `/api/flatfat/evaluation-risk-summary${params.toString() ? `?${params.toString()}` : ''}`;
+
+                const response = await fetch(url, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
@@ -67,7 +84,14 @@ export default function RiskEmployeeAlert() {
 
         const interval = setInterval(fetchRiskData, 5 * 60 * 1000);
         return () => clearInterval(interval);
-    }, []);
+    }, [semesterFilter]);
+
+    const semesterLabel =
+        semesterFilter === 'S1'
+            ? 'Jan–Jun'
+            : semesterFilter === 'S2'
+              ? 'Jul–Dec'
+              : undefined;
 
     return (
         <DashboardPanelCard
@@ -78,28 +102,49 @@ export default function RiskEmployeeAlert() {
             }
             accentClassName="right-0 top-0 size-36 rounded-full bg-chart-3/10 blur-3xl"
             headerExtras={
-                !isLoading ? (
-                    <div className="flex flex-wrap gap-2">
-                        <Badge
-                            variant="outline"
-                            className={`px-4 py-2 ${
-                                (riskData?.high_risk_count ?? 0) > 0
-                                    ? 'border-primary/40 text-primary'
-                                    : 'border-muted-foreground/40 text-muted-foreground'
-                            }`}
-                        >
-                            High Risk: {riskData?.high_risk_count || 0}
-                        </Badge>
-                        <Badge
-                            variant="outline"
-                            className="border-muted-foreground/40 px-4 py-2 text-muted-foreground"
-                        >
-                            Monitoring: {riskData?.satisfactory_count || 0}
-                        </Badge>
-                    </div>
-                ) : undefined
+                <div className="flex flex-wrap items-center gap-2">
+                    {!isLoading ? (
+                        <>
+                            <Badge
+                                variant="outline"
+                                className={`px-4 py-2 ${
+                                    (riskData?.high_risk_count ?? 0) > 0
+                                        ? 'border-primary/40 text-primary'
+                                        : 'border-muted-foreground/40 text-muted-foreground'
+                                }`}
+                            >
+                                High Risk: {riskData?.high_risk_count || 0}
+                            </Badge>
+                            <Badge
+                                variant="outline"
+                                className="border-muted-foreground/40 px-4 py-2 text-muted-foreground"
+                            >
+                                Monitoring: {riskData?.satisfactory_count || 0}
+                            </Badge>
+                        </>
+                    ) : undefined}
+                </div>
             }
         >
+            <div className="flex flex-wrap items-center gap-1.5">
+                {SEMESTER_FILTERS.map((filter) => (
+                    <Button
+                        key={filter.value}
+                        variant={semesterFilter === filter.value ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 rounded-full px-3 text-xs"
+                        onClick={() => setSemesterFilter(filter.value)}
+                    >
+                        {filter.label}
+                    </Button>
+                ))}
+                {semesterLabel && (
+                    <span className="ml-1 text-xs text-muted-foreground">
+                        ({semesterLabel})
+                    </span>
+                )}
+            </div>
+
             {!isLoading && riskData && (
                 <div className="grid grid-cols-3 gap-3">
                     <div className="flex flex-col items-center gap-1 rounded-2xl border border-brand-300 bg-white/75 p-3 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">

@@ -5,9 +5,9 @@ namespace App\Http\Controllers;
 use App\Exports\AttendanceRecordsExport;
 use App\Services\ActivityLogger;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Maatwebsite\Excel\Excel;
 use Maatwebsite\Excel\Facades\Excel as ExcelFacade;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class Export_CSV_Controller extends Controller
 {

@@ -34,6 +34,7 @@ dataset('evaluator-allowed-routes', [
     'admin.employee-directory',
     'admin.evaluator-attendance',
     'document-management',
+    'ipcr.target.review',
     'admin.leave-management',
     'notifications',
 ]);
@@ -65,6 +66,7 @@ dataset('hr-allowed-routes', [
     'admin.hr-finalize',
     'training-scheduling',
     'admin.training-scheduling',
+    'ipcr.target.review',
     'notifications',
 ]);
 
@@ -85,6 +87,7 @@ dataset('hr-forbidden-routes', [
 
 dataset('pmt-allowed-routes', [
     'admin.pmt-review',
+    'ipcr.target.review',
     'notifications',
 ]);
 
@@ -130,6 +133,7 @@ dataset('administrator-forbidden-routes', [
     'admin.hr-review',
     'admin.hr-finalize',
     'admin.pmt-review',
+    'ipcr.target.review',
     'notifications',
     'training-scheduling',
     'admin.training-scheduling',

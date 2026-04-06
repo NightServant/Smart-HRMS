@@ -6,6 +6,7 @@ import {
     CalendarClock,
     ClipboardCheck,
     FileStack,
+    FileText,
     FileUser,
     Fingerprint,
     Grid,
@@ -15,6 +16,7 @@ import {
     Send,
     Settings,
     ShieldPlus,
+    Target,
     Users,
 } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
@@ -36,6 +38,7 @@ import {
     notifications,
     submitEvaluation,
 } from '@/routes';
+import * as ipcr from '@/routes/ipcr';
 import * as admin from '@/routes/admin';
 import type { Auth, NavItem } from '@/types';
 
@@ -54,6 +57,18 @@ const employeeNavItems: NavItem[] = [
         title: 'Performance Evaluation',
         href: submitEvaluation(),
         icon: Send,
+        children: [
+            {
+                title: 'IPCR Target',
+                href: ipcr.target(),
+                icon: Target,
+            },
+            {
+                title: 'IPCR Submission',
+                href: submitEvaluation(),
+                icon: FileText,
+            },
+        ],
     },
     {
         title: 'Attendance',
@@ -87,6 +102,18 @@ const evaluatorNavItems: NavItem[] = [
         title: 'Performance Evaluation',
         href: documentManagement(),
         icon: FileStack,
+        children: [
+            {
+                title: 'IPCR Target',
+                href: documentManagement(),
+                icon: Target,
+            },
+            {
+                title: 'IPCR Submission',
+                href: documentManagement(),
+                icon: FileText,
+            },
+        ],
     },
     {
         title: 'Leave Management',
@@ -130,6 +157,18 @@ const hrPersonnelNavItems: NavItem[] = [
         title: 'Performance Evaluation',
         href: admin.hrReview(),
         icon: Send,
+        children: [
+            {
+                title: 'IPCR Target',
+                href: admin.hrReview(),
+                icon: Target,
+            },
+            {
+                title: 'IPCR Submission',
+                href: admin.hrReview(),
+                icon: FileText,
+            },
+        ],
     },
     {
         title: 'Training Suggestions',
@@ -148,6 +187,18 @@ const pmtNavItems: NavItem[] = [
         title: 'Performance Evaluation',
         href: admin.pmtReview(),
         icon: ClipboardCheck,
+        children: [
+            {
+                title: 'IPCR Target',
+                href: admin.pmtReview(),
+                icon: Target,
+            },
+            {
+                title: 'IPCR Submission',
+                href: admin.pmtReview(),
+                icon: FileText,
+            },
+        ],
     },
     {
         title: 'Notifications',

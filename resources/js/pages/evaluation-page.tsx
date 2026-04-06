@@ -13,9 +13,27 @@ type PageProps = {
     submission: IpcrSubmission | null;
 };
 
+function reviewerTargetUrl(
+    employeeId: string | null | undefined,
+    submissionId?: number | null,
+): string {
+    const params = new URLSearchParams();
+
+    if (employeeId) {
+        params.set('employee_id', employeeId);
+    }
+
+    if (submissionId) {
+        params.set('submission_id', String(submissionId));
+    }
+
+    params.set('source', 'evaluator');
+
+    return `/ipcr/target-review?${params.toString()}`;
+}
+
 export default function EvaluationPage() {
-    const { employee, draftFormPayload, submission } =
-        usePage<PageProps>().props;
+    const { employee, draftFormPayload, submission } = usePage<PageProps>().props;
 
     return (
         <AppHeaderLayout>
@@ -26,13 +44,26 @@ export default function EvaluationPage() {
                     title="Evaluator Workspace"
                     description="Review the employee's IPCR form, enter Q/E/T ratings, and route to HR when complete."
                     actions={
-                        <Link
-                            href={documentManagement().url}
-                            className="app-info-pill transition-colors duration-150 hover:border-[#7CAF73] hover:bg-[#E8F4E4] dark:hover:bg-[#274827]/80"
-                        >
-                            <ArrowLeft className="size-4" />
-                            Back to Documents
-                        </Link>
+                        <div className="flex flex-wrap gap-2">
+                            {employee ? (
+                                <Link
+                                    href={reviewerTargetUrl(
+                                        employee.employee_id,
+                                        submission?.id ?? null,
+                                    )}
+                                    className="app-info-pill transition-colors duration-150 hover:border-[#7CAF73] hover:bg-[#E8F4E4] dark:hover:bg-[#274827]/80"
+                                >
+                                    Open Target Reference
+                                </Link>
+                            ) : null}
+                            <Link
+                                href={documentManagement().url}
+                                className="app-info-pill transition-colors duration-150 hover:border-[#7CAF73] hover:bg-[#E8F4E4] dark:hover:bg-[#274827]/80"
+                            >
+                                <ArrowLeft className="size-4" />
+                                Back to Documents
+                            </Link>
+                        </div>
                     }
                 />
                 {employee &&
@@ -42,6 +73,12 @@ export default function EvaluationPage() {
                     <EvaluationResults
                         employee={employee}
                         submission={submission}
+                    />
+                ) : submission ? (
+                    <EvaluationCard
+                        employee={employee}
+                        submission={submission}
+                        draftFormPayload={draftFormPayload}
                     />
                 ) : (
                     <EvaluationCard

@@ -4,7 +4,6 @@ import EmployeeRemarks from '@/components/employee-remarks';
 import LeaveOverview from '@/components/leave-overview';
 import PageIntro from '@/components/page-intro';
 import {
-    PerformanceDashboardInsightPanel,
     PerformanceDashboardStatCards,
     type PerformanceDashboardLeaveOverview,
     type PerformanceDashboardRemark,
@@ -46,22 +45,22 @@ export default function AdminPerformanceDashboard({
                     userRole="hr"
                 />
 
-                <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
-                    <QuarterPerformanceTrends />
+                <div className="grid gap-6">
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
+                        <QuarterPerformanceTrends />
+                        <DailyAttendanceLogs />
+                    </div>
 
-                    <RiskEmployeeAlert />
-
-                    <PerformanceDashboardInsightPanel
-                        remarks={remarks}
-                        leaveOverview={leaveOverview}
-                        userRole="hr"
-                    />
-
-                    <DailyAttendanceLogs />
-
-                    <EmployeeRemarks remarks={remarks} />
-
-                    <LeaveOverview data={leaveOverview} userRole="hr" />
+                    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
+                        <RiskEmployeeAlert />
+                        <div className="grid gap-6">
+                            <EmployeeRemarks remarks={remarks} />
+                            <LeaveOverview
+                                data={leaveOverview}
+                                userRole="hr"
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
         </AppLayout>

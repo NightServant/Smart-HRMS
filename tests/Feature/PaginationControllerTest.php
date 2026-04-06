@@ -89,6 +89,9 @@ test('evaluator attendance page exposes subordinate manual punch settings', func
         'job_title' => 'Field Officer',
         'supervisor_id' => 'EMP-EVAL-300',
         'manual_punch_enabled' => true,
+        'manual_punch_reason' => 'Field validation visit',
+        'manual_punch_start_date' => '2026-04-01',
+        'manual_punch_end_date' => '2026-04-05',
     ]);
 
     $evaluatorUser = User::factory()->asEvaluator()->create([
@@ -103,7 +106,10 @@ test('evaluator attendance page exposes subordinate manual punch settings', func
             ->has('subordinates', 1)
             ->where('subordinates.0.employee_id', 'EMP-SUB-300')
             ->where('subordinates.0.name', 'Field Employee')
-            ->where('subordinates.0.manual_punch_enabled', true));
+            ->where('subordinates.0.manual_punch_enabled', true)
+            ->where('subordinates.0.manual_punch_reason', 'Field validation visit')
+            ->where('subordinates.0.manual_punch_start_date', '2026-04-01')
+            ->where('subordinates.0.manual_punch_end_date', '2026-04-05'));
 });
 
 test('employee directory supports page and per page query parameters', function () {
@@ -191,7 +197,7 @@ test('leave management filters records by leave type status and stage', function
             ->where('leaveRequests.0.name', 'Approved Evaluator Employee')
             ->where('leaveRequests.0.leaveType', 'sick-leave')
             ->where('leaveRequests.0.status', 'completed')
-            ->where('leaveRequests.0.leaveAccrual', 0.17));
+            ->where('leaveRequests.0.leaveAccrual', fn ($value) => (float) $value === 2.0));
 });
 
 test('hr leave management filters records by leave type status and stage', function () {
@@ -266,7 +272,7 @@ test('hr leave management filters records by leave type status and stage', funct
             ->where('leaveRequests.0.name', 'Pending HR Employee')
             ->where('leaveRequests.0.leaveType', 'force-leave')
             ->where('leaveRequests.0.status', 'routed')
-            ->where('leaveRequests.0.leaveAccrual', 0.25));
+            ->where('leaveRequests.0.leaveAccrual', fn ($value) => (float) $value === 3.0));
 });
 
 test('employee directory sorts records using requested column and direction', function () {

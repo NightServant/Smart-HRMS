@@ -47,7 +47,10 @@ export default function EmployeeRemarks({
                     <p className="text-xs">No evaluator remarks yet.</p>
                 </div>
             ) : (
-                <Carousel opts={{ align: 'start', loop: remarks.length > 1 }} className="w-full flex-1">
+                <Carousel
+                    opts={{ align: 'start', loop: remarks.length > 1 }}
+                    className="w-full flex-1"
+                >
                     <CarouselContent className="-ml-2 md:-ml-4">
                         {remarks.map((remark) => (
                             <CarouselItem

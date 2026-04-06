@@ -29,8 +29,13 @@ class UpdateManualPunchStatusRequest extends FormRequest
      */
     public function rules(): array
     {
+        $enabling = $this->boolean('manual_punch_enabled');
+
         return [
             'manual_punch_enabled' => ['required', 'boolean'],
+            'reason' => $enabling ? ['required', 'string', 'max:500'] : ['nullable', 'string', 'max:500'],
+            'start_date' => $enabling ? ['required', 'date', 'after_or_equal:today'] : ['nullable', 'date'],
+            'end_date' => $enabling ? ['required', 'date', 'after_or_equal:start_date'] : ['nullable', 'date'],
         ];
     }
 
@@ -38,6 +43,12 @@ class UpdateManualPunchStatusRequest extends FormRequest
     {
         return [
             'manual_punch_enabled.boolean' => 'Manual punch status must be Enabled or Disabled.',
+            'reason.required' => 'A reason is required when enabling manual punch.',
+            'reason.max' => 'The reason may not exceed 500 characters.',
+            'start_date.required' => 'A start date is required when enabling manual punch.',
+            'start_date.after_or_equal' => 'The start date must be today or a future date.',
+            'end_date.required' => 'An end date is required when enabling manual punch.',
+            'end_date.after_or_equal' => 'The end date must be on or after the start date.',
         ];
     }
 }

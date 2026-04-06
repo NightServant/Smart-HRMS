@@ -13,15 +13,17 @@ import {
 } from '@/components/ui/card';
 import AppHeaderLayout from '@/layouts/app/app-header-layout';
 import { submitEvaluation } from '@/routes';
-import type { IpcrSubmission } from '@/types';
+import type { IpcrSubmission, IpcrTarget } from '@/types';
 
 type PageProps = {
     selectedSubmission?: IpcrSubmission | null;
     latestSubmission?: IpcrSubmission | null;
+    currentTarget?: IpcrTarget | null;
 };
 
 export default function IpcrFormPage() {
-    const { selectedSubmission, latestSubmission } = usePage<PageProps>().props;
+    const { selectedSubmission, latestSubmission, currentTarget } =
+        usePage<PageProps>().props;
     const printableUrl = selectedSubmission
         ? `/ipcr/print?submission_id=${selectedSubmission.id}`
         : latestSubmission
@@ -82,7 +84,7 @@ export default function IpcrFormPage() {
                         </CardContent>
                     </Card>
                 ) : (
-                    <SubmitCard />
+                    <SubmitCard currentTarget={currentTarget ?? null} />
                 )}
             </div>
         </AppHeaderLayout>

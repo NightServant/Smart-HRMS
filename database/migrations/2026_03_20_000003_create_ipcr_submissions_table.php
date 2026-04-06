@@ -27,8 +27,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->foreign('employee_id')
-                  ->references('employee_id')
-                  ->on('employees');
+                ->references('employee_id')
+                ->on('employees');
         });
     }
 

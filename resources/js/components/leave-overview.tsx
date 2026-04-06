@@ -1,11 +1,15 @@
-import { Link } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
+import { format } from 'date-fns';
 import {
     ArrowRight,
     CheckCircle2,
     Inbox,
     XCircle,
 } from 'lucide-react';
+import { useState } from 'react';
+import { Link } from '@inertiajs/react';
 import { DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
+import { DatePicker } from '@/components/ui/date-picker';
 import * as admin from '@/routes/admin';
 
 type LeaveOverviewData = {
@@ -22,6 +26,10 @@ export default function LeaveOverview({
     data?: LeaveOverviewData | null;
     userRole: 'hr' | 'evaluator';
 }) {
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+        undefined,
+    );
+
     const overview = data ?? {
         approved: 0,
         rejected: 0,
@@ -77,22 +85,39 @@ export default function LeaveOverview({
                   },
               ];
 
-    const roleDescription = userRole === 'evaluator'
-        ? 'As an evaluator, you can review and approve or return leave requests submitted by employees.'
-        : 'As an HR personnel, you can review and approve or reject leave requests routed by evaluators.';
+    const roleDescription =
+        userRole === 'evaluator'
+            ? 'As an evaluator, you can review and approve or return leave requests submitted by employees.'
+            : 'As an HR personnel, you can review and approve or reject leave requests routed by evaluators.';
+
+    function handleDateChange(date: Date | undefined): void {
+        setSelectedDate(date);
+        const params: Record<string, string> = {};
+        if (date) {
+            params['leave_month'] = format(date, 'yyyy-MM');
+        }
+        router.reload({ data: params, only: ['leaveOverview'] });
+    }
 
     return (
         <DashboardPanelCard
             title="Leave Overview"
             description={roleDescription}
             headerExtras={
-                <Link
-                    href={leaveManagementUrl}
-                    className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
-                >
-                    View all
-                    <ArrowRight className="size-3" />
-                </Link>
+                <div className="flex flex-wrap items-center gap-2">
+                    <DatePicker
+                        value={selectedDate}
+                        onChange={handleDateChange}
+                        placeholder="All time"
+                    />
+                    <Link
+                        href={leaveManagementUrl}
+                        className="inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
+                    >
+                        View all
+                        <ArrowRight className="size-3" />
+                    </Link>
+                </div>
             }
         >
             <div className="grid grid-cols-3 gap-2">
@@ -112,7 +137,12 @@ export default function LeaveOverview({
                 ))}
             </div>
             <div className="rounded-2xl border border-brand-300 bg-white/75 p-4 text-sm text-muted-foreground shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
-                <b>Total Leave Requests: {overview.total}</b>
+                <b>
+                    Total Leave Requests: {overview.total}
+                    {selectedDate
+                        ? ` (${format(selectedDate, 'MMMM yyyy')})`
+                        : ''}
+                </b>
             </div>
         </DashboardPanelCard>
     );

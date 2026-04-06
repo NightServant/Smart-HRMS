@@ -33,6 +33,40 @@ type Props = {
     loading: boolean;
 };
 
+function resolveTrendConfig(trend: string): {
+    icon: typeof ArrowRight;
+    color: string;
+    bg: string;
+    label: string;
+} {
+    const normalizedTrend = trend.toUpperCase();
+
+    if (normalizedTrend === 'IMPROVING') {
+        return {
+            icon: ArrowUp,
+            color: 'text-emerald-600 dark:text-emerald-400',
+            bg: 'border-emerald-300/60 bg-emerald-100/70 dark:border-emerald-700/60 dark:bg-emerald-900/30',
+            label: 'Improving',
+        };
+    }
+
+    if (normalizedTrend === 'DECLINING') {
+        return {
+            icon: ArrowDown,
+            color: 'text-red-600 dark:text-red-400',
+            bg: 'border-red-300/60 bg-red-100/70 dark:border-red-700/60 dark:bg-red-900/30',
+            label: 'Declining',
+        };
+    }
+
+    return {
+        icon: ArrowRight,
+        color: 'text-amber-600 dark:text-amber-400',
+        bg: 'border-amber-300/60 bg-amber-100/70 dark:border-amber-700/60 dark:bg-amber-900/30',
+        label: 'Stable',
+    };
+}
+
 function buildForecastYearAverages(labels: string[], scores: number[]): Record<string, number> {
     const grouped = new Map<string, number[]>();
 
@@ -78,11 +112,7 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
         );
     }
 
-    const trendConfig = {
-        IMPROVING: { icon: ArrowUp, color: 'text-emerald-600 dark:text-emerald-400', bg: 'border-emerald-300/60 bg-emerald-100/70 dark:border-emerald-700/60 dark:bg-emerald-900/30', label: 'Improving' },
-        DECLINING: { icon: ArrowDown, color: 'text-red-600 dark:text-red-400', bg: 'border-red-300/60 bg-red-100/70 dark:border-red-700/60 dark:bg-red-900/30', label: 'Declining' },
-        STABLE: { icon: ArrowRight, color: 'text-amber-600 dark:text-amber-400', bg: 'border-amber-300/60 bg-amber-100/70 dark:border-amber-700/60 dark:bg-amber-900/30', label: 'Stable' },
-    }[prediction.trend] ?? { icon: ArrowRight, color: 'text-muted-foreground', bg: 'border-border/70 bg-muted/10', label: prediction.trend };
+    const trendConfig = resolveTrendConfig(prediction.trend);
 
     const TrendIcon = trendConfig.icon;
     const historicalYearLabels = prediction.historical.yearly_labels ?? [];
@@ -158,6 +188,37 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
                 <span className="text-muted-foreground">
                     Forecast avg: <span className="font-semibold text-foreground">{prediction.forecast_avg.toFixed(2)}</span>
                 </span>
+            </div>
+            <div className="rounded-2xl border border-border/70 bg-background/45 p-4">
+                <p className="text-sm font-semibold text-foreground">
+                    Prediction Guide
+                </p>
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-xl border border-red-200 bg-red-50/80 p-3 text-sm dark:border-red-900/40 dark:bg-red-950/20">
+                        <p className="font-semibold text-red-700 dark:text-red-300">
+                            Decreased performance prediction
+                        </p>
+                        <p className="mt-1 text-muted-foreground">
+                            Declining
+                        </p>
+                    </div>
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-3 text-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                        <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+                            Increased performance prediction
+                        </p>
+                        <p className="mt-1 text-muted-foreground">
+                            Improving
+                        </p>
+                    </div>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-sm dark:border-amber-900/40 dark:bg-amber-950/20">
+                        <p className="font-semibold text-amber-700 dark:text-amber-300">
+                            Constant or neutral prediction
+                        </p>
+                        <p className="mt-1 text-muted-foreground">
+                            Stable
+                        </p>
+                    </div>
+                </div>
             </div>
         </div>
     );

@@ -9,6 +9,7 @@ use App\Models\HistoricalDataRecord;
 use App\Models\LeaveRequest;
 use App\Models\SystemSetting;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -48,6 +49,24 @@ class PaginationController extends Controller
             ->map(fn ($value): string => (string) $value)
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array{semester: 1|2, year: int}
+     */
+    private function resolveIpcrTargetPeriod(string $periodLabel, int $fallbackYear): array
+    {
+        preg_match('/(20\d{2})/', $periodLabel, $yearMatches);
+
+        $normalizedLabel = strtolower(str_replace(['–', '—'], '-', $periodLabel));
+        $resolvedYear = isset($yearMatches[1]) ? (int) $yearMatches[1] : $fallbackYear;
+        $isSecondSemester = str_contains($normalizedLabel, 'second')
+            || (str_contains($normalizedLabel, 'july') && str_contains($normalizedLabel, 'december'));
+
+        return [
+            'semester' => $isSecondSemester ? 2 : 1,
+            'year' => $resolvedYear,
+        ];
     }
 
     public function attendanceManagement(Request $request): Response
@@ -308,7 +327,19 @@ class PaginationController extends Controller
 
         $subordinates = \App\Models\Employee::query()
             ->where('supervisor_id', $evaluatorEmployeeId)
-            ->get(['employee_id', 'name', 'manual_punch_enabled']);
+            ->get(['employee_id', 'name', 'manual_punch_enabled', 'manual_punch_reason', 'manual_punch_start_date', 'manual_punch_end_date'])
+            ->map(fn (\App\Models\Employee $emp): array => [
+                'employee_id' => $emp->employee_id,
+                'name' => $emp->name,
+                'manual_punch_enabled' => (bool) $emp->manual_punch_enabled,
+                'manual_punch_reason' => $emp->manual_punch_reason,
+                'manual_punch_start_date' => $emp->manual_punch_start_date !== null
+                    ? Carbon::parse($emp->manual_punch_start_date)->toDateString()
+                    : null,
+                'manual_punch_end_date' => $emp->manual_punch_end_date !== null
+                    ? Carbon::parse($emp->manual_punch_end_date)->toDateString()
+                    : null,
+            ]);
 
         return Inertia::render('admin/evaluator-attendance', [
             'search' => $search,
@@ -375,7 +406,7 @@ class PaginationController extends Controller
                 'employee_id' => $user->employee_id ?? '',
                 'position' => $user->employee?->job_title ?? 'Employee',
                 'employment_status' => $user->employee?->employment_status ?? 'regular',
-                'date_hired' => $user->created_at?->format('Y-m-d') ?? '-',
+                'date_hired' => $user->employee?->date_hired?->format('Y-m-d') ?? '',
 
                 'performance_rating' => $user->employee?->latestSubmission?->performance_rating,
                 'remarks' => $user->employee?->latestSubmission?->rejection_reason,
@@ -429,12 +460,21 @@ class PaginationController extends Controller
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
         $statusFilter = trim((string) $request->string('statusFilter'));
         $stageFilter = trim((string) $request->string('stageFilter'));
+        $currentPeriodLabel = (string) SystemSetting::get('ipcr_period_label', 'January to June '.now()->year);
+        $currentPeriodYear = (int) SystemSetting::get('ipcr_period_year', (int) now()->year);
+        ['semester' => $targetSemester, 'year' => $targetYear] = $this->resolveIpcrTargetPeriod($currentPeriodLabel, $currentPeriodYear);
         $employeeIds = collect(range(2, 21))
             ->map(fn (int $number): string => 'EMP-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT))
             ->all();
 
         $employees = Employee::query()
-            ->with(['user', 'latestSubmission'])
+            ->with([
+                'user',
+                'latestSubmission',
+                'ipcrTargets' => fn ($query) => $query
+                    ->forPeriod($targetSemester, $targetYear)
+                    ->latest('id'),
+            ])
             ->whereIn('employee_id', $employeeIds)
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
@@ -457,26 +497,31 @@ class PaginationController extends Controller
             ->orderBy('employee_id')
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn (Employee $employee): array => [
-                'id' => $employee->user?->id ?? 0,
-                'name' => $employee->name ?? 'Unknown',
-                'email' => $employee->user?->email ?? '-',
-                'role' => $employee->user?->role ?? 'employee',
-                'position' => $employee->job_title ?? 'Employee',
-                'employeeId' => $employee->employee_id,
-                'submissionStatus' => $employee->latestSubmission?->status,
-                'submissionStage' => $employee->latestSubmission?->stage,
-                'finalRating' => $employee->latestSubmission?->final_rating,
-                'remarks' => $employee->latestSubmission?->rejection_reason,
-            ]);
+            ->through(function (Employee $employee): array {
+                $currentTarget = $employee->ipcrTargets->first();
+
+                return [
+                    'id' => $employee->user?->id ?? 0,
+                    'name' => $employee->name ?? 'Unknown',
+                    'email' => $employee->user?->email ?? '-',
+                    'role' => $employee->user?->role ?? 'employee',
+                    'position' => $employee->job_title ?? 'Employee',
+                    'employeeId' => $employee->employee_id,
+                    'submissionStatus' => $employee->latestSubmission?->status,
+                    'submissionStage' => $employee->latestSubmission?->stage,
+                    'finalRating' => $employee->latestSubmission?->final_rating,
+                    'remarks' => $employee->latestSubmission?->rejection_reason,
+                    'currentTargetStatus' => $currentTarget?->status,
+                ];
+            });
 
         $currentPeriodOpen = SystemSetting::get('ipcr_period_open', false);
 
         return Inertia::render('performance-evaluation', [
             'roleView' => 'evaluator',
             'currentPeriod' => [
-                'label' => (string) SystemSetting::get('ipcr_period_label', 'January to June '.now()->year),
-                'year' => (int) SystemSetting::get('ipcr_period_year', (int) now()->year),
+                'label' => $currentPeriodLabel,
+                'year' => $currentPeriodYear,
                 'isOpen' => $currentPeriodOpen,
             ],
             'evaluatorPanel' => [

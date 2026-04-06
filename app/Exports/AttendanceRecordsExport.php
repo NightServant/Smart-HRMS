@@ -9,9 +9,7 @@ use Maatwebsite\Excel\Concerns\WithHeadings;
 
 class AttendanceRecordsExport implements FromCollection, WithHeadings
 {
-    public function __construct(private readonly string $search = '')
-    {
-    }
+    public function __construct(private readonly string $search = '') {}
 
     /**
      * @return Collection<int, array<string, int|string|null>>

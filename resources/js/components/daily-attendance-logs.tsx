@@ -1,3 +1,4 @@
+import { format } from 'date-fns';
 import { CalendarOff, CheckCircle2, Clock3, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import {
@@ -5,6 +6,7 @@ import {
     DashboardPanelCard,
 } from '@/components/admin-system-dashboard-cards';
 import { Badge } from '@/components/ui/badge';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Separator } from '@/components/ui/separator';
 
 type AttendanceMetrics = {
@@ -20,18 +22,11 @@ type AttendanceMetrics = {
     quarter?: string;
 };
 
-function toPercent(value: number, total: number): number {
-    if (total <= 0) {
-        return 0;
-    }
-
-    return Math.max(0, Math.min(100, Math.round((value / total) * 100)));
-}
-
 export default function DailyAttendanceLogs() {
     const [metrics, setMetrics] = useState<AttendanceMetrics | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
     useEffect(() => {
         const fetchAttendanceMetrics = async (): Promise<void> => {
@@ -39,8 +34,11 @@ export default function DailyAttendanceLogs() {
                 setIsLoading(true);
                 setError(null);
 
+                const params = new URLSearchParams();
+                params.set('month', format(selectedDate, 'yyyy-MM'));
+
                 const response = await fetch(
-                    '/api/flatfat/attendance-metrics',
+                    `/api/flatfat/attendance-metrics?${params.toString()}`,
                     {
                         method: 'GET',
                         headers: {
@@ -86,7 +84,10 @@ export default function DailyAttendanceLogs() {
 
         const interval = setInterval(fetchAttendanceMetrics, 5 * 60 * 1000);
         return () => clearInterval(interval);
-    }, []);
+    }, [selectedDate]);
+
+    const isCurrentMonth =
+        format(selectedDate, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
 
     return (
         <DashboardPanelCard
@@ -95,14 +96,25 @@ export default function DailyAttendanceLogs() {
             accentClassName="-left-10 top-10 size-28 rounded-full bg-brand-300/20 blur-3xl dark:bg-brand-500/10"
             contentClassName="gap-4"
             headerExtras={
-                !isLoading && metrics ? (
-                    <Badge
-                        variant="outline"
-                        className="border-brand-300/60 bg-brand-100/70 text-brand-900 dark:border-brand-700/60 dark:bg-brand-900/30 dark:text-brand-100"
-                    >
-                        {metrics.attendance_pct}% attendance rate
-                    </Badge>
-                ) : undefined
+                <div className="flex flex-wrap items-center gap-2">
+                    {!isLoading && metrics ? (
+                        <Badge
+                            variant="outline"
+                            className="border-brand-300/60 bg-brand-100/70 text-brand-900 dark:border-brand-700/60 dark:bg-brand-900/30 dark:text-brand-100"
+                        >
+                            {metrics.attendance_pct}% attendance rate
+                        </Badge>
+                    ) : undefined}
+                    <DatePicker
+                        value={selectedDate}
+                        onChange={(date) => {
+                            if (date) {
+                                setSelectedDate(date);
+                            }
+                        }}
+                        placeholder="Select month"
+                    />
+                </div>
             }
         >
             {isLoading ? (
@@ -119,12 +131,11 @@ export default function DailyAttendanceLogs() {
                 </DashboardChartSurface>
             ) : (
                 <>
-                <Separator className="bg-border/70" />
                     <div className="rounded-2xl border border-brand-300 bg-white/75 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                             <div>
                                 <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-                                    Current Month Attendance
+                                    {format(selectedDate, 'MMMM yyyy')} Attendance
                                 </p>
                                 <p className="mt-2 text-2xl font-bold text-foreground">
                                     {metrics?.attendance_pct || 0}%
@@ -142,7 +153,9 @@ export default function DailyAttendanceLogs() {
                                     / {metrics?.total_employees ?? 0}
                                 </p>
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                    employees with attendance records today
+                                    {isCurrentMonth
+                                        ? 'employees with attendance records today'
+                                        : `employees with records on ${format(selectedDate, 'MMM d, yyyy')}`}
                                 </p>
                             </div>
                         </div>
@@ -225,6 +238,23 @@ export default function DailyAttendanceLogs() {
                                 Approved leave requests currently active today.
                             </p>
                         </div>
+                    </div>
+
+                    <Separator className="bg-border/70" />
+
+                    <div className="flex flex-col gap-3 rounded-2xl border border-brand-300/70 bg-background/55 px-4 py-3 text-xs text-muted-foreground shadow-sm backdrop-blur-md sm:flex-row sm:items-center sm:justify-between dark:border-white/10 dark:bg-white/[0.04] dark:shadow-none">
+                        <p>
+                            Viewing attendance summary for{' '}
+                            <span className="font-semibold text-foreground">
+                                {format(selectedDate, 'MMMM yyyy')}
+                            </span>
+                            .
+                        </p>
+                        <p>
+                            {isCurrentMonth
+                                ? 'Metrics refresh every 5 minutes for the current month.'
+                                : 'Historical month selected. Counts reflect the saved records for that period.'}
+                        </p>
                     </div>
                 </>
             )}

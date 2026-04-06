@@ -26,6 +26,29 @@ test('employee directory only returns users with employee role', function () {
             ->where('employees.1.role', User::ROLE_EMPLOYEE));
 });
 
+test('employee directory exposes the employee date hired field', function () {
+    Employee::query()->create([
+        'employee_id' => 'EMP-100',
+        'name' => 'Employee One',
+        'job_title' => 'Administrative Aide',
+        'employment_status' => 'regular',
+        'date_hired' => '2024-05-20',
+    ]);
+
+    User::factory()->create([
+        'name' => 'Employee One',
+        'employee_id' => 'EMP-100',
+    ]);
+
+    $hrUser = User::factory()->asHrPersonnel()->create();
+
+    $this->actingAs($hrUser)
+        ->get(route('admin.employee-directory'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/employee-directory')
+            ->where('employees.0.date_hired', '2024-05-20'));
+});
+
 test('document management only returns users with employee role', function () {
     Employee::query()->create([
         'employee_id' => 'EMP-002',

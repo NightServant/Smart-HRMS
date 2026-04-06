@@ -24,6 +24,10 @@ class Employee extends Model
         'employment_status',
         'supervisor_id',
         'manual_punch_enabled',
+        'manual_punch_reason',
+        'manual_punch_start_date',
+        'manual_punch_end_date',
+        'date_hired',
     ];
 
     /**
@@ -33,6 +37,7 @@ class Employee extends Model
     {
         return [
             'manual_punch_enabled' => 'boolean',
+            'date_hired' => 'date',
         ];
     }
 
@@ -66,6 +71,11 @@ class Employee extends Model
         return $this->hasOne(IpcrSubmission::class, 'employee_id', 'employee_id')
             ->whereNotNull('performance_rating')
             ->latestOfMany();
+    }
+
+    public function ipcrTargets(): HasMany
+    {
+        return $this->hasMany(IpcrTarget::class, 'employee_id', 'employee_id');
     }
 
     public function leaveRequests(): HasMany

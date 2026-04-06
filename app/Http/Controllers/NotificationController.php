@@ -78,6 +78,10 @@ class NotificationController extends Controller
                 : route('submit-evaluation');
         }
 
+        if ($notification->type === 'ipcr_target_window_opened') {
+            return route('ipcr.target');
+        }
+
         if ($notification->type === 'training_suggestion') {
             return route('dashboard');
         }
