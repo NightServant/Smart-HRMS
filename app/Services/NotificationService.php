@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\IpcrSubmission;
+use App\Models\IpcrTarget;
 use App\Models\Notification;
 use App\Models\User;
 
@@ -242,6 +243,90 @@ class NotificationService
                 $evaluatorUser->id, 'ipcr_re_evaluate', 'IPCR returned for re-evaluation',
                 "{$employeeName}'s IPCR was returned by {$returnSource}. Please re-evaluate and resubmit it.",
                 'ipcr', $submission->id, true,
+            );
+        }
+    }
+
+    public function notifyTargetSubmitted(IpcrTarget $target): void
+    {
+        $employeeName = $target->employee?->name ?? $target->employee_id;
+        $semesterLabel = $target->semester === 1 ? 'First Semester' : 'Second Semester';
+        $periodLabel = "{$semesterLabel} {$target->target_year}";
+
+        if ($target->evaluator_id) {
+            $evaluatorUser = User::query()->where('employee_id', $target->evaluator_id)->first();
+            if ($evaluatorUser) {
+                $this->create(
+                    $evaluatorUser->id,
+                    'ipcr_target_pending',
+                    'IPCR Target Awaiting Review',
+                    "{$employeeName} submitted their IPCR targets for {$periodLabel}. Please review and approve or return.",
+                    'ipcr_target',
+                    $target->id,
+                    false,
+                );
+            }
+        }
+    }
+
+    public function notifyTargetApproved(IpcrTarget $target): void
+    {
+        $employeeUser = User::query()->where('employee_id', $target->employee_id)->first();
+        $semesterLabel = $target->semester === 1 ? 'First Semester' : 'Second Semester';
+        $periodLabel = "{$semesterLabel} {$target->target_year}";
+
+        if ($employeeUser) {
+            $this->create(
+                $employeeUser->id,
+                'ipcr_target_approved',
+                'IPCR Target Approved',
+                "Your IPCR targets for {$periodLabel} have been approved by your supervisor and forwarded to HR for final recording.",
+                'ipcr_target',
+                $target->id,
+                false,
+            );
+        }
+
+        $hrMessage = ($target->employee?->name ?? $target->employee_id)."'s IPCR targets for {$periodLabel} were approved by the supervisor. Please record and finalize them.";
+        User::query()->where('role', User::ROLE_HR_PERSONNEL)->each(function (User $user) use ($hrMessage, $target): void {
+            $this->create($user->id, 'ipcr_target_approved', 'IPCR Target Approved — Awaiting HR Recording', $hrMessage, 'ipcr_target', $target->id, false);
+        });
+    }
+
+    public function notifyTargetRejected(IpcrTarget $target, string $remarks): void
+    {
+        $employeeUser = User::query()->where('employee_id', $target->employee_id)->first();
+        $semesterLabel = $target->semester === 1 ? 'First Semester' : 'Second Semester';
+        $periodLabel = "{$semesterLabel} {$target->target_year}";
+
+        if ($employeeUser) {
+            $this->create(
+                $employeeUser->id,
+                'ipcr_target_returned',
+                'IPCR Target Returned',
+                "Your IPCR targets for {$periodLabel} were returned by your supervisor for revision. Remarks: {$remarks}",
+                'ipcr_target',
+                $target->id,
+                true,
+            );
+        }
+    }
+
+    public function notifyTargetFinalized(IpcrTarget $target): void
+    {
+        $employeeUser = User::query()->where('employee_id', $target->employee_id)->first();
+        $semesterLabel = $target->semester === 1 ? 'First Semester' : 'Second Semester';
+        $periodLabel = "{$semesterLabel} {$target->target_year}";
+
+        if ($employeeUser) {
+            $this->create(
+                $employeeUser->id,
+                'ipcr_target_finalized',
+                'IPCR Target Finalized',
+                "Your IPCR targets for {$periodLabel} have been officially recorded by HR.",
+                'ipcr_target',
+                $target->id,
+                false,
             );
         }
     }

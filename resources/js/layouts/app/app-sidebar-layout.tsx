@@ -21,10 +21,8 @@ export default function AppSidebarLayout({
                     <div
                         className="flex min-h-svh w-full flex-col"
                         style={{
-                            ['--app-header-height' as string]:
-                                breadcrumbs.length > 1 ? '7.5rem' : '4.5rem',
-                            ['--sidebar-offset-top' as string]:
-                                breadcrumbs.length > 1 ? '7.5rem' : '4.5rem',
+                            ['--app-header-height' as string]: '4.5rem',
+                            ['--sidebar-offset-top' as string]: '4.5rem',
                         }}
                     >
                         <AppHeader breadcrumbs={breadcrumbs} />

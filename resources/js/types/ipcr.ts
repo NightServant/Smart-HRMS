@@ -73,6 +73,13 @@ export type IpcrTarget = {
     form_payload: IpcrFormPayload | null;
     status: 'draft' | 'submitted';
     submitted_at: string | null;
+    evaluator_id: string | null;
+    evaluator_decision: 'approved' | 'rejected' | null;
+    evaluator_remarks: string | null;
+    evaluator_reviewed_at: string | null;
+    hr_finalized: boolean;
+    employee: IpcrEmployee | null;
+    evaluator: IpcrEmployee | null;
 };
 
 export type IpcrTargetPeriod = {

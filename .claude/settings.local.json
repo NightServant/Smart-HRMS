@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/delos/Herd/Smart-HRMS/resources/js -type f \\\\\\(-name *ipcr* -o -name *IPCR* \\\\\\))",
+      "Bash(xargs grep:*)",
+      "Bash(php artisan:*)",
+      "Bash(command -v php)",
+      "Bash(/c/Users/delos/AppData/Roaming/herd/bin/php artisan:*)",
+      "Bash(\"/c/Users/delos/.config/herd/bin/php\" artisan:*)",
+      "Bash(/c/Users/delos/.config/herd/bin/php84/php.exe artisan:*)",
+      "Bash(/c/Users/delos/.config/herd/bin/php84/php.exe vendor/bin/pint --dirty --format agent)",
+      "Bash(npm run:*)",
+      "mcp__Claude_Preview__preview_start",
+      "WebFetch(domain:claude.ai)"
+    ]
+  }
+}

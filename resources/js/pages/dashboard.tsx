@@ -2,19 +2,12 @@ import { Head } from '@inertiajs/react';
 import EmployeeQuarterTrends from '@/components/employee-quarter-trends';
 import PageIntro from '@/components/page-intro';
 import PredictivePerformance from '@/components/predictive-performance-module';
-import TrainingRecommendations from '@/components/training-recos';
+import TrainingRecommendations, {
+    type Recommendation,
+} from '@/components/training-recos';
 import AppLayout from '@/layouts/app-layout';
 import { dashboard } from '@/routes';
 import type { BreadcrumbItem } from '@/types';
-
-type Recommendation = {
-    seminar_id: number;
-    description: string;
-    target_performance_area: string;
-    score: number;
-    priority: 'HIGH' | 'MEDIUM';
-    matched_area: string;
-};
 
 type WeakArea = {
     area: string;

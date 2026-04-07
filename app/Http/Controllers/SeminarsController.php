@@ -22,8 +22,8 @@ class SeminarsController extends Controller
     private function seminarPayload(): array
     {
         return Seminars::query()
-            ->orderBy('date')
-            ->orderBy('time')
+            ->orderBy('target_performance_area')
+            ->orderBy('rating_tier')
             ->get()
             ->map(fn (Seminars $seminar): array => [
                 'id' => $seminar->id,
@@ -33,8 +33,24 @@ class SeminarsController extends Controller
                 'time' => $seminar->time,
                 'speaker' => $seminar->speaker,
                 'target_performance_area' => $seminar->target_performance_area,
+                'rating_tier' => $seminar->rating_tier,
                 'date' => $seminar->date?->format('Y-m-d'),
             ])
+            ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function performanceAreasPayload(): array
+    {
+        return Seminars::query()
+            ->select('target_performance_area')
+            ->distinct()
+            ->orderBy('target_performance_area')
+            ->pluck('target_performance_area')
+            ->filter()
+            ->values()
             ->all();
     }
 
@@ -129,6 +145,7 @@ class SeminarsController extends Controller
     {
         return Inertia::render('admin/training-scheduling', [
             'seminars' => $this->seminarPayload(),
+            'performanceAreas' => $this->performanceAreasPayload(),
         ]);
     }
 
@@ -136,6 +153,7 @@ class SeminarsController extends Controller
     {
         return Inertia::render('admin/training-scheduling', [
             'seminars' => $this->seminarPayload(),
+            'performanceAreas' => $this->performanceAreasPayload(),
         ]);
     }
 

@@ -769,9 +769,6 @@ function EvaluatorOverview({
                                     <TableHead className="w-[18rem] min-w-[18rem]">
                                         Stage
                                     </TableHead>
-                                    <TableHead className="w-[14rem] min-w-[14rem]">
-                                        Target
-                                    </TableHead>
                                     <TableHead className="w-[14rem] min-w-[14rem] text-right">
                                         Action
                                     </TableHead>
@@ -820,35 +817,6 @@ function EvaluatorOverview({
                                                     {stageLabel(
                                                         employee.submissionStage,
                                                     )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex flex-col gap-2">
-                                                        <Badge variant="outline">
-                                                            {targetStatusLabel(
-                                                                employee.currentTargetStatus,
-                                                            )}
-                                                        </Badge>
-                                                        {employee.employeeId ? (
-                                                            <Button
-                                                                asChild
-                                                                type="button"
-                                                                size="sm"
-                                                                variant="outline"
-                                                                className="w-fit"
-                                                            >
-                                                                <Link
-                                                                    href={
-                                                                        reviewerTargetUrl(
-                                                                            employee.employeeId,
-                                                                            'evaluator',
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    Open Target
-                                                                </Link>
-                                                            </Button>
-                                                        ) : null}
-                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     {actionState.disabled ? (
@@ -1190,19 +1158,6 @@ function HrOverview({
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    disabled={
-                                        !currentTargetPeriod?.submissionOpen
-                                    }
-                                    onClick={() =>
-                                        router.post('/admin/ipcr/target-notify')
-                                    }
-                                >
-                                    <Megaphone className="size-4" />
-                                    Notify Employees to Set Targets
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
                                     onClick={() =>
                                         router.post(
                                             '/admin/training-suggestions/notify',
@@ -1213,13 +1168,6 @@ function HrOverview({
                                     Notify Training Discovery
                                 </Button>
                             </div>
-                            <p className="mt-3 text-sm text-muted-foreground">
-                                Target cycle:{' '}
-                                {currentTargetPeriod?.label ?? 'Not set'}.{' '}
-                                {currentTargetPeriod?.submissionOpen
-                                    ? `HR can notify employees during ${currentTargetPeriod.submissionWindowLabel}.`
-                                    : `Target notifications become available during ${currentTargetPeriod?.submissionWindowLabel ?? 'the active target window'}.`}
-                            </p>
                         </div>
 
                         <div className="glass-card overflow-x-auto rounded-md border border-border bg-card shadow-sm">

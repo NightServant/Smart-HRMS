@@ -19,6 +19,7 @@ class Seminars extends Model
         'time',
         'speaker',
         'target_performance_area',
+        'rating_tier',
         'date',
     ];
 

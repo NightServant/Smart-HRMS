@@ -209,6 +209,12 @@ Route::get('leave/{leaveRequest}/document/{type}', [LeaveRequestController::clas
 Route::get('evaluation-page', [IwrController::class, 'evaluationPage'])
     ->middleware(['auth', 'role:evaluator'])
     ->name('evaluation-page');
+Route::get('evaluator/ipcr-target', [IwrController::class, 'evaluatorIpcrTargetPage'])
+    ->middleware(['auth', 'role:evaluator'])
+    ->name('evaluator.ipcr-target');
+Route::post('ipcr/target/{target}/review', [IwrController::class, 'evaluatorReviewTarget'])
+    ->middleware(['auth', 'role:evaluator'])
+    ->name('ipcr.target.evaluator-review');
 Route::get('ipcr/target-review', [IwrController::class, 'reviewerTargetPage'])
     ->middleware(['auth', 'role:evaluator,hr-personnel,pmt'])
     ->name('ipcr.target.review');
@@ -217,6 +223,12 @@ Route::get('ipcr/target-review', [IwrController::class, 'reviewerTargetPage'])
 Route::get('admin/ipcr/hr-review', [IwrController::class, 'hrReviewPage'])
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.hr-review');
+Route::get('admin/ipcr/target-management', [IwrController::class, 'hrIpcrTargetPage'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.ipcr.target-management');
+Route::post('admin/ipcr/target-finalize/{target}', [IwrController::class, 'hrFinalizeTarget'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.ipcr.target-finalize');
 Route::post('ipcr/hr-review/{submission}', [IwrController::class, 'saveHrReview'])
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('ipcr.hr-review');

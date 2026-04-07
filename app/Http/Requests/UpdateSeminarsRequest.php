@@ -28,6 +28,7 @@ class UpdateSeminarsRequest extends FormRequest
             'time' => ['nullable', 'string', 'max:255'],
             'speaker' => ['nullable', 'string', 'max:255'],
             'target_performance_area' => ['required', 'string', 'max:255'],
+            'rating_tier' => ['nullable', 'string', 'in:1-2,3-4,5'],
             'date' => ['nullable', 'date'],
         ];
     }

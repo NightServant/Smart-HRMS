@@ -52,10 +52,6 @@ type PageProps = {
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
-        title: 'Performance Evaluation',
-        href: submitEvaluation().url,
-    },
-    {
         title: 'IPCR Target',
         href: ipcr.target().url,
     },
@@ -516,8 +512,27 @@ export default function IpcrTargetPage() {
                     </CardContent>
                 </Card>
 
-                {/* Form or Read-only view */}
-                {isSubmitted && existingTarget ? (
+                {/* Form or Read-only view — hidden when window is closed and no submission exists */}
+                {!isSubmitted && !hasDraft && !targetPeriod.submissionOpen ? (
+                    <Card className="glass-card border-border bg-card shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="text-xl">
+                                Target Window Closed
+                            </CardTitle>
+                            <CardDescription>
+                                The IPCR target submission window is currently
+                                closed. Your form will appear here once HR opens
+                                the target window for{' '}
+                                {semesterLabel(
+                                    targetPeriod.semester,
+                                    targetPeriod.year,
+                                )}
+                                . The window opens during{' '}
+                                {targetPeriod.submissionWindowLabel}.
+                            </CardDescription>
+                        </CardHeader>
+                    </Card>
+                ) : isSubmitted && existingTarget ? (
                     <Card
                         id="target-workspace"
                         className="glass-card border-border bg-card shadow-sm"

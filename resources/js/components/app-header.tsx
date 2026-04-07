@@ -1,6 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
 import { Clock } from 'lucide-react';
-import { Breadcrumbs } from '@/components/breadcrumbs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -66,13 +65,6 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                     </div>
                 </div>
             </div>
-            {breadcrumbs.length > 1 && (
-                <div className="app-chrome-card border-b border-sidebar-border/60">
-                    <div className="flex h-12 w-full items-center justify-start px-4 text-neutral-600 sm:px-6 md:px-8 dark:text-neutral-300">
-                        <Breadcrumbs breadcrumbs={breadcrumbs} />
-                    </div>
-                </div>
-            )}
         </div>
     );
 }

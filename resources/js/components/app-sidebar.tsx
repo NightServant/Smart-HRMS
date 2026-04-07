@@ -100,12 +100,12 @@ const evaluatorNavItems: NavItem[] = [
     },
     {
         title: 'Performance Evaluation',
-        href: documentManagement(),
+        href: '/evaluator/ipcr-target',
         icon: FileStack,
         children: [
             {
                 title: 'IPCR Target',
-                href: documentManagement(),
+                href: '/evaluator/ipcr-target',
                 icon: Target,
             },
             {
@@ -155,12 +155,12 @@ const hrPersonnelNavItems: NavItem[] = [
     },
     {
         title: 'Performance Evaluation',
-        href: admin.hrReview(),
+        href: '/admin/ipcr/target-management',
         icon: Send,
         children: [
             {
                 title: 'IPCR Target',
-                href: admin.hrReview(),
+                href: '/admin/ipcr/target-management',
                 icon: Target,
             },
             {
@@ -185,12 +185,12 @@ const hrPersonnelNavItems: NavItem[] = [
 const pmtNavItems: NavItem[] = [
     {
         title: 'Performance Evaluation',
-        href: admin.pmtReview(),
+        href: '/ipcr/target-review',
         icon: ClipboardCheck,
         children: [
             {
                 title: 'IPCR Target',
-                href: admin.pmtReview(),
+                href: '/ipcr/target-review',
                 icon: Target,
             },
             {

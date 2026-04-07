@@ -179,8 +179,9 @@ class IwrController extends Controller
         }
 
         $status = $action === 'submit' ? 'submitted' : 'draft';
+        $supervisorId = $employee->supervisor_id;
 
-        IpcrTarget::query()->updateOrCreate(
+        $target = IpcrTarget::query()->updateOrCreate(
             [
                 'employee_id' => $employee->employee_id,
                 'semester' => $semester,
@@ -190,11 +191,20 @@ class IwrController extends Controller
                 'form_payload' => $request->validated('form_payload'),
                 'status' => $status,
                 'submitted_at' => $action === 'submit' ? now() : null,
+                'evaluator_id' => $action === 'submit' ? $supervisorId : null,
+                'evaluator_decision' => null,
+                'evaluator_remarks' => null,
+                'evaluator_reviewed_at' => null,
+                'hr_finalized' => false,
             ],
         );
 
+        if ($action === 'submit') {
+            $this->notificationService->notifyTargetSubmitted($target->fresh(['employee']));
+        }
+
         $message = $action === 'submit'
-            ? 'IPCR targets submitted successfully.'
+            ? 'IPCR targets submitted successfully. Your supervisor has been notified to review your targets.'
             : 'IPCR targets saved as draft.';
 
         return back()->with('success', $message);
@@ -944,6 +954,28 @@ class IwrController extends Controller
 
     public function notifyIpcrTargetWindow(Request $request): RedirectResponse
     {
+        $request->validate([
+            'semester' => 'nullable|integer|in:1,2',
+            'year' => 'nullable|integer|min:2020|max:2099',
+        ]);
+
+        $semester = $request->input('semester');
+        $year = $request->input('year');
+
+        if ($semester && $year) {
+            // HR manually specified semester + year — open that window
+            $semesterLabel = $semester == 1 ? 'First Semester' : 'Second Semester';
+            $periodLabel = "{$semesterLabel} {$year}";
+
+            SystemSetting::set('ipcr_target_open', 'true', $request->user()->id);
+            SystemSetting::set('ipcr_target_semester', (string) $semester, $request->user()->id);
+            SystemSetting::set('ipcr_target_year', (string) $year, $request->user()->id);
+
+            $this->notifyTargetWindowOpened($periodLabel);
+
+            return back()->with('success', "Target submission window opened and employees were notified to set their {$periodLabel} IPCR targets.");
+        }
+
         $targetPeriod = $this->currentTargetSubmissionPeriod();
 
         if (! $targetPeriod['submissionOpen']) {
@@ -955,6 +987,136 @@ class IwrController extends Controller
         $this->notifyTargetWindowOpened($targetPeriod['label']);
 
         return back()->with('success', 'Employees were notified to set their '.$targetPeriod['label'].' IPCR targets.');
+    }
+
+    public function hrIpcrTargetPage(): Response
+    {
+        $currentTargetPeriod = $this->currentTargetSubmissionPeriod();
+
+        $submittedTargets = IpcrTarget::query()
+            ->where('status', 'submitted')
+            ->with(['employee', 'evaluator'])
+            ->latest()
+            ->get()
+            ->map(fn (IpcrTarget $target): array => $this->targetResource($target))
+            ->all();
+
+        $finalizedTargets = IpcrTarget::query()
+            ->where('hr_finalized', true)
+            ->with(['employee', 'evaluator'])
+            ->latest()
+            ->get()
+            ->map(fn (IpcrTarget $target): array => $this->targetResource($target))
+            ->all();
+
+        return Inertia::render('admin/ipcr-target-management', [
+            'currentTargetPeriod' => $currentTargetPeriod,
+            'submittedTargets' => $submittedTargets,
+            'finalizedTargets' => $finalizedTargets,
+            'stats' => [
+                'pending' => IpcrTarget::query()->where('status', 'submitted')->where('evaluator_decision', null)->count(),
+                'approvedByEvaluator' => IpcrTarget::query()->where('evaluator_decision', 'approved')->where('hr_finalized', false)->count(),
+                'rejected' => IpcrTarget::query()->where('evaluator_decision', 'rejected')->count(),
+                'finalized' => IpcrTarget::query()->where('hr_finalized', true)->count(),
+            ],
+        ]);
+    }
+
+    public function evaluatorIpcrTargetPage(Request $request): Response
+    {
+        $evaluatorEmployee = $request->user()->employee;
+        $targetPeriod = $this->currentTargetSubmissionPeriod();
+
+        // All employees supervised by this evaluator
+        $subordinates = $evaluatorEmployee
+            ? Employee::query()
+                ->where('supervisor_id', $evaluatorEmployee->employee_id)
+                ->with([
+                    'ipcrTargets' => fn ($q) => $q
+                        ->forPeriod($targetPeriod['semester'], $targetPeriod['year'])
+                        ->latest('id'),
+                ])
+                ->orderBy('name')
+                ->get()
+            : collect();
+
+        $employees = $subordinates->map(function (Employee $employee): array {
+            /** @var IpcrTarget|null $target */
+            $target = $employee->ipcrTargets->first();
+
+            return [
+                'employee_id' => $employee->employee_id,
+                'name' => $employee->name,
+                'job_title' => $employee->job_title,
+                'target' => $target ? $this->targetResource($target) : null,
+                'target_review_url' => "/ipcr/target-review?employee_id={$employee->employee_id}&source=evaluator",
+            ];
+        })->all();
+
+        return Inertia::render('evaluator-ipcr-target', [
+            'targetPeriod' => $targetPeriod,
+            'employees' => $employees,
+            'stats' => [
+                'total' => $subordinates->count(),
+                'notSet' => $subordinates->filter(fn ($e) => $e->ipcrTargets->isEmpty())->count(),
+                'pending' => $subordinates->filter(
+                    fn ($e) => $e->ipcrTargets->isNotEmpty()
+                        && $e->ipcrTargets->first()->status === 'submitted'
+                        && $e->ipcrTargets->first()->evaluator_decision === null
+                )->count(),
+                'approved' => $subordinates->filter(
+                    fn ($e) => $e->ipcrTargets->isNotEmpty()
+                        && $e->ipcrTargets->first()->evaluator_decision === 'approved'
+                )->count(),
+                'rejected' => $subordinates->filter(
+                    fn ($e) => $e->ipcrTargets->isNotEmpty()
+                        && $e->ipcrTargets->first()->evaluator_decision === 'rejected'
+                )->count(),
+            ],
+        ]);
+    }
+
+    public function evaluatorReviewTarget(Request $request, IpcrTarget $target): RedirectResponse
+    {
+        $request->validate([
+            'decision' => 'required|in:approved,rejected',
+            'remarks' => 'nullable|string|max:2000',
+        ]);
+
+        $evaluatorEmployee = $request->user()->employee;
+        abort_unless(
+            $evaluatorEmployee && $target->evaluator_id === $evaluatorEmployee->employee_id,
+            403,
+        );
+
+        $target->update([
+            'evaluator_decision' => $request->input('decision'),
+            'evaluator_remarks' => $request->input('remarks'),
+            'evaluator_reviewed_at' => now(),
+        ]);
+
+        if ($request->input('decision') === 'approved') {
+            // Notify the employee and HR that the target is approved
+            $this->notificationService->notifyTargetApproved($target);
+        } else {
+            // Notify the employee that the target was returned
+            $this->notificationService->notifyTargetRejected($target, $request->input('remarks') ?? '');
+        }
+
+        return back()->with('success', $request->input('decision') === 'approved'
+            ? 'IPCR target approved and employee notified.'
+            : 'IPCR target returned to employee.');
+    }
+
+    public function hrFinalizeTarget(Request $request, IpcrTarget $target): RedirectResponse
+    {
+        abort_unless($target->evaluator_decision === 'approved', 403);
+
+        $target->update(['hr_finalized' => true]);
+
+        $this->notificationService->notifyTargetFinalized($target);
+
+        return back()->with('success', 'IPCR target recorded as finalized.');
     }
 
     public function finalizeIpcr(FinalizeIpcrRequest $request, IpcrSubmission $submission): RedirectResponse
@@ -1239,6 +1401,17 @@ class IwrController extends Controller
             'form_payload' => $target->form_payload,
             'status' => $target->status,
             'submitted_at' => $target->submitted_at?->toIso8601String(),
+            'evaluator_id' => $target->evaluator_id,
+            'evaluator_decision' => $target->evaluator_decision,
+            'evaluator_remarks' => $target->evaluator_remarks,
+            'evaluator_reviewed_at' => $target->evaluator_reviewed_at?->toIso8601String(),
+            'hr_finalized' => $target->hr_finalized,
+            'employee' => $target->relationLoaded('employee') && $target->employee
+                ? $this->employeeResource($target->employee)
+                : null,
+            'evaluator' => $target->relationLoaded('evaluator') && $target->evaluator
+                ? $this->employeeResource($target->evaluator)
+                : null,
         ];
     }
 

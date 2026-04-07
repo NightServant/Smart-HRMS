@@ -15,6 +15,11 @@ class IpcrTarget extends Model
         'form_payload',
         'status',
         'submitted_at',
+        'evaluator_id',
+        'evaluator_decision',
+        'evaluator_remarks',
+        'evaluator_reviewed_at',
+        'hr_finalized',
     ];
 
     /**
@@ -27,12 +32,19 @@ class IpcrTarget extends Model
             'target_year' => 'integer',
             'form_payload' => 'array',
             'submitted_at' => 'datetime',
+            'evaluator_reviewed_at' => 'datetime',
+            'hr_finalized' => 'boolean',
         ];
     }
 
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'employee_id', 'employee_id');
+    }
+
+    public function evaluator(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'evaluator_id', 'employee_id');
     }
 
     /**
