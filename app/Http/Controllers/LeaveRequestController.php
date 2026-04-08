@@ -4,8 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreLeaveRequestRequest;
 use App\Models\LeaveRequest;
+use App\Models\Notification;
+use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,27 +26,7 @@ class LeaveRequestController extends Controller
             ->with(['employee:employee_id,job_title'])
             ->latest()
             ->get()
-            ->map(fn (LeaveRequest $lr): array => [
-                'id' => $lr->id,
-                'name' => $user->name,
-                'employeeId' => $lr->employee_id,
-                'jobTitle' => $lr->employee?->job_title,
-                'leaveType' => $lr->leave_type,
-                'startDate' => $lr->start_date?->format('Y-m-d') ?? '-',
-                'endDate' => $lr->end_date?->format('Y-m-d') ?? '-',
-                'daysRequested' => $lr->days_requested,
-                'leaveAccrual' => $lr->leaveAccrual(),
-                'reason' => $lr->reason,
-                'status' => $lr->status ?? 'pending',
-                'stage' => $lr->stage,
-                'dhDecision' => (int) $lr->dh_decision,
-                'hrDecision' => (int) $lr->hr_decision,
-                'rejectionReasonText' => $lr->rejection_reason_text,
-                'hasMedicalCertificate' => (bool) $lr->medical_certificate_path,
-                'hasMarriageCertificate' => (bool) $lr->marriage_certificate_path,
-                'hasSoloParentId' => (bool) $lr->solo_parent_id_path,
-                'createdAt' => $lr->created_at?->format('M d, Y g:i A'),
-            ])
+            ->map(fn (LeaveRequest $lr): array => $this->leaveRequestResource($lr, $user->name, true))
             ->toArray();
 
         [$vlCredits, $slCredits] = $this->computeLeaveCredits($user);
@@ -54,6 +38,24 @@ class LeaveRequestController extends Controller
             'leaveCreditsByType' => $this->leaveCreditsByType($vlCredits, $slCredits),
             'holidays' => $this->philippineHolidays(now()->year),
         ]);
+    }
+
+    public function printablePage(LeaveRequest $leaveRequest): HttpResponse
+    {
+        $user = request()->user();
+
+        abort_unless($leaveRequest->user_id === $user->id, 403);
+
+        $leaveRequest->loadMissing(['employee:employee_id,job_title']);
+
+        $pdf = Pdf::loadView('pdf.leave-request-print', [
+            'leaveRequest' => $this->leaveRequestResource($leaveRequest, $user->name, true),
+        ]);
+
+        return $pdf
+            ->setPaper('letter', 'portrait')
+            ->setWarnings(false)
+            ->stream('leave-request-print.pdf');
     }
 
     /**
@@ -79,6 +81,7 @@ class LeaveRequestController extends Controller
         $approvedLeaves = LeaveRequest::query()
             ->where('user_id', $user->id)
             ->where('status', 'completed')
+            ->where('dh_decision', 1)
             ->where('hr_decision', 1)
             ->get(['leave_type', 'days_requested']);
 
@@ -149,6 +152,126 @@ class LeaveRequestController extends Controller
                 'value' => 'solo-parent-leave',
                 'label' => 'Solo Parent Leave',
                 'creditDisplay' => '7 days',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function leaveRequestResource(
+        LeaveRequest $leaveRequest,
+        string $name,
+        bool $includeWorkflowSignOff = false,
+    ): array {
+        $resource = [
+            'id' => $leaveRequest->id,
+            'name' => $name,
+            'employeeId' => $leaveRequest->employee_id,
+            'department' => 'Administrative Office',
+            'jobTitle' => $leaveRequest->employee?->job_title,
+            'leaveType' => $leaveRequest->leave_type,
+            'startDate' => $leaveRequest->start_date?->format('Y-m-d') ?? '-',
+            'endDate' => $leaveRequest->end_date?->format('Y-m-d') ?? '-',
+            'daysRequested' => $leaveRequest->days_requested,
+            'leaveAccrual' => $leaveRequest->leaveAccrual(),
+            'reason' => $leaveRequest->reason,
+            'status' => $leaveRequest->resolvedStatus(),
+            'stage' => $leaveRequest->stage,
+            'dhDecision' => (int) $leaveRequest->dh_decision,
+            'hrDecision' => (int) $leaveRequest->hr_decision,
+            'rejectionReasonText' => $leaveRequest->rejection_reason_text,
+            'hasMedicalCertificate' => (bool) $leaveRequest->medical_certificate_path,
+            'hasMarriageCertificate' => (bool) $leaveRequest->marriage_certificate_path,
+            'hasSoloParentId' => (bool) $leaveRequest->solo_parent_id_path,
+            'supportingDocuments' => $this->leaveSupportingDocumentsResource($leaveRequest),
+            'createdAt' => $leaveRequest->created_at?->format('M d, Y g:i A'),
+        ];
+
+        if ($includeWorkflowSignOff) {
+            $resource['workflowSignOff'] = $this->leaveWorkflowSignOffResource($leaveRequest);
+        }
+
+        return $resource;
+    }
+
+    /**
+     * @return array{
+     *     evaluatorName: string|null,
+     *     evaluatorDate: string|null,
+     *     hrPersonnelName: string|null,
+     *     hrPersonnelDate: string|null,
+     *     pmtName: string|null,
+     *     pmtDate: string|null,
+     *     pmtNote: string|null
+     * }
+     */
+    private function leaveWorkflowSignOffResource(LeaveRequest $leaveRequest): array
+    {
+        $notifications = Notification::query()
+            ->with('user:id,name,role')
+            ->where('document_type', 'leave')
+            ->where('document_id', $leaveRequest->id)
+            ->oldest()
+            ->get();
+
+        $evaluatorNotification = $notifications->first(
+            fn (Notification $notification): bool => $notification->user?->role === User::ROLE_EVALUATOR,
+        );
+        $hrNotification = $notifications->first(
+            fn (Notification $notification): bool => $notification->user?->role === User::ROLE_HR_PERSONNEL,
+        );
+
+        return [
+            'evaluatorName' => $evaluatorNotification?->user?->name
+                ?? $this->resolveRoleHolderName(User::ROLE_EVALUATOR),
+            'evaluatorDate' => $evaluatorNotification?->created_at?->format('M d, Y g:i A'),
+            'hrPersonnelName' => $hrNotification?->user?->name
+                ?? $this->resolveRoleHolderName(User::ROLE_HR_PERSONNEL),
+            'hrPersonnelDate' => $hrNotification?->created_at?->format('M d, Y g:i A'),
+            'pmtName' => $this->resolveRoleHolderName(User::ROLE_PMT),
+            'pmtDate' => null,
+            'pmtNote' => null,
+        ];
+    }
+
+    private function resolveRoleHolderName(string $role): ?string
+    {
+        return User::query()
+            ->where('role', $role)
+            ->orderBy('name')
+            ->value('name');
+    }
+
+    /**
+     * @return list<array{label: string, type: string, available: bool, filename: string|null}>
+     */
+    private function leaveSupportingDocumentsResource(LeaveRequest $leaveRequest): array
+    {
+        return [
+            [
+                'label' => 'Medical Certificate',
+                'type' => 'medical_certificate',
+                'available' => (bool) $leaveRequest->medical_certificate_path,
+                'filename' => $leaveRequest->medical_certificate_path
+                    ? basename($leaveRequest->medical_certificate_path)
+                    : null,
+            ],
+            [
+                'label' => 'Marriage Certificate',
+                'type' => 'marriage_certificate',
+                'available' => (bool) $leaveRequest->marriage_certificate_path,
+                'filename' => $leaveRequest->marriage_certificate_path
+                    ? basename($leaveRequest->marriage_certificate_path)
+                    : null,
+            ],
+            [
+                'label' => 'Solo Parent ID',
+                'type' => 'solo_parent_id',
+                'available' => (bool) $leaveRequest->solo_parent_id_path,
+                'filename' => $leaveRequest->solo_parent_id_path
+                    ? basename($leaveRequest->solo_parent_id_path)
+                    : null,
             ],
         ];
     }
@@ -259,6 +382,8 @@ class LeaveRequestController extends Controller
 
     public function downloadDocument(LeaveRequest $leaveRequest, string $type): StreamedResponse
     {
+        abort_unless($this->canViewLeaveRequestDocument(request()->user(), $leaveRequest), 403);
+
         $pathMap = [
             'medical_certificate' => 'medical_certificate_path',
             'marriage_certificate' => 'marriage_certificate_path',
@@ -293,5 +418,12 @@ class LeaveRequestController extends Controller
         }
 
         return Storage::disk('public')->download($path);
+    }
+
+    private function canViewLeaveRequestDocument(User $user, LeaveRequest $leaveRequest): bool
+    {
+        return $user->id === $leaveRequest->user_id
+            || $user->hasRole('evaluator')
+            || $user->hasRole('hr-personnel');
     }
 }

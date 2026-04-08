@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { Calculator, CheckCircle2, Clock3, Database } from 'lucide-react';
+import { Calculator, CheckCircle2, Clock3, Database, Megaphone } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { finalizeIpcr } from '@/actions/App/Http/Controllers/IwrController';
@@ -75,6 +75,19 @@ export default function HrFinalize({
     const [selected, setSelected] = useState<IpcrSubmission | null>(null);
     const [finalRating, setFinalRating] = useState('');
     const [processing, setProcessing] = useState(false);
+    const [isNotifying, setIsNotifying] = useState(false);
+
+    function notifyEmployees(): void {
+        setIsNotifying(true);
+        router.post(
+            '/admin/training-suggestions/notify',
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setIsNotifying(false),
+            },
+        );
+    }
 
     useEffect(() => {
         if (selected) {
@@ -150,8 +163,17 @@ export default function HrFinalize({
                 </div>
 
                 <Card className="glass-card overflow-hidden border border-border bg-card shadow-sm">
-                    <CardHeader className="border-b border-border bg-card">
+                    <CardHeader className="flex flex-row items-center justify-between border-b border-border bg-card">
                         <CardTitle>Submissions Awaiting Finalization</CardTitle>
+                        <Button
+                            size="sm"
+                            onClick={notifyEmployees}
+                            disabled={isNotifying}
+                            className="gap-2"
+                        >
+                            <Megaphone className="size-4" />
+                            {isNotifying ? 'Sending...' : 'Notify Employees'}
+                        </Button>
                     </CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm">

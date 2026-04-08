@@ -22,11 +22,13 @@ import {
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import WorkflowSignOff from '@/components/workflow-sign-off';
 
 export type LeaveRequestDetail = {
     id: number;
     name: string;
     employeeId: string | null;
+    department: string | null;
     jobTitle: string | null;
     leaveType: string;
     startDate: string;
@@ -43,6 +45,15 @@ export type LeaveRequestDetail = {
     hasMarriageCertificate: boolean;
     hasSoloParentId: boolean;
     createdAt: string | null;
+    workflowSignOff?: {
+        evaluatorName: string | null;
+        evaluatorDate: string | null;
+        hrPersonnelName: string | null;
+        hrPersonnelDate: string | null;
+        pmtName: string | null;
+        pmtDate: string | null;
+        pmtNote: string | null;
+    };
 };
 
 export type ViewerRole = 'evaluator' | 'hr' | 'employee';
@@ -57,7 +68,7 @@ function formatLeaveType(type: string): string {
 }
 
 function formatLeaveAccrual(value: number | null): string {
-    return value != null ? `${value.toFixed(2)} days` : '—';
+    return value != null ? `${(value / 1.25).toFixed(2)} days` : '—';
 }
 
 function getStepStatus(leave: LeaveRequestDetail, step: number): StepStatus {
@@ -432,7 +443,11 @@ export function LeaveDetailDialog({
                                         <InfoRow icon={Send} label="Type" value={formatLeaveType(leave.leaveType)} />
                                         <InfoRow icon={Calendar} label="From" value={leave.startDate} />
                                         <InfoRow icon={Calendar} label="To" value={leave.endDate} />
-                                        <InfoRow icon={Clock} label="Days" value={formatLeaveAccrual(leave.leaveAccrual)} />
+                                        <InfoRow
+                                            icon={Clock}
+                                            label="Days of Leave"
+                                            value={formatLeaveAccrual(leave.leaveAccrual)}
+                                        />
                                     </div>
                                 </div>
 
@@ -443,6 +458,32 @@ export function LeaveDetailDialog({
                                     </p>
                                     <p className="text-sm leading-relaxed text-foreground">{leave.reason}</p>
                                 </div>
+
+                                {leave.workflowSignOff && (
+                                    <WorkflowSignOff
+                                        title="Workflow Sign-Off"
+                                        description="Names captured from the leave routing trail."
+                                        tone="dark"
+                                        slots={[
+                                            {
+                                                role: 'Evaluator',
+                                                name: leave.workflowSignOff.evaluatorName,
+                                                date: leave.workflowSignOff.evaluatorDate,
+                                            },
+                                            {
+                                                role: 'HR Personnel',
+                                                name: leave.workflowSignOff.hrPersonnelName,
+                                                date: leave.workflowSignOff.hrPersonnelDate,
+                                            },
+                                            {
+                                                role: 'PMT',
+                                                name: leave.workflowSignOff.pmtName ?? 'Not applicable',
+                                                date: leave.workflowSignOff.pmtDate,
+                                                note: leave.workflowSignOff.pmtNote ?? 'Leave requests do not route through PMT.',
+                                            },
+                                        ]}
+                                    />
+                                )}
 
                                 <Separator />
 
@@ -484,6 +525,26 @@ export function LeaveDetailDialog({
                         </div>
 
                         {/* ── Sticky Footer ── */}
+                        {role === 'employee' && leave && (
+                            <div className="border-t bg-background px-6 py-4">
+                                <div className="flex items-center justify-end gap-3">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => {
+                                            window.open(
+                                                `/leave-application/${leave.id}/print`,
+                                                '_blank',
+                                                'noopener,noreferrer',
+                                            );
+                                        }}
+                                    >
+                                        <Download className="mr-1.5 size-4" />
+                                        Print Leave Form
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                         {isActionable && (
                             <div className="border-t bg-background px-6 py-4">
                                 {actionState === 'idle' && (

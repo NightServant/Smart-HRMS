@@ -200,6 +200,37 @@ test('leave management filters records by leave type status and stage', function
             ->where('leaveRequests.0.leaveAccrual', fn ($value) => (float) $value === 2.0));
 });
 
+test('leave management normalizes rejected records as returned', function () {
+    $evaluatorUser = User::factory()->asEvaluator()->create();
+
+    $employee = User::factory()->create([
+        'name' => 'Returned Status Employee',
+        'email' => 'returned-status@example.com',
+    ]);
+
+    LeaveRequest::query()->create([
+        'user_id' => $employee->id,
+        'leave_type' => 'vacation-leave',
+        'start_date' => '2026-04-10',
+        'end_date' => '2026-04-12',
+        'reason' => 'Personal reasons.',
+        'status' => 'completed',
+        'stage' => 'completed',
+        'dh_decision' => 2,
+        'hr_decision' => 0,
+        'days_requested' => 3,
+        'has_rejection_reason' => 1,
+        'rejection_reason_text' => 'Please revise the dates.',
+    ]);
+
+    $this->actingAs($evaluatorUser)
+        ->get(route('admin.leave-management'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/leave-management')
+            ->where('leaveRequests.0.status', 'returned')
+            ->where('stats.returnedByDh', 1));
+});
+
 test('hr leave management filters records by leave type status and stage', function () {
     $hrUser = User::factory()->asHrPersonnel()->create();
 

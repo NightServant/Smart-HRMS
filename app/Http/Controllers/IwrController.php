@@ -25,11 +25,16 @@ use App\Services\IpcrFormTemplateService;
 use App\Services\IwrService;
 use App\Services\NotificationService;
 use App\Services\PpeService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class IwrController extends Controller
 {
@@ -103,7 +108,7 @@ class IwrController extends Controller
         ]);
     }
 
-    public function printableIpcrPage(Request $request): Response
+    public function printableIpcrPage(Request $request): HttpResponse
     {
         $employee = $request->user()->employee;
         abort_unless($employee, 404);
@@ -123,23 +128,67 @@ class IwrController extends Controller
         }
 
         $sourceSubmission = $selectedSubmission ?? $latestSubmission;
-        $workspaceUrl = $selectedSubmission
-            ? route('ipcr.form', ['submission_id' => $selectedSubmission->id])
-            : route('ipcr.form');
+        $printableSubmission = $sourceSubmission
+            ? $this->submissionResource($sourceSubmission)
+            : null;
 
-        return Inertia::render('ipcr-print', [
-            'submission' => $sourceSubmission ? $this->submissionResource($sourceSubmission) : null,
-            'printableFormPayload' => $sourceSubmission
-                ? $this->submissionResource($sourceSubmission)['form_payload']
-                : $this->ipcrFormTemplateService->draft($employee, $this->currentPeriod()['label']),
-            'workspaceUrl' => $workspaceUrl,
-            'sourceLabel' => $sourceSubmission
-                ? ($sourceSubmission->notification ?? 'Printable IPCR snapshot')
-                : 'Printable IPCR draft preview',
+        $pdf = Pdf::loadView('pdf.ipcr-print', [
+            'submission' => $printableSubmission,
+            'printableFormPayload' => $printableSubmission['form_payload']
+                ?? $this->ipcrFormTemplateService->draft($employee, $this->currentPeriod()['label']),
         ]);
+
+        return $pdf
+            ->setPaper('a4', 'landscape')
+            ->setWarnings(false)
+            ->stream('ipcr-print.pdf');
     }
 
     public function ipcrTargetPage(Request $request): Response
+    {
+        $employee = $request->user()->employee;
+        abort_unless($employee, 404);
+
+        $targetPeriod = $this->currentTargetSubmissionPeriod();
+        $selectedTarget = null;
+
+        $existingTarget = IpcrTarget::query()
+            ->where('employee_id', $employee->employee_id)
+            ->where('semester', $targetPeriod['semester'])
+            ->where('target_year', $targetPeriod['year'])
+            ->first();
+
+        if ($request->filled('target_id')) {
+            $selectedTarget = IpcrTarget::query()
+                ->where('employee_id', $employee->employee_id)
+                ->whereKey((int) $request->integer('target_id'))
+                ->first();
+        }
+
+        $targetHistory = IpcrTarget::query()
+            ->where('employee_id', $employee->employee_id)
+            ->where(function ($query) use ($targetPeriod): void {
+                $query
+                    ->where('semester', '!=', $targetPeriod['semester'])
+                    ->orWhere('target_year', '!=', $targetPeriod['year']);
+            })
+            ->orderByDesc('target_year')
+            ->orderByDesc('semester')
+            ->latest('id')
+            ->get()
+            ->map(fn (IpcrTarget $target): array => $this->targetResource($target))
+            ->all();
+
+        return Inertia::render('ipcr-target', [
+            'employee' => $this->employeeResource($employee),
+            'targetPeriod' => $targetPeriod,
+            'existingTarget' => $existingTarget ? $this->targetResource($existingTarget) : null,
+            'selectedTarget' => $selectedTarget ? $this->targetResource($selectedTarget) : null,
+            'targetHistory' => $targetHistory,
+        ]);
+    }
+
+    public function ipcrTargetFormPage(Request $request): Response
     {
         $employee = $request->user()->employee;
         abort_unless($employee, 404);
@@ -152,11 +201,11 @@ class IwrController extends Controller
             ->where('target_year', $targetPeriod['year'])
             ->first();
 
-        return Inertia::render('ipcr-target', [
+        return Inertia::render('ipcr-target-form', [
             'employee' => $this->employeeResource($employee),
             'targetPeriod' => $targetPeriod,
             'existingTarget' => $existingTarget ? $this->targetResource($existingTarget) : null,
-            'draftFormPayload' => $this->ipcrFormTemplateService->draft($employee, $targetPeriod['label']),
+            'draftFormPayload' => $this->ipcrFormTemplateService->targetDraft($employee, $targetPeriod['label']),
         ]);
     }
 
@@ -179,7 +228,6 @@ class IwrController extends Controller
         }
 
         $status = $action === 'submit' ? 'submitted' : 'draft';
-        $supervisorId = $employee->supervisor_id;
 
         $target = IpcrTarget::query()->updateOrCreate(
             [
@@ -191,7 +239,6 @@ class IwrController extends Controller
                 'form_payload' => $request->validated('form_payload'),
                 'status' => $status,
                 'submitted_at' => $action === 'submit' ? now() : null,
-                'evaluator_id' => $action === 'submit' ? $supervisorId : null,
                 'evaluator_decision' => null,
                 'evaluator_remarks' => null,
                 'evaluator_reviewed_at' => null,
@@ -200,14 +247,37 @@ class IwrController extends Controller
         );
 
         if ($action === 'submit') {
+            // Route the target submission through IWR — same pipeline as IPCR.
+            // This resolves the assigned evaluator (supervisor) and logs the decision.
+            $iwrResult = $this->iwrService->routeIpcrTarget([
+                'employee_id' => $employee->employee_id,
+                'semester' => $semester,
+                'target_year' => $targetYear,
+            ]);
+
+            $evaluatorId = $iwrResult['evaluator_id'] ?? $employee->supervisor_id;
+
+            $target->update([
+                'evaluator_id' => $evaluatorId,
+            ]);
+
+            $this->logAudit($employee->employee_id, 'ipcr_target', $target->id, $iwrResult);
+
+            if ($this->iwrFailed($iwrResult)) {
+                return back()->withErrors([
+                    'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+                ]);
+            }
+
             $this->notificationService->notifyTargetSubmitted($target->fresh(['employee']));
+
+            $message = $iwrResult['notification']
+                ?? 'IPCR targets submitted successfully. Your supervisor has been notified to review your targets.';
+
+            return back()->with('success', $message);
         }
 
-        $message = $action === 'submit'
-            ? 'IPCR targets submitted successfully. Your supervisor has been notified to review your targets.'
-            : 'IPCR targets saved as draft.';
-
-        return back()->with('success', $message);
+        return back()->with('success', 'IPCR targets saved as draft.');
     }
 
     public function evaluationPage(Request $request): Response
@@ -795,6 +865,33 @@ class IwrController extends Controller
         return to_route('submit-evaluation')->with('success', $iwrResult['notification'] ?? 'Appeal submitted.');
     }
 
+    public function downloadAppealEvidence(Request $request, IpcrAppeal $appeal, int $index): BinaryFileResponse|StreamedResponse
+    {
+        abort_unless($this->canViewAppealEvidence($request->user(), $appeal), 403);
+
+        $path = $appeal->evidence_files[$index] ?? null;
+
+        abort_unless(is_string($path) && $path !== '' && Storage::disk('local')->exists($path), 404);
+
+        if ($request->boolean('inline')) {
+            $fullPath = Storage::disk('local')->path($path);
+            $mimeType = mime_content_type($fullPath) ?: 'application/octet-stream';
+
+            return response()->stream(
+                function () use ($fullPath): void {
+                    readfile($fullPath);
+                },
+                200,
+                [
+                    'Content-Type' => $mimeType,
+                    'Content-Disposition' => 'inline; filename="'.basename($path).'"',
+                ],
+            );
+        }
+
+        return Storage::disk('local')->download($path, basename($path));
+    }
+
     public function pmtReviewPage(): Response
     {
         $submissions = IpcrSubmission::query()
@@ -936,20 +1033,20 @@ class IwrController extends Controller
     public function updateIpcrPeriod(UpdateIpcrPeriodRequest $request): RedirectResponse
     {
         $validated = $request->validated();
+        $isOpen = $validated['is_open'];
         $userId = $request->user()->id;
-        $wasOpen = SystemSetting::get('ipcr_period_open', false);
 
-        SystemSetting::set('ipcr_period_open', $validated['is_open'] ? 'true' : 'false', $userId);
+        SystemSetting::set('ipcr_period_open', $isOpen ? 'true' : 'false', $userId);
         SystemSetting::set('ipcr_period_label', $validated['label'], $userId);
         SystemSetting::set('ipcr_period_year', (string) $validated['year'], $userId);
 
-        if ($validated['is_open'] && ! $wasOpen) {
+        if ($isOpen) {
             $this->notifyEvaluationPeriodOpened($validated['label']);
         }
 
-        return back()->with('success', $validated['is_open']
-            ? 'The IPCR submission and evaluation period is now open.'
-            : 'The IPCR submission and evaluation period is now closed.');
+        return back()->with('success', $isOpen
+            ? 'The IPCR submission and evaluation period is now open and employees have been notified.'
+            : 'The IPCR evaluation period is now closed.');
     }
 
     public function notifyIpcrTargetWindow(Request $request): RedirectResponse
@@ -959,34 +1056,36 @@ class IwrController extends Controller
             'year' => 'nullable|integer|min:2020|max:2099',
         ]);
 
-        $semester = $request->input('semester');
-        $year = $request->input('year');
+        // Derive from calendar when HR does not supply explicit values.
+        $month = (int) now()->month;
+        $currentYear = (int) now()->year;
+        $defaultSemester = $month === 5 ? 2 : 1;
+        $defaultYear = $month === 5 ? $currentYear : $currentYear + 1;
 
-        if ($semester && $year) {
-            // HR manually specified semester + year — open that window
-            $semesterLabel = $semester == 1 ? 'First Semester' : 'Second Semester';
-            $periodLabel = "{$semesterLabel} {$year}";
+        $semester = $request->filled('semester')
+            ? (int) $request->input('semester')
+            : $defaultSemester;
+        $year = $request->filled('year')
+            ? (int) $request->input('year')
+            : $defaultYear;
 
-            SystemSetting::set('ipcr_target_open', 'true', $request->user()->id);
-            SystemSetting::set('ipcr_target_semester', (string) $semester, $request->user()->id);
-            SystemSetting::set('ipcr_target_year', (string) $year, $request->user()->id);
+        $semesterLabel = $semester === 1 ? 'First Semester' : 'Second Semester';
+        $periodLabel = "{$semesterLabel} {$year}";
 
-            $this->notifyTargetWindowOpened($periodLabel);
+        SystemSetting::set('ipcr_target_open', 'true', $request->user()->id);
+        SystemSetting::set('ipcr_target_semester', (string) $semester, $request->user()->id);
+        SystemSetting::set('ipcr_target_year', (string) $year, $request->user()->id);
 
-            return back()->with('success', "Target submission window opened and employees were notified to set their {$periodLabel} IPCR targets.");
-        }
+        $this->notifyTargetWindowOpened($periodLabel);
 
-        $targetPeriod = $this->currentTargetSubmissionPeriod();
+        return back()->with('success', "Target submission window opened and employees were notified to set their {$periodLabel} IPCR targets.");
+    }
 
-        if (! $targetPeriod['submissionOpen']) {
-            return back()->withErrors([
-                'target_notification' => 'Target notifications can only be sent during the '.$targetPeriod['submissionWindowLabel'].' target window.',
-            ]);
-        }
+    public function closeIpcrTargetWindow(Request $request): RedirectResponse
+    {
+        SystemSetting::set('ipcr_target_open', 'false', $request->user()->id);
 
-        $this->notifyTargetWindowOpened($targetPeriod['label']);
-
-        return back()->with('success', 'Employees were notified to set their '.$targetPeriod['label'].' IPCR targets.');
+        return back()->with('success', 'IPCR target submission window closed.');
     }
 
     public function hrIpcrTargetPage(): Response
@@ -1322,6 +1421,25 @@ class IwrController extends Controller
     }
 
     /**
+     * Determine the current IPCR target submission period.
+     *
+     * Resolution order:
+     *
+     *   1. If HR has explicitly force-opened a window (ipcr_target_open = 'true'),
+     *      the semester and year stored in system settings are authoritative.
+     *      This allows HR to open the window outside the normal November/May months,
+     *      or to re-open it after an accidental early close.
+     *
+     *   2. Otherwise the calendar heuristic applies:
+     *        November → Semester 1 for next year  (window open)
+     *        May      → Semester 2 for current year (window open)
+     *        All other months                       (window closed)
+     *
+     * Note: closeIpcrTargetWindow() sets ipcr_target_open = 'false', which
+     * the calendar heuristic still overrides in November/May.  This is
+     * intentional — the target windows are defined by the yearly cycle in the
+     * spec, and an explicit close only takes effect outside those months.
+     *
      * @return array{semester: 1|2, year: int, label: string, submissionOpen: bool, submissionWindowLabel: string}
      */
     private function currentTargetSubmissionPeriod(): array
@@ -1329,6 +1447,21 @@ class IwrController extends Controller
         $month = (int) now()->month;
         $year = (int) now()->year;
 
+        // Check if HR has force-opened a specific window.
+        $isExplicitlyOpen = (bool) SystemSetting::get('ipcr_target_open', false);
+
+        if ($isExplicitlyOpen) {
+            $semester = (int) SystemSetting::get('ipcr_target_semester', 1);
+            $targetYear = (int) SystemSetting::get('ipcr_target_year', $year);
+
+            /** @var 1|2 $semester */
+            $semester = in_array($semester, [1, 2], true) ? $semester : 1;
+            $windowLabel = $semester === 1 ? 'November '.($targetYear - 1) : 'May '.$targetYear;
+
+            return $this->targetPeriodPayload($semester, $targetYear, true, $windowLabel);
+        }
+
+        // Calendar heuristic — November and May auto-open as per the yearly cycle.
         if ($month === 11) {
             return $this->targetPeriodPayload(1, $year + 1, true, 'November '.$year);
         }
@@ -1549,6 +1682,14 @@ class IwrController extends Controller
     private function iwrFailed(array $result): bool
     {
         return ($result['status'] ?? null) === 'error';
+    }
+
+    private function canViewAppealEvidence(User $user, IpcrAppeal $appeal): bool
+    {
+        return $user->employee_id === $appeal->employee_id
+            || $user->hasRole(User::ROLE_EVALUATOR)
+            || $user->hasRole(User::ROLE_HR_PERSONNEL)
+            || $user->hasRole(User::ROLE_PMT);
     }
 
     private function notifyEvaluationPeriodOpened(string $periodLabel): void

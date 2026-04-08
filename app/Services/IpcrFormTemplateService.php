@@ -24,6 +24,38 @@ class IpcrFormTemplateService
     }
 
     /**
+     * Generate a blank draft for the IPCR target form.
+     *
+     * Unlike the regular IPCR submission draft, the target form uses the
+     * `accountable` field to capture the employee's planned accomplishment.
+     * The template pre-fills `accountable` with "Accountable Office" text
+     * (which is correct for the submission form), so this method clears those
+     * values so the employee starts with an empty target for each row.
+     *
+     * @return array<string, mixed>
+     */
+    public function targetDraft(?Employee $employee, string $periodLabel): array
+    {
+        $payload = $this->draft($employee, $periodLabel);
+
+        $payload['sections'] = collect($payload['sections'])
+            ->map(function (array $section): array {
+                $section['rows'] = collect($section['rows'])
+                    ->map(function (array $row): array {
+                        $row['accountable'] = '';
+
+                        return $row;
+                    })
+                    ->all();
+
+                return $section;
+            })
+            ->all();
+
+        return $payload;
+    }
+
+    /**
      * @param  array<string, mixed>|null  $payload
      * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>
@@ -272,6 +304,7 @@ class IpcrFormTemplateService
             ],
             'workflow_notes' => [
                 'employee_notes' => '',
+                'self_assessment_qeta' => '',
                 'evaluator_remarks' => '',
                 'hr_remarks' => '',
                 'pmt_remarks' => '',

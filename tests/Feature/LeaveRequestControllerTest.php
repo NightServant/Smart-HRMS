@@ -2,6 +2,7 @@
 
 use App\Models\Employee;
 use App\Models\LeaveRequest;
+use App\Models\Notification;
 use App\Models\User;
 use App\Services\IwrService;
 use Carbon\Carbon;
@@ -44,6 +45,238 @@ test('leave application page returns leave history data', function () {
             ->where('leaveHistory.0.stage', 'sent_to_department_head')
             ->where('leaveHistory.0.daysRequested', 2)
             ->where('leaveHistory.0.leaveAccrual', fn ($value) => (float) $value === 2.0));
+});
+
+test('employee can open the printable leave request page', function () {
+    Employee::query()->create([
+        'employee_id' => 'EMP-1101',
+        'name' => 'Printable Leave Employee',
+        'job_title' => 'Administrative Aide',
+    ]);
+
+    $employeeUser = User::factory()->create([
+        'employee_id' => 'EMP-1101',
+    ]);
+
+    $evaluatorEmployee = Employee::query()->create([
+        'employee_id' => 'EMP-1102',
+        'name' => 'Evaluator Person',
+        'job_title' => 'Department Head',
+    ]);
+
+    $evaluatorUser = User::factory()->asEvaluator()->create([
+        'employee_id' => $evaluatorEmployee->employee_id,
+        'name' => $evaluatorEmployee->name,
+    ]);
+
+    $hrEmployee = Employee::query()->create([
+        'employee_id' => 'EMP-1103',
+        'name' => 'HR Person',
+        'job_title' => 'HR Officer',
+    ]);
+
+    $hrUser = User::factory()->asHrPersonnel()->create([
+        'employee_id' => $hrEmployee->employee_id,
+        'name' => $hrEmployee->name,
+    ]);
+
+    User::factory()->asPmt()->create([
+        'name' => 'Mark Reyes',
+    ]);
+
+    $leaveRequest = LeaveRequest::query()->create([
+        'user_id' => $employeeUser->id,
+        'employee_id' => 'EMP-1101',
+        'leave_type' => 'vacation_leave',
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-03',
+        'days_requested' => 3,
+        'reason' => 'Family event.',
+        'status' => 'pending',
+        'stage' => 'draft',
+        'dh_decision' => 0,
+        'hr_decision' => 0,
+        'has_medical_certificate' => true,
+        'medical_certificate_path' => 'leave-request-documents/medical-cert.pdf',
+        'has_rejection_reason' => 0,
+    ]);
+
+    Notification::query()->create([
+        'user_id' => $evaluatorUser->id,
+        'type' => 'leave_pending_evaluation',
+        'title' => 'New Leave request awaiting your review',
+        'message' => 'Printable Leave Employee filed a leave request. Please review and take action.',
+        'document_type' => 'leave',
+        'document_id' => $leaveRequest->id,
+    ]);
+
+    Notification::query()->create([
+        'user_id' => $hrUser->id,
+        'type' => 'leave_pending_evaluation',
+        'title' => 'New Leave request awaiting your review',
+        'message' => 'Printable Leave Employee\'s leave request has been approved by the Department Head and forwarded to you for final processing.',
+        'document_type' => 'leave',
+        'document_id' => $leaveRequest->id,
+    ]);
+
+    $response = $this->actingAs($employeeUser)
+        ->get(route('leave-application.print', $leaveRequest));
+
+    $response->assertOk();
+    expect($response->baseResponse->headers->get('content-type'))->toContain('application/pdf');
+    expect($response->baseResponse->headers->get('content-disposition'))->toContain('inline');
+});
+
+test('employee leave records include workflow sign off names', function () {
+    Employee::query()->create([
+        'employee_id' => 'EMP-1105',
+        'name' => 'History Signoff Employee',
+        'job_title' => 'Administrative Aide',
+    ]);
+
+    $employeeUser = User::factory()->create([
+        'employee_id' => 'EMP-1105',
+    ]);
+
+    $evaluatorEmployee = Employee::query()->create([
+        'employee_id' => 'EMP-1106',
+        'name' => 'History Evaluator',
+        'job_title' => 'Department Head',
+    ]);
+
+    $evaluatorUser = User::factory()->asEvaluator()->create([
+        'employee_id' => $evaluatorEmployee->employee_id,
+        'name' => $evaluatorEmployee->name,
+    ]);
+
+    $hrEmployee = Employee::query()->create([
+        'employee_id' => 'EMP-1107',
+        'name' => 'History HR',
+        'job_title' => 'HR Officer',
+    ]);
+
+    $hrUser = User::factory()->asHrPersonnel()->create([
+        'employee_id' => $hrEmployee->employee_id,
+        'name' => $hrEmployee->name,
+    ]);
+
+    User::factory()->asPmt()->create([
+        'name' => 'Mark Reyes',
+    ]);
+
+    $leaveRequest = LeaveRequest::query()->create([
+        'user_id' => $employeeUser->id,
+        'employee_id' => 'EMP-1105',
+        'leave_type' => 'sick_leave',
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'days_requested' => 3,
+        'reason' => 'Medical consultation.',
+        'status' => 'completed',
+        'stage' => 'completed',
+        'dh_decision' => 1,
+        'hr_decision' => 1,
+        'has_rejection_reason' => 0,
+    ]);
+
+    Notification::query()->create([
+        'user_id' => $evaluatorUser->id,
+        'type' => 'leave_pending_evaluation',
+        'title' => 'New Leave request awaiting your review',
+        'message' => 'History Signoff Employee filed a leave request. Please review and take action.',
+        'document_type' => 'leave',
+        'document_id' => $leaveRequest->id,
+    ]);
+
+    Notification::query()->create([
+        'user_id' => $hrUser->id,
+        'type' => 'leave_pending_evaluation',
+        'title' => 'New Leave request awaiting your review',
+        'message' => 'History Signoff Employee\'s leave request has been approved by the Department Head and forwarded to you for final processing.',
+        'document_type' => 'leave',
+        'document_id' => $leaveRequest->id,
+    ]);
+
+    $this->actingAs($employeeUser)
+        ->get(route('leave-application'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('leave-application')
+            ->where('leaveHistory.0.workflowSignOff.evaluatorName', 'History Evaluator')
+            ->where('leaveHistory.0.workflowSignOff.hrPersonnelName', 'History HR')
+            ->where('leaveHistory.0.workflowSignOff.pmtName', 'Mark Reyes'));
+});
+
+test('employee leave history normalizes rejected leaves as returned', function () {
+    Employee::query()->create([
+        'employee_id' => 'EMP-1104',
+        'name' => 'Returned Leave Employee',
+        'job_title' => 'Administrative Aide',
+    ]);
+
+    $employeeUser = User::factory()->create([
+        'employee_id' => 'EMP-1104',
+    ]);
+
+    LeaveRequest::query()->create([
+        'user_id' => $employeeUser->id,
+        'employee_id' => 'EMP-1104',
+        'leave_type' => 'vacation_leave',
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'days_requested' => 3,
+        'reason' => 'Personal reasons.',
+        'status' => 'completed',
+        'stage' => 'completed',
+        'dh_decision' => 2,
+        'hr_decision' => 0,
+        'has_rejection_reason' => 1,
+        'rejection_reason_text' => 'Submitted too late.',
+    ]);
+
+    $this->actingAs($employeeUser)
+        ->get(route('leave-application'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('leave-application')
+            ->where('leaveHistory.0.status', 'returned')
+            ->where('leaveHistory.0.dhDecision', 2)
+            ->where('leaveHistory.0.rejectionReasonText', 'Submitted too late.'));
+});
+
+test('employee can view an attached leave document inline from the print page', function () {
+    Storage::fake('public');
+
+    Employee::query()->create([
+        'employee_id' => 'EMP-1102',
+        'name' => 'Document Leave Employee',
+        'job_title' => 'Administrative Aide',
+    ]);
+
+    $employeeUser = User::factory()->create([
+        'employee_id' => 'EMP-1102',
+    ]);
+
+    $leaveRequest = LeaveRequest::query()->create([
+        'user_id' => $employeeUser->id,
+        'employee_id' => 'EMP-1102',
+        'leave_type' => 'sick_leave',
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'days_requested' => 3,
+        'reason' => 'Medical consultation.',
+        'status' => 'completed',
+        'hr_decision' => 1,
+        'dh_decision' => 1,
+        'has_medical_certificate' => true,
+        'medical_certificate_path' => 'leave-request-documents/medical-cert.pdf',
+        'has_rejection_reason' => 0,
+    ]);
+
+    Storage::disk('public')->put('leave-request-documents/medical-cert.pdf', 'medical certificate');
+
+    $this->actingAs($employeeUser)
+        ->get(route('leave.document', [$leaveRequest, 'medical_certificate']).'?inline=1')
+        ->assertOk()
+        ->assertHeader('Content-Disposition', 'inline; filename="medical-cert.pdf"');
 });
 
 test('leave accrual reflects the actual approved leave days', function () {

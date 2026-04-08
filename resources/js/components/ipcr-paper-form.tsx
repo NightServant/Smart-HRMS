@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useMemo, useState } from 'react';
 import {
     ChevronLeft,
     ChevronRight,
     FileSpreadsheet,
     MessageSquareMore,
 } from 'lucide-react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,12 +19,13 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
+import WorkflowSignOff from '@/components/workflow-sign-off';
 import {
     cloneIpcrFormPayload,
     getAdjectivalRating,
     recalculateIpcrFormPayload,
 } from '@/lib/ipcr';
+import { cn } from '@/lib/utils';
 import type { IpcrFormPayload, IpcrFormRow, IpcrTarget } from '@/types/ipcr';
 
 type Mode = 'employee' | 'evaluator' | 'review';
@@ -62,7 +63,9 @@ export default function IpcrPaperForm({
     const [currentStep, setCurrentStep] = useState(0);
 
     useEffect(() => {
-        setCurrentStep(0);
+        queueMicrotask(() => {
+            setCurrentStep(0);
+        });
     }, [mode, value.template_version, value.metadata.period]);
 
     const sections = value.sections;
@@ -193,6 +196,12 @@ export default function IpcrPaperForm({
     function updateEmployeeNotes(nextValue: string): void {
         updatePayload((next) => {
             next.workflow_notes.employee_notes = nextValue;
+        });
+    }
+
+    function updateSelfAssessmentQeta(nextValue: string): void {
+        updatePayload((next) => {
+            next.workflow_notes.self_assessment_qeta = nextValue;
         });
     }
 
@@ -674,56 +683,104 @@ export default function IpcrPaperForm({
                 ))}
 
                 <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-                    <div className={sectionPanelClasses}>
-                        <div className="mb-3 flex items-center gap-2">
-                            <MessageSquareMore className="size-4 text-[#2F5E2B] dark:text-[#9AC68E]" />
-                            <h4 className="text-sm font-semibold text-foreground">
-                                Employee Remarks
-                            </h4>
+                    <div className="grid gap-4">
+                        <div className={sectionPanelClasses}>
+                            <div className="mb-3 flex items-center gap-2">
+                                <MessageSquareMore className="size-4 text-[#2F5E2B] dark:text-[#9AC68E]" />
+                                <h4 className="text-sm font-semibold text-foreground">
+                                    Employee Remarks
+                                </h4>
+                            </div>
+                            {mode === 'employee' ? (
+                                <Textarea
+                                    value={
+                                        value.workflow_notes.employee_notes ?? ''
+                                    }
+                                    onChange={(event) =>
+                                        updateEmployeeNotes(event.target.value)
+                                    }
+                                    placeholder="Add context, clarifications, or supporting notes for your submission."
+                                    className="min-h-28 resize-y border-border bg-background"
+                                />
+                            ) : (
+                                <p className="min-h-28 rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground">
+                                    {readOnlyValue(
+                                        value.workflow_notes.employee_notes,
+                                    )}
+                                </p>
+                            )}
                         </div>
-                        {mode === 'employee' ? (
-                            <Textarea
-                                value={
-                                    value.workflow_notes.employee_notes ?? ''
-                                }
-                                onChange={(event) =>
-                                    updateEmployeeNotes(event.target.value)
-                                }
-                                placeholder="Add context, clarifications, or supporting notes for your submission."
-                                className="min-h-28 resize-y border-border bg-background"
-                            />
-                        ) : (
-                            <p className="min-h-28 rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground">
-                                {readOnlyValue(
-                                    value.workflow_notes.employee_notes,
-                                )}
+
+                        <div className={sectionPanelClasses}>
+                            <div className="mb-3 flex items-center gap-2">
+                                <MessageSquareMore className="size-4 text-[#2F5E2B] dark:text-[#9AC68E]" />
+                                <h4 className="text-sm font-semibold text-foreground">
+                                    Self Assessment QETA
+                                </h4>
+                            </div>
+                            <p className="mb-3 text-xs leading-5 text-muted-foreground">
+                                Summarize your quality, efficiency, timeliness,
+                                and accountability before the reviewer enters
+                                ratings.
                             </p>
-                        )}
+                            {mode === 'employee' ? (
+                                <Textarea
+                                    value={
+                                        value.workflow_notes
+                                            .self_assessment_qeta ?? ''
+                                    }
+                                    onChange={(event) =>
+                                        updateSelfAssessmentQeta(
+                                            event.target.value,
+                                        )
+                                    }
+                                    placeholder="Write your self assessment for this evaluation period."
+                                    className="min-h-28 resize-y border-border bg-background"
+                                />
+                            ) : (
+                                <p className="min-h-28 rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+                                    {readOnlyValue(
+                                        value.workflow_notes.self_assessment_qeta,
+                                    )}
+                                </p>
+                            )}
+                        </div>
                     </div>
 
                     <div className="grid gap-4">
-                        <div className="glass-card rounded-[26px] border border-border bg-card p-4 shadow-sm">
-                            <Label className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                                Reviewed By
-                            </Label>
-                            <p className="mt-1 text-sm font-semibold text-foreground">
-                                {readOnlyValue(value.sign_off.reviewed_by_name)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                {readOnlyValue(value.sign_off.reviewed_by_date)}
-                            </p>
-                        </div>
-                        <div className="glass-card rounded-[26px] border border-border bg-card p-4 shadow-sm">
-                            <Label className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                                PMT Review
-                            </Label>
-                            <p className="mt-1 text-sm font-semibold text-foreground">
-                                {readOnlyValue(value.sign_off.pmt_chair_name)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                {readOnlyValue(value.sign_off.pmt_date)}
-                            </p>
-                        </div>
+                        {mode !== 'employee' && (
+                            <div className="glass-card rounded-[26px] border border-border bg-card p-4 shadow-sm">
+                                <Label className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                                    HR Remarks
+                                </Label>
+                                <p className="mt-2 min-h-24 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
+                                    {readOnlyValue(
+                                        value.workflow_notes.hr_remarks,
+                                    )}
+                                </p>
+                            </div>
+                        )}
+                        <WorkflowSignOff
+                            title="Workflow Sign-Off"
+                            description="Names of the evaluator, HR personnel, and PMT reviewer captured for the final IPCR record."
+                            slots={[
+                                {
+                                    role: 'Evaluator',
+                                    name: value.sign_off.reviewed_by_name,
+                                    date: value.sign_off.reviewed_by_date,
+                                },
+                                {
+                                    role: 'HR Personnel',
+                                    name: value.sign_off.final_rater_name,
+                                    date: value.sign_off.finalized_date,
+                                },
+                                {
+                                    role: 'PMT',
+                                    name: value.sign_off.pmt_chair_name,
+                                    date: value.sign_off.pmt_date,
+                                },
+                            ]}
+                        />
                         <div
                             className={cn(
                                 'rounded-[26px] border p-4 shadow-sm transition',

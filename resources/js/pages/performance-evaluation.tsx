@@ -1,13 +1,17 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
 import {
     CalendarClock,
+    Clock3,
+    Database,
+    FileCheck2,
     FileSpreadsheet,
     Filter,
-    Megaphone,
+    RotateCcw,
     Search,
     Send,
+    ShieldAlert,
 } from 'lucide-react';
+import { startTransition, useEffect, useMemo, useState } from 'react';
 import AppealCountdown from '@/components/appeal-countdown';
 import EscalationWarning from '@/components/escalation-warning';
 import IpcrPaperForm from '@/components/ipcr-paper-form';
@@ -32,19 +36,19 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import {
     Pagination,
     PaginationContent,
     PaginationItem,
     PaginationNext,
     PaginationPrevious,
 } from '@/components/ui/pagination';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
     Table,
     TableBody,
@@ -55,7 +59,11 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { getAdjectivalRating } from '@/lib/ipcr';
+import {
+    getAdjectivalRating,
+    getAppealEvidenceUrl,
+    getFileName,
+} from '@/lib/ipcr';
 import { cn } from '@/lib/utils';
 import { evaluationPage, submitEvaluation, documentManagement } from '@/routes';
 import * as admin from '@/routes/admin';
@@ -163,16 +171,27 @@ function statusLabel(status: string | null): string {
         : 'Draft';
 }
 
-function targetStatusLabel(status: 'draft' | 'submitted' | null): string {
-    if (status === 'submitted') {
-        return 'Submitted';
-    }
+const submissionSemesterOptions = [
+    {
+        value: '1',
+        label: 'January to June',
+    },
+    {
+        value: '2',
+        label: 'July to December',
+    },
+] as const;
 
-    if (status === 'draft') {
-        return 'Draft';
-    }
+function submissionSemesterFromLabel(label: string | null | undefined): '1' | '2' {
+    return label?.includes('July to December') ? '2' : '1';
+}
 
-    return 'Not Set';
+function submissionPeriodLabel(semester: '1' | '2', year: string): string {
+    const safeYear = year.trim() || String(new Date().getFullYear());
+
+    return semester === '2'
+        ? `July to December ${safeYear}`
+        : `January to June ${safeYear}`;
 }
 
 function reviewerTargetUrl(
@@ -309,6 +328,47 @@ function StatCard({
             <p className="mt-2 text-2xl font-semibold text-foreground">
                 {value}
             </p>
+        </div>
+    );
+}
+
+function HrStatCard({
+    label,
+    value,
+    icon: Icon,
+    tone,
+}: {
+    label: string;
+    value: number;
+    icon: React.ElementType;
+    tone: 'amber' | 'emerald' | 'red' | 'blue';
+}) {
+    const toneMap = {
+        amber: 'border-amber-500/20 bg-amber-500/10 text-amber-500 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-300',
+        emerald:
+            'border-emerald-500/20 bg-emerald-500/10 text-emerald-500 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300',
+        red: 'border-red-500/20 bg-red-500/10 text-red-500 dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-300',
+        blue: 'border-blue-500/20 bg-blue-500/10 text-blue-500 dark:border-blue-400/20 dark:bg-blue-400/10 dark:text-blue-300',
+    } as const;
+
+    return (
+        <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background/40 p-4 shadow-sm">
+            <div
+                className={cn(
+                    'flex size-11 shrink-0 items-center justify-center rounded-xl border',
+                    toneMap[tone],
+                )}
+            >
+                <Icon className="size-5" />
+            </div>
+            <div className="min-w-0">
+                <p className="text-2xl leading-none font-semibold text-foreground">
+                    {value}
+                </p>
+                <p className="mt-1 text-xs leading-4 text-muted-foreground">
+                    {label}
+                </p>
+            </div>
         </div>
     );
 }
@@ -540,9 +600,11 @@ function EvaluatorOverview({
     );
 
     useEffect(() => {
-        setSearch(evaluatorPanel?.search ?? '');
-        setStatusFilter(evaluatorPanel?.statusFilter ?? '');
-        setStageFilter(evaluatorPanel?.stageFilter ?? '');
+        startTransition(() => {
+            setSearch(evaluatorPanel?.search ?? '');
+            setStatusFilter(evaluatorPanel?.statusFilter ?? '');
+            setStageFilter(evaluatorPanel?.stageFilter ?? '');
+        });
     }, [
         evaluatorPanel?.search,
         evaluatorPanel?.stageFilter,
@@ -957,7 +1019,9 @@ function HrOverview({
         '',
     );
     const [hrRemarks, setHrRemarks] = useState('');
-    const [periodLabel, setPeriodLabel] = useState(currentPeriod?.label ?? '');
+    const [periodSemester, setPeriodSemester] = useState<'1' | '2'>(
+        submissionSemesterFromLabel(currentPeriod?.label),
+    );
     const [periodYear, setPeriodYear] = useState(
         String(currentPeriod?.year ?? new Date().getFullYear()),
     );
@@ -967,32 +1031,48 @@ function HrOverview({
     const [finalRating, setFinalRating] = useState('');
 
     useEffect(() => {
-        setView(hrPanel?.defaultView ?? 'review');
+        startTransition(() => {
+            setView(hrPanel?.defaultView ?? 'review');
+        });
     }, [hrPanel?.defaultView]);
 
     useEffect(() => {
-        setPeriodLabel(currentPeriod?.label ?? '');
-        setPeriodYear(String(currentPeriod?.year ?? new Date().getFullYear()));
-        setPeriodOpen(currentPeriod?.isOpen ?? false);
+        startTransition(() => {
+            setPeriodSemester(submissionSemesterFromLabel(currentPeriod?.label));
+            setPeriodYear(
+                String(currentPeriod?.year ?? new Date().getFullYear()),
+            );
+            setPeriodOpen(currentPeriod?.isOpen ?? false);
+        });
     }, [currentPeriod?.isOpen, currentPeriod?.label, currentPeriod?.year]);
 
     useEffect(() => {
         if (selectedReview) {
-            setHrDecision(
-                selectedReview.stage === 'sent_to_hr'
-                    ? ''
-                    : ((selectedReview.hr_decision as
-                          | 'approved'
-                          | 'rejected'
-                          | null) ?? ''),
-            );
-            setHrRemarks(selectedReview.hr_remarks ?? '');
+            startTransition(() => {
+                setHrDecision(
+                    selectedReview.stage === 'sent_to_hr'
+                        ? ''
+                        : ((selectedReview.hr_decision as
+                              | 'approved'
+                              | 'rejected'
+                              | null) ?? ''),
+                );
+                setHrRemarks(
+                    selectedReview.hr_remarks ??
+                        selectedReview.form_payload.workflow_notes.hr_remarks ??
+                        '',
+                );
+            });
         }
     }, [selectedReview]);
 
     useEffect(() => {
         if (selectedFinalize) {
-            setFinalRating(String(finalDisplayRating(selectedFinalize) ?? ''));
+            startTransition(() => {
+                setFinalRating(
+                    String(finalDisplayRating(selectedFinalize) ?? ''),
+                );
+            });
         }
     }, [selectedFinalize]);
 
@@ -1000,6 +1080,17 @@ function HrOverview({
         view === 'review'
             ? (hrPanel?.reviewQueue ?? [])
             : (hrPanel?.finalizationQueue ?? []);
+    const isReviewView = view === 'review';
+    const queueTitle = isReviewView
+        ? 'Submissions Awaiting HR Review'
+        : 'Submissions Awaiting HR Finalization';
+    const queueDescription = isReviewView
+        ? 'Review employee submissions approved by evaluators and record your HR decision before the appeal or finalization stages.'
+        : 'Finalize submissions that have already moved past PMT review and keep the record aligned with the saved IPCR snapshot.';
+    const queueButtonLabel = isReviewView ? 'Review' : 'Finalize';
+    const queueEmptyMessage = isReviewView
+        ? 'No submissions awaiting HR review.'
+        : 'No submissions awaiting finalization.';
 
     const adjectivalPreview = useMemo(() => {
         const numeric = Number(finalRating);
@@ -1008,281 +1099,349 @@ function HrOverview({
             ? 'Pending'
             : (getAdjectivalRating(numeric) ?? 'Pending');
     }, [finalRating]);
+    const currentYear = new Date().getFullYear();
+    const yearOptions = Array.from(
+        { length: 6 },
+        (_, index) => currentYear - 1 + index,
+    );
+    const periodActionLabel = periodOpen
+        ? 'Open & Notify Employees'
+        : 'Close Evaluation Period';
 
     return (
         <div className="space-y-6">
-            <Card className="glass-card border-border bg-card shadow-sm">
-                <CardHeader className="space-y-5">
+            <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
+                <CardHeader className="gap-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="space-y-2">
-                            <CardTitle className="text-2xl">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-[#2F5E2B]/20 bg-[#DDEFD7] px-3 py-1 text-xs font-semibold tracking-[0.22em] text-[#2F5E2B] uppercase shadow-sm dark:border-[#4A7C3C]/40 dark:bg-[#274827]/80 dark:text-[#EAF7E6]">
+                                <FileSpreadsheet className="size-3.5" />
                                 Performance Evaluation
+                            </div>
+                            <CardTitle className="text-2xl">
+                                HR IPCR Submissions
                             </CardTitle>
-                            <CardDescription>
-                                Combined HR review, finalization queue, and
-                                period controls for the IPCR workflow.
+                            <CardDescription className="max-w-3xl text-sm leading-6">
+                                Review employee submissions, keep the HR queue
+                                aligned with the active cycle, and finalize the
+                                IPCR process after PMT review.
+                            </CardDescription>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <Badge variant="outline">
+                                Period: {currentPeriod?.label ?? 'Not set'}
+                            </Badge>
+                            <Badge variant="outline">
+                                {periodOpen
+                                    ? 'Evaluation Period Open'
+                                    : 'Evaluation Period Closed'}
+                            </Badge>
+                            {currentTargetPeriod && (
+                                <Badge variant="outline">
+                                    Target Cycle: {currentTargetPeriod.label}
+                                </Badge>
+                            )}
+                            <Badge variant="outline">
+                                View:{' '}
+                                {isReviewView
+                                    ? 'IPCR Review'
+                                    : 'IPCR Finalization'}
+                            </Badge>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                        <HrStatCard
+                            label="Pending Review"
+                            value={hrPanel?.stats.pendingReview ?? 0}
+                            icon={Clock3}
+                            tone="amber"
+                        />
+                        <HrStatCard
+                            label="Pending Finalization"
+                            value={hrPanel?.stats.pendingFinalization ?? 0}
+                            icon={RotateCcw}
+                            tone="emerald"
+                        />
+                        <HrStatCard
+                            label="Queued on Page"
+                            value={reviewRows.length}
+                            icon={Database}
+                            tone="blue"
+                        />
+                        <HrStatCard
+                            label="Escalated"
+                            value={hrPanel?.stats.escalated ?? 0}
+                            icon={ShieldAlert}
+                            tone="red"
+                        />
+                    </div>
+                </CardHeader>
+            </Card>
+
+            <Card className="glass-card border-border bg-card shadow-sm">
+                <CardHeader className="gap-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                                <CalendarClock className="size-5 text-[#2F5E2B] dark:text-[#9AC68E]" />
+                                <CardTitle className="text-xl">
+                                    Evaluation Period Control
+                                </CardTitle>
+                            </div>
+                            <CardDescription className="max-w-4xl text-sm leading-6">
+                                Enable or pause employee submission and
+                                evaluator processing. Opening the period
+                                triggers notifications to employees and
+                                evaluators.
+                            </CardDescription>
+                        </div>
+                        <Badge variant="outline" className="w-fit">
+                            {periodOpen ? 'Period Open' : 'Period Closed'}
+                        </Badge>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                    <div className="grid gap-4 md:grid-cols-4 md:items-end">
+                        <div className="space-y-2">
+                            <Label>Semester</Label>
+                            <Select
+                                value={periodSemester}
+                                onValueChange={(value) =>
+                                    setPeriodSemester(value === '2' ? '2' : '1')
+                                }
+                            >
+                                <SelectTrigger className="border-border bg-background">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {submissionSemesterOptions.map((option) => (
+                                        <SelectItem
+                                            key={option.value}
+                                            value={option.value}
+                                        >
+                                            {option.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Year</Label>
+                            <Select
+                                value={periodYear}
+                                onValueChange={setPeriodYear}
+                            >
+                                <SelectTrigger className="border-border bg-background">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {yearOptions.map((year) => (
+                                        <SelectItem
+                                            key={year}
+                                            value={String(year)}
+                                        >
+                                            {year}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Period Status</Label>
+                            <Select
+                                value={periodOpen ? 'open' : 'closed'}
+                                onValueChange={(value) =>
+                                    setPeriodOpen(value === 'open')
+                                }
+                            >
+                                <SelectTrigger className="border-border bg-background">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="open">Open</SelectItem>
+                                    <SelectItem value="closed">
+                                        Closed
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex md:justify-end">
+                            <Button
+                                type="button"
+                                variant={periodOpen ? 'default' : 'outline'}
+                                className={cn(
+                                    'w-full gap-2 md:w-auto',
+                                    periodOpen
+                                        ? 'bg-[#8CC37C] text-[#10241b] hover:bg-[#7fb76e] dark:bg-[#9ac68e] dark:text-[#10241b] dark:hover:bg-[#8cbf7c]'
+                                        : 'border-border bg-background text-foreground hover:bg-muted',
+                                )}
+                                disabled={!periodYear.trim()}
+                                onClick={() => {
+                                    router.post('/admin/ipcr/period', {
+                                        label: submissionPeriodLabel(
+                                            periodSemester,
+                                            periodYear,
+                                        ),
+                                        year: Number(periodYear),
+                                        is_open: periodOpen,
+                                });
+                            }}
+                        >
+                            <Send className="size-4" />
+                            {periodActionLabel}
+                        </Button>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
+                <CardHeader className="border-b border-border bg-card">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <CardTitle className="text-lg">{queueTitle}</CardTitle>
+                            <CardDescription className="mt-1">
+                                {queueDescription}
                             </CardDescription>
                         </div>
                         <div className="flex gap-2">
                             <Button
                                 type="button"
-                                variant={
-                                    view === 'review' ? 'default' : 'outline'
-                                }
+                                variant={isReviewView ? 'default' : 'outline'}
+                                size="sm"
+                                className={cn(
+                                    isReviewView &&
+                                        'bg-[#8CC37C] text-[#10241b] hover:bg-[#7fb76e] dark:bg-[#9ac68e] dark:text-[#10241b] dark:hover:bg-[#8cbf7c]',
+                                )}
                                 onClick={() => setView('review')}
                             >
-                                IPCR Review
+                                <FileSpreadsheet className="size-4" />
+                                Review
                             </Button>
                             <Button
                                 type="button"
-                                variant={
-                                    view === 'finalization'
-                                        ? 'default'
-                                        : 'outline'
-                                }
+                                variant={isReviewView ? 'outline' : 'default'}
+                                size="sm"
+                                className={cn(
+                                    !isReviewView &&
+                                        'bg-[#8CC37C] text-[#10241b] hover:bg-[#7fb76e] dark:bg-[#9ac68e] dark:text-[#10241b] dark:hover:bg-[#8cbf7c]',
+                                )}
                                 onClick={() => setView('finalization')}
                             >
-                                IPCR Finalization
+                                <FileCheck2 className="size-4" />
+                                Finalized
                             </Button>
                         </div>
                     </div>
-
-                    <div className="grid gap-4 md:grid-cols-4">
-                        <StatCard
-                            label="Pending Review"
-                            value={hrPanel?.stats.pendingReview ?? 0}
-                        />
-                        <StatCard
-                            label="Pending Finalization"
-                            value={hrPanel?.stats.pendingFinalization ?? 0}
-                            tone="sky"
-                        />
-                        <StatCard
-                            label="Appeal Window Open"
-                            value={hrPanel?.stats.appealWindowOpen ?? 0}
-                            tone="amber"
-                        />
-                        <StatCard
-                            label="Escalated"
-                            value={hrPanel?.stats.escalated ?? 0}
-                            tone="emerald"
-                        />
-                    </div>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                    <div className="space-y-6">
-                        <div className="glass-card rounded-md border border-border bg-card p-5 shadow-sm">
-                            <div className="flex items-center gap-2">
-                                <CalendarClock className="size-5 text-[#2F5E2B] dark:text-[#9AC68E]" />
-                                <h3 className="text-lg font-semibold">
-                                    Evaluation Period Control
-                                </h3>
-                            </div>
-                            <p className="mt-2 text-sm text-muted-foreground">
-                                Enable or pause employee submission and
-                                evaluator processing. Opening the period
-                                triggers notifications to employees and
-                                evaluators.
-                            </p>
-                            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                                <div className="space-y-2">
-                                    <Label>Semester Label</Label>
-                                    <Input
-                                        value={periodLabel}
-                                        onChange={(event) =>
-                                            setPeriodLabel(event.target.value)
-                                        }
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Year</Label>
-                                    <Input
-                                        value={periodYear}
-                                        onChange={(event) =>
-                                            setPeriodYear(event.target.value)
-                                        }
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Period Status</Label>
-                                    <Select
-                                        value={periodOpen ? 'open' : 'closed'}
-                                        onValueChange={(value) =>
-                                            setPeriodOpen(value === 'open')
-                                        }
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className={tableHeaderClasses}>
+                                    <th>Employee</th>
+                                    <th>Status</th>
+                                    <th>Stage</th>
+                                    <th>Rating</th>
+                                    <th className="text-right">Target</th>
+                                    <th className="text-right">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {reviewRows.map((submission, index) => (
+                                    <tr
+                                        key={submission.id}
+                                        className={cn(
+                                            'text-sm font-semibold text-foreground',
+                                            stripedTableRows[index % 2],
+                                        )}
                                     >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="open">
-                                                Open
-                                            </SelectItem>
-                                            <SelectItem value="closed">
-                                                Closed
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm shadow-sm">
-                                    <p className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                                        Current State
-                                    </p>
-                                    <p className="mt-1 font-medium text-foreground">
-                                        {periodOpen
-                                            ? 'Enabled for submission and evaluation'
-                                            : 'Disabled by default until HR opens the period'}
-                                    </p>
-                                </div>
-                            </div>
-                            <div className="mt-4 flex flex-wrap gap-2">
-                                <Button
-                                    type="button"
-                                    disabled={
-                                        !periodLabel.trim() ||
-                                        !periodYear.trim()
-                                    }
-                                    onClick={() => {
-                                        router.post('/admin/ipcr/period', {
-                                            label: periodLabel.trim(),
-                                            year: Number(periodYear),
-                                            is_open: periodOpen,
-                                        });
-                                    }}
-                                >
-                                    <Send className="size-4" />
-                                    {periodOpen
-                                        ? 'Open Evaluation Period'
-                                        : 'Keep Evaluation Period Closed'}
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    onClick={() =>
-                                        router.post(
-                                            '/admin/training-suggestions/notify',
-                                        )
-                                    }
-                                >
-                                    <Megaphone className="size-4" />
-                                    Notify Training Discovery
-                                </Button>
-                            </div>
-                        </div>
-
-                        <div className="glass-card overflow-x-auto rounded-md border border-border bg-card shadow-sm">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className={tableHeaderClasses}>
-                                        <TableHead>Employee</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Stage</TableHead>
-                                        <TableHead>Rating</TableHead>
-                                        <TableHead className="text-right">
-                                            Target
-                                        </TableHead>
-                                        <TableHead className="text-right">
-                                            Action
-                                        </TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {reviewRows.map((submission, index) => (
-                                        <TableRow
-                                            key={submission.id}
-                                            className={cn(
-                                                'text-sm font-semibold text-foreground',
-                                                stripedTableRows[index % 2],
-                                            )}
-                                        >
-                                            <TableCell>
-                                                <div>
-                                                    <p className="font-medium">
-                                                        {submission.employee
-                                                            ?.name ??
-                                                            submission.employee_id}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {submission.employee
-                                                            ?.job_title ??
-                                                            'Administrative Office'}
-                                                    </p>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                {statusLabel(submission.status)}
-                                            </TableCell>
-                                            <TableCell>
-                                                {stageLabel(submission.stage)}
-                                            </TableCell>
-                                            <TableCell>
-                                                {finalDisplayRating(
-                                                    submission,
-                                                )?.toFixed(2) ?? 'Pending'}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Button
-                                                    asChild
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                >
-                                                    <Link
-                                                        href={reviewerTargetUrl(
-                                                            submission.employee_id,
-                                                            view === 'review'
-                                                                ? 'hr-review'
-                                                                : 'hr-finalize',
-                                                            submission.id,
-                                                        )}
-                                                    >
-                                                        Open Target
-                                                    </Link>
-                                                </Button>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        if (view === 'review') {
-                                                            setSelectedReview(
-                                                                submission,
-                                                            );
-                                                        } else {
-                                                            setSelectedFinalize(
-                                                                submission,
-                                                            );
-                                                        }
-                                                    }}
-                                                >
-                                                    {view === 'review'
-                                                        ? submission.stage ===
-                                                          'sent_to_hr'
-                                                            ? 'Review'
-                                                            : 'View Review'
-                                                        : submission.stage ===
-                                                            'sent_to_hr_finalize'
-                                                          ? 'Finalize'
-                                                          : 'View Finalization'}
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {reviewRows.length === 0 && (
-                                        <TableRow>
-                                            <TableCell
-                                                colSpan={6}
-                                                className="py-8 text-center text-sm text-muted-foreground"
+                                        <td className="px-4 py-3">
+                                            <div>
+                                                <p className="font-medium">
+                                                    {submission.employee?.name ??
+                                                        submission.employee_id}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {submission.employee
+                                                        ?.job_title ??
+                                                        'Administrative Office'}
+                                                </p>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {statusLabel(submission.status)}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {stageLabel(submission.stage)}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {finalDisplayRating(
+                                                submission,
+                                            )?.toFixed(2) ?? 'Pending'}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <Button
+                                                asChild
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
                                             >
-                                                No IPCR records available for
-                                                this view yet.
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
+                                                <Link
+                                                    href={reviewerTargetUrl(
+                                                        submission.employee_id,
+                                                        isReviewView
+                                                            ? 'hr-review'
+                                                            : 'hr-finalize',
+                                                        submission.id,
+                                                    )}
+                                                >
+                                                    Open Target
+                                                </Link>
+                                            </Button>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={() => {
+                                                    if (isReviewView) {
+                                                        setSelectedReview(
+                                                            submission,
+                                                        );
+                                                    } else {
+                                                        setSelectedFinalize(
+                                                            submission,
+                                                        );
+                                                    }
+                                                }}
+                                            >
+                                                {isReviewView
+                                                    ? submission.stage ===
+                                                      'sent_to_hr'
+                                                        ? queueButtonLabel
+                                                        : 'View Review'
+                                                    : submission.stage ===
+                                                        'sent_to_hr_finalize'
+                                                      ? queueButtonLabel
+                                                      : 'View Finalization'}
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {reviewRows.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={6}
+                                            className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                        >
+                                            {queueEmptyMessage}
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </CardContent>
             </Card>
@@ -1540,8 +1699,10 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
 
     useEffect(() => {
         if (selectedSubmission) {
-            setDecision('');
-            setRemarks(selectedSubmission.pmt_remarks ?? '');
+            startTransition(() => {
+                setDecision('');
+                setRemarks(selectedSubmission.pmt_remarks ?? '');
+            });
         }
     }, [selectedSubmission]);
 
@@ -1699,13 +1860,26 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                                         .length > 0 && (
                                         <div className="mt-3 flex flex-wrap gap-2">
                                             {selectedSubmission.appeal.evidence_files.map(
-                                                (file) => (
-                                                    <Badge
+                                                (file, index) => (
+                                                    <Button
                                                         key={file}
+                                                        asChild
+                                                        type="button"
+                                                        size="sm"
                                                         variant="outline"
                                                     >
-                                                        {file.split('/').pop()}
-                                                    </Badge>
+                                                        <a
+                                                            href={getAppealEvidenceUrl(
+                                                                selectedSubmission
+                                                                    .appeal.id,
+                                                                index,
+                                                            )}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                        >
+                                                            {getFileName(file)}
+                                                        </a>
+                                                    </Button>
                                                 ),
                                             )}
                                         </div>

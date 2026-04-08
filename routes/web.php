@@ -68,6 +68,9 @@ Route::get('ipcr/print', [IwrController::class, 'printableIpcrPage'])
 Route::get('ipcr/target', [IwrController::class, 'ipcrTargetPage'])
     ->middleware(['auth', 'role:employee'])
     ->name('ipcr.target');
+Route::get('ipcr/target/form', [IwrController::class, 'ipcrTargetFormPage'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('ipcr.target.form');
 Route::post('ipcr/target', [IwrController::class, 'saveIpcrTarget'])
     ->middleware(['auth', 'role:employee'])
     ->name('ipcr.target.save');
@@ -203,8 +206,11 @@ Route::post('leave/{leaveRequest}/reject', [IwrController::class, 'rejectLeave']
     ->middleware(['auth', 'role:evaluator,hr-personnel'])
     ->name('leave.reject');
 Route::get('leave/{leaveRequest}/document/{type}', [LeaveRequestController::class, 'downloadDocument'])
-    ->middleware(['auth', 'role:evaluator,hr-personnel'])
+    ->middleware(['auth'])
     ->name('leave.document');
+Route::get('leave-application/{leaveRequest}/print', [LeaveRequestController::class, 'printablePage'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('leave-application.print');
 
 Route::get('evaluation-page', [IwrController::class, 'evaluationPage'])
     ->middleware(['auth', 'role:evaluator'])
@@ -238,6 +244,9 @@ Route::post('admin/ipcr/period', [IwrController::class, 'updateIpcrPeriod'])
 Route::post('admin/ipcr/target-notify', [IwrController::class, 'notifyIpcrTargetWindow'])
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.ipcr.target.notify');
+Route::post('admin/ipcr/target-close', [IwrController::class, 'closeIpcrTargetWindow'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.ipcr.target.close');
 Route::get('ipcr/appeal/{submission}', [IwrController::class, 'appealPage'])
     ->middleware(['auth', 'role:employee'])
     ->name('ipcr.appeal');
@@ -247,6 +256,10 @@ Route::post('ipcr/appeal/{submission}', [IwrController::class, 'submitAppeal'])
 Route::post('ipcr/no-appeal/{submission}', [IwrController::class, 'submitNoAppeal'])
     ->middleware(['auth', 'role:employee'])
     ->name('ipcr.no-appeal');
+Route::get('ipcr/appeal/{appeal}/evidence/{index}', [IwrController::class, 'downloadAppealEvidence'])
+    ->whereNumber('index')
+    ->middleware(['auth'])
+    ->name('ipcr.appeal.evidence');
 Route::get('admin/ipcr/pmt-review', [IwrController::class, 'pmtReviewPage'])
     ->middleware(['auth', 'role:pmt'])
     ->name('admin.pmt-review');

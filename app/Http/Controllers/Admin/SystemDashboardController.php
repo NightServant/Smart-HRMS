@@ -38,8 +38,19 @@ class SystemDashboardController extends Controller
             'leave' => [
                 'total' => (clone $leaveRequests)->count(),
                 'routed' => (clone $leaveRequests)->where('status', 'routed')->count(),
-                'completed' => (clone $leaveRequests)->where('status', 'completed')->count(),
-                'returned' => (clone $leaveRequests)->where('status', 'returned')->count(),
+                'completed' => (clone $leaveRequests)
+                    ->where('status', 'completed')
+                    ->where('dh_decision', 1)
+                    ->where('hr_decision', 1)
+                    ->count(),
+                'returned' => (clone $leaveRequests)
+                    ->where(function ($query): void {
+                        $query
+                            ->where('status', 'returned')
+                            ->orWhere('dh_decision', 2)
+                            ->orWhere('hr_decision', 2);
+                    })
+                    ->count(),
                 'pendingReason' => (clone $leaveRequests)->where('stage', 'rejection_reason_pending')->count(),
             ],
             'ipcr' => [

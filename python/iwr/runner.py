@@ -30,6 +30,8 @@ def main():
 
         if action == "route_ipcr":
             result = router.route_ipcr(payload)
+        elif action == "route_ipcr_target":
+            result = router.route_ipcr_target(payload)
         elif action == "route_leave":
             # Convert start_date string to date object if present
             if "start_date" in payload and isinstance(payload["start_date"], str):

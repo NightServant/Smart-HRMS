@@ -406,7 +406,7 @@ class WorkflowRouter:
                     return {
                         **base,
                         "routing_action": "completed",
-                        "status":        "completed",
+                        "status":        "returned",
                         "stage":         "completed",
                         "approver_id":   None,
                         "approver_name": None,
@@ -550,7 +550,7 @@ class WorkflowRouter:
 
             return {
                 **base,
-                "status":        "completed",
+                "status":        "returned",
                 "stage":         "completed",
                 "approver_id":   None,
                 "approver_name": None,
@@ -574,6 +574,76 @@ class WorkflowRouter:
         result = self._route_ipcr(form)
         self._log_decision(result, "ipcr")
         return result
+
+    # =========================================================================
+    # ROUTE IPCR TARGET — mirrors route_ipcr for the target submission flow.
+    # Target submissions follow the same two-layer pipeline as IPCR submissions:
+    #   Layer 1 — Rule Engine: validate employee + evaluator assignment
+    #   Layer 2 — Decision Tree: always a fresh submission, so always routes
+    #             to the assigned evaluator (supervisor) on first submit.
+    # =========================================================================
+
+    def route_ipcr_target(self, form: dict) -> dict:
+        result = self._route_ipcr_target(form)
+        self._log_decision(result, "ipcr_target")
+        return result
+
+    def _route_ipcr_target(self, form: dict) -> dict:
+        """
+        Routes an IPCR target submission through the two-layer pipeline.
+
+        Parameters:
+            form (dict):
+                employee_id   (str)  — e.g. "EMP-007"
+                semester      (int)  — 1 or 2
+                target_year   (int)  — e.g. 2026
+
+        Returns:
+            dict — routing result equivalent to route_ipcr for a first submission:
+                status          "routed" | "returned"
+                stage           "sent_to_evaluator" | "compliance_check"
+                routing_action  "route_to_evaluator" | "correct_and_resubmit"
+                evaluator_id    assigned evaluator employee_id
+                notification    message to display / log
+        """
+        employee_id = form.get("employee_id")
+
+        # Reuse the IPCR compliance check — it validates employee existence
+        # and evaluator assignment, which are identical requirements for targets.
+        passed, reason, evaluator = self.rules.check_ipcr({
+            "employee_id":         employee_id,
+            "is_first_submission": True,
+            "performance_rating":  None,
+        })
+
+        if not passed:
+            return {
+                "status":       "returned",
+                "stage":        "compliance_check",
+                "employee_id":  employee_id,
+                "reason":       reason,
+                "action":       "correct_and_resubmit",
+                "notification": f"Target submission returned. Reason: {reason}",
+            }
+
+        employee = EMPLOYEES[employee_id]
+        semester_label = "First Semester" if int(form.get("semester", 1)) == 1 else "Second Semester"
+
+        return {
+            "status":          "routed",
+            "stage":           "sent_to_evaluator",
+            "employee_id":     employee_id,
+            "employee_name":   employee["name"],
+            "routing_action":  "route_to_evaluator",
+            "evaluator_id":    evaluator["employee_id"],
+            "evaluator_name":  evaluator["name"],
+            "evaluator_role":  evaluator["role"],
+            "confidence_pct":  100.0,
+            "notification": (
+                f"IPCR target for {employee['name']} ({semester_label} {form.get('target_year', '')}) "
+                f"has been sent to {evaluator['name']} ({evaluator['role']}) for review."
+            ),
+        }
 
     def route_leave(self, application: dict) -> dict:
         result = self._route_leave(application)

@@ -69,4 +69,13 @@ class LeaveRequest extends Model
 
         return round((float) $this->days_requested, 2);
     }
+
+    public function resolvedStatus(): string
+    {
+        if ($this->dh_decision === 2 || $this->hr_decision === 2) {
+            return 'returned';
+        }
+
+        return $this->status ?? 'pending';
+    }
 }

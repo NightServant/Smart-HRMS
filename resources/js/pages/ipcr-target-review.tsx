@@ -1,9 +1,15 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
 import IpcrTargetReadonly from '@/components/ipcr-target-readonly';
-import PageIntro from '@/components/page-intro';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
 import AppHeaderLayout from '@/layouts/app/app-header-layout';
 import type {
     IpcrEmployee,
@@ -56,28 +62,33 @@ export default function ReviewerIpcrTargetPage() {
         <AppHeaderLayout>
             <Head title="IPCR Target Reference" />
             <div className="app-page-shell app-page-stack animate-fade-in">
-                <PageIntro
-                    eyebrow={`${roleLabel(viewerRole)} · IPCR Target`}
-                    title={
-                        employee
-                            ? `${employee.name} Target Reference`
-                            : 'IPCR Target Reference'
-                    }
-                    description="Review the employee target on its own page, separate from the IPCR submission and evaluation workspace."
-                    actions={
-                        <Link
-                            href={backUrl}
-                            className="app-info-pill transition-colors duration-150 hover:border-[#7CAF73] hover:bg-[#E8F4E4] dark:hover:bg-[#274827]/80"
-                        >
-                            <ArrowLeft className="size-4" />
-                            {backLabel}
-                        </Link>
-                    }
-                />
-
                 <Card className="glass-card mx-auto w-full min-w-0 max-w-7xl overflow-hidden border border-border bg-card shadow-sm">
-                    <CardHeader className="gap-4 border-b border-border bg-card">
+                    <CardHeader className="gap-5">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="space-y-2">
+                                <CardTitle className="text-2xl">
+                                    {employee
+                                        ? `${employee.name} Target Reference`
+                                        : 'IPCR Target Reference'}
+                                </CardTitle>
+                                <CardDescription className="max-w-3xl text-sm leading-6">
+                                    Review the employee target on its own page,
+                                    separate from the IPCR submission and
+                                    evaluation workspace.
+                                </CardDescription>
+                            </div>
+                            <Button asChild variant="outline">
+                                <Link href={backUrl}>
+                                    <ArrowLeft className="size-4" />
+                                    {backLabel}
+                                </Link>
+                            </Button>
+                        </div>
+
                         <div className="flex flex-wrap gap-2">
+                            <Badge variant="outline">
+                                Viewer: {roleLabel(viewerRole)}
+                            </Badge>
                             <Badge variant="outline">
                                 Period: {targetPeriodLabel}
                             </Badge>
@@ -93,7 +104,47 @@ export default function ReviewerIpcrTargetPage() {
                             ) : null}
                         </div>
                     </CardHeader>
-                    <CardContent className="pt-6">
+                </Card>
+
+                <Card className="glass-card mx-auto w-full min-w-0 max-w-7xl overflow-hidden border border-border bg-card shadow-sm">
+                    <CardHeader className="border-b border-border bg-card">
+                        <CardTitle>Target Snapshot</CardTitle>
+                        <CardDescription>
+                            This target record stays separate from the
+                            submission review screen while keeping the same
+                            overall IPCR page pattern.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4 pt-6">
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                            <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-2.5">
+                                <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                    Employee
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {employee?.name ?? 'Unavailable'}
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-2.5">
+                                <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                    Target Status
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {targetStatusLabel(currentTarget)}
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-2.5 sm:col-span-2 xl:col-span-1">
+                                <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                    Submission Context
+                                </p>
+                                <p className="mt-1 font-medium text-foreground">
+                                    {submission
+                                        ? 'Opened from reviewer routing'
+                                        : 'Standalone target reference'}
+                                </p>
+                            </div>
+                        </div>
+
                         {currentTarget ? (
                             <IpcrTargetReadonly
                                 target={currentTarget}

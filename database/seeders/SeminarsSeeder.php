@@ -15,8 +15,10 @@ class SeminarsSeeder extends Seeder
      *   3-4  →  Proficiency enhancement   (improvement)
      *   5    →  Mastery / leadership      (maintenance)
      *
-     * Each seminar is linked to the exact IPCR row criterion text via
-     * target_performance_area so the ATRE content-based filter can match it.
+     * Each seminar row carries a generic description directing the employee
+     * to seek relevant training in the competency area. The title identifies
+     * the specific programme; target_performance_area stores the exact IPCR
+     * criterion text so the ATRE content-based filter can match it.
      */
     public function run(): void
     {
@@ -26,10 +28,12 @@ class SeminarsSeeder extends Seeder
 
         $now = now();
 
+        $description = 'We suggest you find relevant trainings or seminars related to this competency area.';
+
         $criteria = [
             // ── Section 1: Personnel Management ──────────────────────────────
             [
-                'area' => 'Coordinate employee records, plantilla movement, and office staffing requirements.',
+                'area' => 'Coordinate employee records, plantilla movement, and office staffing requirements',
                 'tiers' => [
                     '1-2' => [
                         'Basic Records Management',
@@ -49,7 +53,7 @@ class SeminarsSeeder extends Seeder
                 ],
             ],
             [
-                'area' => 'Facilitate compliance with office policies, attendance standards, and internal memos.',
+                'area' => 'Facilitate compliance with office policies, attendance standards, and internal memos',
                 'tiers' => [
                     '1-2' => [
                         'CSC Laws and Rules on Attendance and Leave',
@@ -69,7 +73,7 @@ class SeminarsSeeder extends Seeder
                 ],
             ],
             [
-                'area' => 'Coordinate capability-building plans, mentoring, and performance follow-through for office personnel.',
+                'area' => 'Coordinate capability-building plans, mentoring, and performance follow-through',
                 'tiers' => [
                     '1-2' => [
                         'SPMS Orientation and Individual Development Planning',
@@ -88,9 +92,10 @@ class SeminarsSeeder extends Seeder
                     ],
                 ],
             ],
+
             // ── Section 2: Records and Communication ─────────────────────────
             [
-                'area' => 'Receive, log, route, and archive incoming and outgoing administrative documents.',
+                'area' => 'Receive, log, route, and archive incoming and outgoing administrative documents',
                 'tiers' => [
                     '1-2' => [
                         'Basic Records and Document Management',
@@ -110,7 +115,7 @@ class SeminarsSeeder extends Seeder
                 ],
             ],
             [
-                'area' => 'Prepare routine administrative reports, minutes, and office communications.',
+                'area' => 'Prepare routine administrative reports, minutes, and office communications',
                 'tiers' => [
                     '1-2' => [
                         'Effective Business Writing for Government Offices',
@@ -130,7 +135,7 @@ class SeminarsSeeder extends Seeder
                 ],
             ],
             [
-                'area' => 'Coordinate official correspondence with employees, supervisors, and partner offices.',
+                'area' => 'Coordinate official correspondence with employees, supervisors, and partner offices',
                 'tiers' => [
                     '1-2' => [
                         'Professional Communication Etiquette',
@@ -149,9 +154,10 @@ class SeminarsSeeder extends Seeder
                     ],
                 ],
             ],
+
             // ── Section 3: Logistics and Procurement ─────────────────────────
             [
-                'area' => 'Monitor office supplies, equipment requests, and inventory availability for administrative operations.',
+                'area' => 'Monitor office supplies, equipment requests, and inventory availability',
                 'tiers' => [
                     '1-2' => [
                         'Basic Supply and Property Custodianship',
@@ -171,7 +177,7 @@ class SeminarsSeeder extends Seeder
                 ],
             ],
             [
-                'area' => 'Prepare purchase requests, canvass summaries, and logistics endorsements for office needs.',
+                'area' => 'Prepare purchase requests, canvass summaries, and logistics endorsements',
                 'tiers' => [
                     '1-2' => [
                         'RA 9184 and its IRR (Government Procurement Law) Overview',
@@ -191,7 +197,7 @@ class SeminarsSeeder extends Seeder
                 ],
             ],
             [
-                'area' => 'Coordinate workspace readiness, equipment upkeep, and logistics support for meetings or office activities.',
+                'area' => 'Coordinate workspace readiness, equipment upkeep, and logistics support for meetings',
                 'tiers' => [
                     '1-2' => [
                         'Event and Meeting Logistics Coordination',
@@ -210,14 +216,15 @@ class SeminarsSeeder extends Seeder
                     ],
                 ],
             ],
+
             // ── Section 4: Service Delivery ───────────────────────────────────
             [
-                'area' => 'Provide prompt frontline administrative assistance for employee and office transactions.',
+                'area' => 'Provide prompt frontline administrative assistance for employee and office transactions',
                 'tiers' => [
                     '1-2' => [
                         'Frontline Services and Citizens Charter Compliance',
                         'Public Service Values and Work Ethics',
-                        'Handling Walk-in Clients and Managing Queues',
+                        'Handling Walk-In Clients and Managing Queues',
                     ],
                     '3-4' => [
                         'Customer Service Excellence in Government',
@@ -232,7 +239,7 @@ class SeminarsSeeder extends Seeder
                 ],
             ],
             [
-                'area' => 'Recommend and implement process improvements that reduce administrative delays or repeat issues.',
+                'area' => 'Recommend and implement process improvements that reduce administrative delays',
                 'tiers' => [
                     '1-2' => [
                         'Introduction to Business Process Improvement',
@@ -252,7 +259,7 @@ class SeminarsSeeder extends Seeder
                 ],
             ],
             [
-                'area' => 'Support cross-functional office activities, special assignments, and semester-end evaluation requirements.',
+                'area' => 'Support cross-functional activities, special assignments, and semester-end evaluation requirements',
                 'tiers' => [
                     '1-2' => [
                         'Teamwork and Collaboration in the Workplace',
@@ -280,7 +287,7 @@ class SeminarsSeeder extends Seeder
                 foreach ($titles as $title) {
                     $rows[] = [
                         'title' => $title,
-                        'description' => "Find a seminar or training related to {$title}.",
+                        'description' => $description,
                         'location' => null,
                         'time' => null,
                         'speaker' => null,

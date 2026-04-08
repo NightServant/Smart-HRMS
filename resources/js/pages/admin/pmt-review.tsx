@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { getFileName } from '@/lib/ipcr';
+import { getAppealEvidenceUrl, getFileName } from '@/lib/ipcr';
 import * as admin from '@/routes/admin';
 import type { BreadcrumbItem, IpcrSubmission } from '@/types';
 
@@ -317,13 +317,27 @@ export default function PmtReview({
                                             </p>
                                             <div className="mt-3 flex flex-wrap gap-2">
                                                 {selected.appeal.evidence_files.map(
-                                                    (path) => (
-                                                        <Badge
+                                                    (path, index) => (
+                                                        <Button
                                                             key={path}
+                                                            asChild
+                                                            size="sm"
                                                             variant="outline"
                                                         >
-                                                            {getFileName(path)}
-                                                        </Badge>
+                                                            <a
+                                                                href={getAppealEvidenceUrl(
+                                                                    selected.appeal
+                                                                        .id,
+                                                                    index,
+                                                                )}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                            >
+                                                                {getFileName(
+                                                                    path,
+                                                                )}
+                                                            </a>
+                                                        </Button>
                                                     ),
                                                 )}
                                             </div>

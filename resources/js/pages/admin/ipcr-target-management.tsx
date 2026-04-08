@@ -37,14 +37,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
@@ -192,6 +184,8 @@ export default function IpcrTargetManagement() {
         );
     }
 
+    const [closing, setClosing] = useState(false);
+
     function handleOpenAndNotify(): void {
         setNotifying(true);
         router.post(
@@ -204,51 +198,130 @@ export default function IpcrTargetManagement() {
         );
     }
 
+    function handleCloseWindow(): void {
+        setClosing(true);
+        router.post(
+            '/admin/ipcr/target-close',
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setClosing(false),
+            },
+        );
+    }
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="IPCR Target Management" />
             <div className="app-page-shell app-page-stack pb-10">
-                {/* Stats */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <StatCard
-                        label="Pending Evaluator Review"
-                        value={stats.pending}
-                        icon={Clock3}
-                        color="amber"
-                    />
-                    <StatCard
-                        label="Approved by Evaluator"
-                        value={stats.approvedByEvaluator}
-                        icon={CheckCircle2}
-                        color="emerald"
-                    />
-                    <StatCard
-                        label="Returned to Employee"
-                        value={stats.rejected}
-                        icon={XCircle}
-                        color="red"
-                    />
-                    <StatCard
-                        label="Finalized by HR"
-                        value={stats.finalized}
-                        icon={FileCheck2}
-                        color="blue"
-                    />
-                </div>
+                <Card className="glass-card border-border bg-card shadow-sm">
+                    <CardHeader className="space-y-5">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="space-y-2">
+                                <CardTitle className="text-2xl">
+                                    HR IPCR Targets
+                                </CardTitle>
+                                <CardDescription className="max-w-3xl text-sm leading-6">
+                                    Manage target submission windows, review the
+                                    evaluator-approved targets, and keep the
+                                    target workflow visually aligned with the
+                                    HR submission queue.
+                                </CardDescription>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <Badge variant="outline">
+                                    Period: {currentTargetPeriod.label}
+                                </Badge>
+                                <Badge variant="outline">
+                                    {currentTargetPeriod.submissionOpen
+                                        ? 'Target Cycle Open'
+                                        : 'Target Cycle Closed'}
+                                </Badge>
+                                <Badge variant="outline">
+                                    View:{' '}
+                                    {view === 'submitted'
+                                        ? 'Submitted Targets'
+                                        : 'Finalized Targets'}
+                                </Badge>
+                            </div>
+                        </div>
 
-                {/* Opening Component */}
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            <StatCard
+                                label="Pending Evaluator Review"
+                                value={stats.pending}
+                                icon={Clock3}
+                                color="amber"
+                            />
+                            <StatCard
+                                label="Approved by Evaluator"
+                                value={stats.approvedByEvaluator}
+                                icon={CheckCircle2}
+                                color="emerald"
+                            />
+                            <StatCard
+                                label="Returned to Employee"
+                                value={stats.rejected}
+                                icon={XCircle}
+                                color="red"
+                            />
+                            <StatCard
+                                label="Finalized by HR"
+                                value={stats.finalized}
+                                icon={FileCheck2}
+                                color="blue"
+                            />
+                        </div>
+                    </CardHeader>
+                </Card>
+
                 <Card className="glass-card border-border bg-card shadow-sm">
                     <CardHeader>
-                        <div className="flex items-center gap-2">
-                            <Megaphone className="size-5 text-[#2F5E2B] dark:text-[#9AC68E]" />
-                            <CardTitle className="text-lg">
-                                Target Submission Opening
-                            </CardTitle>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="flex items-center gap-2">
+                                <Megaphone className="size-5 text-[#2F5E2B] dark:text-[#9AC68E]" />
+                                <CardTitle className="text-lg">
+                                    Target Submission Window
+                                </CardTitle>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                {currentTargetPeriod.submissionOpen ? (
+                                    <>
+                                        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                            Window Open — {currentTargetPeriod.label}
+                                        </Badge>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={closing}
+                                            onClick={handleCloseWindow}
+                                        >
+                                            {closing ? (
+                                                <>
+                                                    <RotateCcw className="size-4 animate-spin" />
+                                                    Closing…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <XCircle className="size-4" />
+                                                    Close Window
+                                                </>
+                                            )}
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Badge variant="outline">
+                                        Window Closed
+                                    </Badge>
+                                )}
+                            </div>
                         </div>
                         <CardDescription>
                             Select the semester and year, then open the target
                             submission window and notify all employees to submit
-                            their IPCR targets.
+                            their IPCR targets. Close the window when the
+                            submission period has ended.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">

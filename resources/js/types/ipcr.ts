@@ -37,6 +37,7 @@ export type IpcrFormPayload = {
     sections: IpcrFormSection[];
     workflow_notes: {
         employee_notes?: string;
+        self_assessment_qeta?: string;
         evaluator_remarks?: string;
         hr_remarks?: string;
         pmt_remarks?: string;

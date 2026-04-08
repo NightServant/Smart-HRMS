@@ -190,58 +190,88 @@ export default function EvaluatorIpcrTarget() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="IPCR Target" />
             <div className="app-page-shell app-page-stack pb-10">
-                {/* Stats */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                    <StatCard
-                        label="Total Employees"
-                        value={stats.total}
-                        icon={Users}
-                        color="default"
-                    />
-                    <StatCard
-                        label="Not Set"
-                        value={stats.notSet}
-                        icon={Target}
-                        color="default"
-                    />
-                    <StatCard
-                        label="Pending Your Review"
-                        value={stats.pending}
-                        icon={Clock3}
-                        color="amber"
-                    />
-                    <StatCard
-                        label="Approved"
-                        value={stats.approved}
-                        icon={CheckCircle2}
-                        color="emerald"
-                    />
-                    <StatCard
-                        label="Returned"
-                        value={stats.rejected}
-                        icon={XCircle}
-                        color="red"
-                    />
-                </div>
+                <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
+                    <CardHeader className="gap-5">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="space-y-2">
+                                <CardTitle className="text-2xl">
+                                    Evaluator IPCR Targets
+                                </CardTitle>
+                                <CardDescription className="max-w-3xl text-sm leading-6">
+                                    Review employee targets in a separate queue
+                                    before you evaluate the matching IPCR
+                                    submission. The routing stays aligned with
+                                    the submission workflow while target review
+                                    remains on its own page.
+                                </CardDescription>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                                <Badge variant="outline">
+                                    Period:{' '}
+                                    {semesterLabel(
+                                        targetPeriod.semester,
+                                        targetPeriod.year,
+                                    )}
+                                </Badge>
+                                <Badge variant="outline">
+                                    {targetPeriod.submissionOpen
+                                        ? 'Target Cycle Active'
+                                        : 'Target Cycle Closed'}
+                                </Badge>
+                                <Badge variant="outline">
+                                    Pending Review: {stats.pending}
+                                </Badge>
+                            </div>
+                        </div>
 
-                {/* Employee table */}
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                            <StatCard
+                                label="Total Employees"
+                                value={stats.total}
+                                icon={Users}
+                                color="default"
+                            />
+                            <StatCard
+                                label="Not Set"
+                                value={stats.notSet}
+                                icon={Target}
+                                color="default"
+                            />
+                            <StatCard
+                                label="Pending Your Review"
+                                value={stats.pending}
+                                icon={Clock3}
+                                color="amber"
+                            />
+                            <StatCard
+                                label="Approved"
+                                value={stats.approved}
+                                icon={CheckCircle2}
+                                color="emerald"
+                            />
+                            <StatCard
+                                label="Returned"
+                                value={stats.rejected}
+                                icon={XCircle}
+                                color="red"
+                            />
+                        </div>
+                    </CardHeader>
+                </Card>
+
                 <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
                     <CardHeader className="border-b border-border bg-card">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <CardTitle>Employee IPCR Targets</CardTitle>
                                 <CardDescription className="mt-1">
-                                    Period:{' '}
-                                    {semesterLabel(
-                                        targetPeriod.semester,
-                                        targetPeriod.year,
-                                    )}
+                                    Open the target snapshot or complete your
+                                    evaluator review for the selected employee.
                                 </CardDescription>
                             </div>
                             <Badge variant="outline" className="w-fit">
-                                {targetPeriod.submissionOpen
-                                    ? 'Target Window Open'
-                                    : 'Target Window Closed'}
+                                {employees.length} Employee
+                                {employees.length === 1 ? '' : 's'}
                             </Badge>
                         </div>
                     </CardHeader>

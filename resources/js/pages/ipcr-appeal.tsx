@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import { getFileName } from '@/lib/ipcr';
+import { getAppealEvidenceUrl, getFileName } from '@/lib/ipcr';
 import { submitEvaluation } from '@/routes';
 import type { BreadcrumbItem, IpcrSubmission } from '@/types';
 
@@ -30,6 +30,7 @@ export default function IpcrAppeal({
 }: {
     submission: IpcrSubmission;
 }) {
+    const [currentTimestamp] = useState(() => Date.now());
     const evaluatorRemarks =
         submission.remarks ??
         submission.form_payload.workflow_notes.evaluator_remarks ??
@@ -52,10 +53,8 @@ export default function IpcrAppeal({
             return true;
         }
 
-        return (
-            new Date(submission.appeal_window_closes_at).getTime() <= Date.now()
-        );
-    }, [submission.appeal_window_closes_at]);
+        return new Date(submission.appeal_window_closes_at).getTime() <= currentTimestamp;
+    }, [currentTimestamp, submission.appeal_window_closes_at]);
 
     const canSubmitAppeal =
         !isExpired &&
@@ -257,13 +256,26 @@ export default function IpcrAppeal({
                                         </p>
                                         <div className="flex flex-wrap gap-2">
                                             {submission.appeal.evidence_files.map(
-                                                (path) => (
-                                                    <Badge
+                                                (path, index) => (
+                                                    <Button
                                                         key={path}
+                                                        asChild
+                                                        size="sm"
                                                         variant="outline"
                                                     >
-                                                        {getFileName(path)}
-                                                    </Badge>
+                                                        <a
+                                                            href={getAppealEvidenceUrl(
+                                                                submission
+                                                                    .appeal?.id ??
+                                                                    0,
+                                                                index,
+                                                            )}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                        >
+                                                            {getFileName(path)}
+                                                        </a>
+                                                    </Button>
                                                 ),
                                             )}
                                         </div>

@@ -246,11 +246,13 @@ export default function LeaveRequestForm({
     slCredits = 0,
     leaveCreditsByType = [],
     holidays = [],
+    showLeaveCreditsSummary = true,
 }: {
     vlCredits?: number;
     slCredits?: number;
     leaveCreditsByType?: LeaveCreditItem[];
     holidays?: string[];
+    showLeaveCreditsSummary?: boolean;
 } = {}) {
     const [selectedLeaveType, setSelectedLeaveType] = useState('force-leave');
     const [startDate, setStartDate] = useState<Date>();
@@ -547,70 +549,76 @@ export default function LeaveRequestForm({
                         </div>
                     <Separator className='my-6'/>
 
-                    {/* Leave Credits Summary */}
-                    <div className="rounded-lg border border-border bg-background/70 p-4">
-                        <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                            <Wallet className="h-4 w-4 text-primary" />
-                            Leave Credits
-                        </h2>
-                        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                            {displayedLeaveCredits.map((leaveCredit) => {
-                                const isSelected = leaveCredit.value === selectedLeaveType;
+                    <Separator className="my-6" />
+                    {showLeaveCreditsSummary && (
+                        <>
+                            {/* Leave Credits Summary */}
+                            <div className="rounded-lg border border-border bg-background/70 p-4">
+                                <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                                    <Wallet className="h-4 w-4 text-primary" />
+                                    Leave Credits
+                                </h2>
+                                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                    {displayedLeaveCredits.map((leaveCredit) => {
+                                        const isSelected = leaveCredit.value === selectedLeaveType;
 
-                                return (
-                                    <div
-                                        key={leaveCredit.value}
-                                        className={`rounded-md px-3 py-3 transition-colors ${
-                                            isSelected
-                                                ? 'border border-primary/30 bg-primary/8'
-                                                : 'border border-border/70 bg-background/60'
-                                        }`}
-                                    >
-                                        <span className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                                            {leaveCredit.label}
-                                        </span>
-                                        <p className="mt-2 text-xl font-bold text-foreground">
-                                            {leaveCredit.creditDisplay}
-                                        </p>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        <div className="mt-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-3">
-                            <span className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                                {selectedLeaveCreditLabel}
-                            </span>
-                            <p className="mt-1 text-sm text-muted-foreground">
-                                {deductionType === 'vl'
-                                    ? 'Uses vacation leave credits.'
-                                    : deductionType === 'sl'
-                                      ? 'Uses sick leave credits.'
-                                      : 'Does not deduct from vacation or sick leave credits.'}
-                            </p>
-                            {selectedReductionSummary !== null && (
-                                <div className="mt-2 space-y-1">
-                                    <p className="text-base font-bold text-foreground">
-                                        {selectedReductionSummary.primaryValue}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {selectedReductionSummary.secondaryValue}
-                                    </p>
-                                    <p
-                                        className={`text-xs font-semibold ${selectedReductionSummary.tone}`}
-                                    >
-                                        {selectedReductionSummary.preview}
-                                    </p>
+                                        return (
+                                            <div
+                                                key={leaveCredit.value}
+                                                className={`rounded-md px-3 py-3 transition-colors ${
+                                                    isSelected
+                                                        ? 'border border-primary/30 bg-primary/8'
+                                                        : 'border border-border/70 bg-background/60'
+                                                }`}
+                                            >
+                                                <span className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                                    {leaveCredit.label}
+                                                </span>
+                                                <p className="mt-2 text-xl font-bold text-foreground">
+                                                    {leaveCredit.creditDisplay}
+                                                </p>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            )}
-                        </div>
-                        {businessDays !== null && (
-                            <p className="mt-2 text-xs text-muted-foreground">
-                                Business days requested (excl. weekends &amp; holidays): <strong>{businessDays}</strong>
-                            </p>
-                        )}
-                    </div>
+                                <div className="mt-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-3">
+                                    <span className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                        {selectedLeaveCreditLabel}
+                                    </span>
+                                    <p className="mt-1 text-sm text-muted-foreground">
+                                        {deductionType === 'vl'
+                                            ? 'Uses vacation leave credits.'
+                                            : deductionType === 'sl'
+                                              ? 'Uses sick leave credits.'
+                                              : 'Does not deduct from vacation or sick leave credits.'}
+                                    </p>
+                                    {selectedReductionSummary !== null && (
+                                        <div className="mt-2 space-y-1">
+                                            <p className="text-base font-bold text-foreground">
+                                                {selectedReductionSummary.primaryValue}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {selectedReductionSummary.secondaryValue}
+                                            </p>
+                                            <p
+                                                className={`text-xs font-semibold ${selectedReductionSummary.tone}`}
+                                            >
+                                                {selectedReductionSummary.preview}
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                                {businessDays !== null && (
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        Business days requested (excl. weekends &amp; holidays): <strong>{businessDays}</strong>
+                                    </p>
+                                )}
+                            </div>
 
-                    <Separator className='my-6'/>
+                            <Separator className="my-6" />
+                        </>
+                    )}
+
                     <form className="space-y-6">
                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div className="flex flex-col gap-2 md:col-span-2">

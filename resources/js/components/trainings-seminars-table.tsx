@@ -1,5 +1,5 @@
-import { router, useForm } from '@inertiajs/react';
-import { CalendarDays, ChevronDown, Megaphone } from 'lucide-react';
+import { useForm } from '@inertiajs/react';
+import { CalendarDays, ChevronDown } from 'lucide-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -108,7 +108,6 @@ export const TrainingsSeminarsTable = ({ seminars, performanceAreas }: Props) =>
     );
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
-    const [isNotifying, setIsNotifying] = useState(false);
 
     const form = useForm<SeminarFormData>(initialFormData);
 
@@ -157,18 +156,6 @@ export const TrainingsSeminarsTable = ({ seminars, performanceAreas }: Props) =>
         form.reset();
     };
 
-    const notifyEmployees = (): void => {
-        setIsNotifying(true);
-        router.post(
-            '/admin/training-suggestions/notify',
-            {},
-            {
-                preserveScroll: true,
-                onFinish: () => setIsNotifying(false),
-            },
-        );
-    };
-
     const goToPreviousPage = (): void =>
         setCurrentPage((p) => Math.max(1, p - 1));
     const goToNextPage = (): void =>
@@ -188,18 +175,9 @@ export const TrainingsSeminarsTable = ({ seminars, performanceAreas }: Props) =>
                             Training Suggestions
                         </h1>
                         <p className="mt-1 text-muted-foreground">
-                            Define training criteria and notify employees to
-                            find relevant seminars.
+                            Define training criteria for employee seminars.
                         </p>
                     </div>
-                    <Button
-                        onClick={notifyEmployees}
-                        disabled={isNotifying || seminars.length === 0}
-                        className="gap-2"
-                    >
-                        <Megaphone className="size-4" />
-                        {isNotifying ? 'Sending...' : 'Notify Employees'}
-                    </Button>
                 </div>
 
                 <div className="glass-card animate-zoom-in-soft mx-auto w-full rounded-xl border border-border bg-card p-4 shadow-sm">

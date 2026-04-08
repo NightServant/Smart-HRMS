@@ -12,6 +12,11 @@ class IwrService
         return $this->call('route_ipcr', $payload);
     }
 
+    public function routeIpcrTarget(array $payload): array
+    {
+        return $this->call('route_ipcr_target', $payload);
+    }
+
     public function routeLeave(array $payload): array
     {
         return $this->call('route_leave', $payload);

@@ -7,9 +7,11 @@ use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Models\HistoricalDataRecord;
 use App\Models\LeaveRequest;
+use App\Models\Notification;
 use App\Models\SystemSetting;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -49,6 +51,77 @@ class PaginationController extends Controller
             ->map(fn ($value): string => (string) $value)
             ->values()
             ->all();
+    }
+
+    /**
+     * @return array{
+     *     evaluatorName: string|null,
+     *     evaluatorDate: string|null,
+     *     hrPersonnelName: string|null,
+     *     hrPersonnelDate: string|null,
+     *     pmtName: string|null,
+     *     pmtDate: string|null,
+     *     pmtNote: string|null
+     * }
+     */
+    private function leaveWorkflowSignOffResource(LeaveRequest $leaveRequest): array
+    {
+        $notifications = Notification::query()
+            ->with('user:id,name,role')
+            ->where('document_type', 'leave')
+            ->where('document_id', $leaveRequest->id)
+            ->oldest()
+            ->get();
+
+        $evaluatorNotification = $notifications->first(
+            fn (Notification $notification): bool => $notification->user?->role === User::ROLE_EVALUATOR,
+        );
+        $hrNotification = $notifications->first(
+            fn (Notification $notification): bool => $notification->user?->role === User::ROLE_HR_PERSONNEL,
+        );
+
+        return [
+            'evaluatorName' => $evaluatorNotification?->user?->name,
+            'evaluatorDate' => $evaluatorNotification?->created_at?->format('M d, Y g:i A'),
+            'hrPersonnelName' => $hrNotification?->user?->name,
+            'hrPersonnelDate' => $hrNotification?->created_at?->format('M d, Y g:i A'),
+            'pmtName' => $this->roleHolderName(User::ROLE_PMT),
+            'pmtDate' => null,
+            'pmtNote' => null,
+        ];
+    }
+
+    private function roleHolderName(string $role): ?string
+    {
+        return User::query()
+            ->where('role', $role)
+            ->orderBy('name')
+            ->value('name');
+    }
+
+    private function applyLeaveStatusFilter(Builder $query, string $statusFilter): void
+    {
+        if ($statusFilter === 'completed') {
+            $query
+                ->where('status', 'completed')
+                ->where('dh_decision', 1)
+                ->where('hr_decision', 1);
+
+            return;
+        }
+
+        if ($statusFilter === 'returned') {
+            $query->where(function (Builder $statusQuery): void {
+                $statusQuery
+                    ->where('status', 'returned')
+                    ->orWhere('dh_decision', 2)
+                    ->orWhere('hr_decision', 2);
+            });
+
+            return;
+        }
+
+        $query->where('status', $statusFilter);
     }
 
     /**
@@ -150,7 +223,7 @@ class PaginationController extends Controller
                 $query->where('leave_type', $leaveTypeFilter);
             })
             ->when($statusFilter !== '', function ($query) use ($statusFilter): void {
-                $query->where('status', $statusFilter);
+                $this->applyLeaveStatusFilter($query, $statusFilter);
             })
             ->when($stageFilter !== '', function ($query) use ($stageFilter): void {
                 $query->where('stage', $stageFilter);
@@ -169,7 +242,7 @@ class PaginationController extends Controller
                 'daysRequested' => $leaveRequest->days_requested,
                 'leaveAccrual' => $leaveRequest->leaveAccrual(),
                 'reason' => $leaveRequest->reason,
-                'status' => $leaveRequest->status ?? 'pending',
+                'status' => $leaveRequest->resolvedStatus(),
                 'stage' => $leaveRequest->stage,
                 'dhDecision' => (int) $leaveRequest->dh_decision,
                 'hrDecision' => (int) $leaveRequest->hr_decision,
@@ -178,6 +251,7 @@ class PaginationController extends Controller
                 'hasMarriageCertificate' => (bool) $leaveRequest->marriage_certificate_path,
                 'hasSoloParentId' => (bool) $leaveRequest->solo_parent_id_path,
                 'createdAt' => $leaveRequest->created_at?->format('M d, Y g:i A'),
+                'workflowSignOff' => $this->leaveWorkflowSignOffResource($leaveRequest),
             ]);
 
         $evalStats = [
@@ -231,7 +305,7 @@ class PaginationController extends Controller
                 $query->where('leave_type', $leaveTypeFilter);
             })
             ->when($statusFilter !== '', function ($query) use ($statusFilter): void {
-                $query->where('status', $statusFilter);
+                $this->applyLeaveStatusFilter($query, $statusFilter);
             })
             ->when($stageFilter !== '', function ($query) use ($stageFilter): void {
                 $query->where('stage', $stageFilter);
@@ -250,7 +324,7 @@ class PaginationController extends Controller
                 'daysRequested' => $leaveRequest->days_requested,
                 'leaveAccrual' => $leaveRequest->leaveAccrual(),
                 'reason' => $leaveRequest->reason,
-                'status' => $leaveRequest->status ?? 'pending',
+                'status' => $leaveRequest->resolvedStatus(),
                 'stage' => $leaveRequest->stage,
                 'dhDecision' => (int) $leaveRequest->dh_decision,
                 'hrDecision' => (int) $leaveRequest->hr_decision,
@@ -259,6 +333,7 @@ class PaginationController extends Controller
                 'hasMarriageCertificate' => (bool) $leaveRequest->marriage_certificate_path,
                 'hasSoloParentId' => (bool) $leaveRequest->solo_parent_id_path,
                 'createdAt' => $leaveRequest->created_at?->format('M d, Y g:i A'),
+                'workflowSignOff' => $this->leaveWorkflowSignOffResource($leaveRequest),
             ]);
 
         $hrStats = [

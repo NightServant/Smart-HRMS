@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Employee;
 use App\Models\SystemSetting;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -14,6 +15,17 @@ test('homepage can be rendered with registration state', function () {
 
 test('employee surfaces render expected inertia components', function () {
     $user = User::factory()->create();
+    $employee = Employee::query()->create([
+        'employee_id' => 'EMP-999',
+        'name' => 'Surface Test Employee',
+        'job_title' => 'Administrative Aide I',
+        'supervisor_id' => null,
+    ]);
+    $employeeUser = User::factory()->create([
+        'name' => $employee->name,
+        'employee_id' => $employee->employee_id,
+        'role' => User::ROLE_EMPLOYEE,
+    ]);
 
     $this->actingAs($user)
         ->get(route('dashboard'))
@@ -48,6 +60,13 @@ test('employee surfaces render expected inertia components', function () {
             ->component('ipcr-form')
             ->has('draftFormPayload')
             ->has('latestSubmission'));
+
+    $this->actingAs($employeeUser)
+        ->get(route('ipcr.target.form'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('ipcr-target-form')
+            ->has('draftFormPayload')
+            ->has('existingTarget'));
 });
 
 test('evaluator, hr, pmt, and admin entry surfaces render expected components', function () {

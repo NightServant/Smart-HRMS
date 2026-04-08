@@ -83,3 +83,7 @@ export function recalculateIpcrFormPayload(payload: IpcrFormPayload): IpcrFormPa
 export function getFileName(path: string): string {
     return path.split('/').pop() ?? path;
 }
+
+export function getAppealEvidenceUrl(appealId: number, index: number): string {
+    return `/ipcr/appeal/${appealId}/evidence/${index}?inline=1`;
+}
