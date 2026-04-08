@@ -50,6 +50,24 @@ class SystemSetting extends Model
         Cache::forget("system_settings.group.{$key}");
     }
 
+    public static function setIpcrTargetMode(string $mode, int $userId): void
+    {
+        static::query()->updateOrCreate(
+            ['key' => 'ipcr_target_mode'],
+            [
+                'value' => $mode,
+                'type' => 'string',
+                'group' => 'ipcr',
+                'label' => 'IPCR Target Mode',
+                'description' => 'Controls whether the IPCR target form follows the calendar automatically or is forced open/closed by HR.',
+                'updated_by' => $userId,
+            ],
+        );
+
+        Cache::forget('system_settings.ipcr_target_mode');
+        Cache::forget('system_settings.group.ipcr');
+    }
+
     public static function getGroup(string $group): Collection
     {
         return Cache::remember(

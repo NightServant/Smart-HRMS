@@ -383,6 +383,15 @@ function EmployeeOverview({
     employeePanel: EmployeePanel | null | undefined;
 }) {
     const history = employeePanel?.history ?? [];
+    const periodOpen = currentPeriod?.isOpen ?? false;
+    const launchFormLabel = periodOpen
+        ? 'Open IPCR Form'
+        : 'Preview IPCR Form';
+    const launchFormDescription = periodOpen
+        ? employeePanel?.periodMessage ??
+          'HR has enabled the current evaluation period. Start a new IPCR form when you are ready.'
+        : employeePanel?.periodMessage ??
+          'HR has not enabled the evaluation period yet. You can still preview the IPCR form below, but editing and submission stay disabled until the period opens.';
 
     return (
         <div className="space-y-6">
@@ -458,25 +467,14 @@ function EmployeeOverview({
                     )}
 
                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                        {employeePanel?.canOpenForm ? (
-                            <Button asChild className="w-full sm:w-auto">
-                                <Link href={employeePanel.launchFormUrl}>
-                                    Open IPCR Form
-                                </Link>
-                            </Button>
-                        ) : (
-                            <Button
-                                type="button"
-                                className="w-full sm:w-auto"
-                                disabled
-                            >
-                                Open IPCR Form
-                            </Button>
-                        )}
-                        {!employeePanel?.canOpenForm && (
+                        <Button asChild className="w-full sm:w-auto">
+                            <Link href={employeePanel?.launchFormUrl ?? '#'}>
+                                {launchFormLabel}
+                            </Link>
+                        </Button>
+                        {!periodOpen && (
                             <p className="flex items-center text-sm text-slate-500 dark:text-slate-400">
-                                HR needs to enable the evaluation period before
-                                you can start a new form.
+                                {launchFormDescription}
                             </p>
                         )}
                     </div>
@@ -1015,7 +1013,7 @@ function HrOverview({
     );
     const [selectedFinalize, setSelectedFinalize] =
         useState<IpcrSubmission | null>(null);
-    const [hrDecision, setHrDecision] = useState<'approved' | 'rejected' | ''>(
+    const [hrDecision, setHrDecision] = useState<'correct' | 'incorrect' | ''>(
         '',
     );
     const [hrRemarks, setHrRemarks] = useState('');
@@ -1053,8 +1051,8 @@ function HrOverview({
                     selectedReview.stage === 'sent_to_hr'
                         ? ''
                         : ((selectedReview.hr_decision as
-                              | 'approved'
-                              | 'rejected'
+                              | 'correct'
+                              | 'incorrect'
                               | null) ?? ''),
                 );
                 setHrRemarks(
@@ -1085,7 +1083,7 @@ function HrOverview({
         ? 'Submissions Awaiting HR Review'
         : 'Submissions Awaiting HR Finalization';
     const queueDescription = isReviewView
-        ? 'Review employee submissions approved by evaluators and record your HR decision before the appeal or finalization stages.'
+        ? 'Check computation and completeness of evaluator submissions. Correct submissions route to PMT; incorrect ones notify the employee to appeal.'
         : 'Finalize submissions that have already moved past PMT review and keep the record aligned with the saved IPCR snapshot.';
     const queueButtonLabel = isReviewView ? 'Review' : 'Finalize';
     const queueEmptyMessage = isReviewView
@@ -1491,8 +1489,8 @@ function HrOverview({
                                                         value === 'none'
                                                             ? ''
                                                             : (value as
-                                                                  | 'approved'
-                                                                  | 'rejected'),
+                                                                  | 'correct'
+                                                                  | 'incorrect'),
                                                     )
                                                 }
                                                 disabled={!isReviewEditable}
@@ -1504,11 +1502,11 @@ function HrOverview({
                                                     <SelectItem value="none">
                                                         Select a decision
                                                     </SelectItem>
-                                                    <SelectItem value="approved">
-                                                        Approve
+                                                    <SelectItem value="correct">
+                                                        Correct – Route to PMT
                                                     </SelectItem>
-                                                    <SelectItem value="rejected">
-                                                        Return to Evaluator
+                                                    <SelectItem value="incorrect">
+                                                        Incorrect – Notify Employee for Appeal
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
@@ -1543,7 +1541,7 @@ function HrOverview({
                                             disabled={
                                                 !isReviewEditable ||
                                                 !hrDecision ||
-                                                (hrDecision === 'rejected' &&
+                                                (hrDecision === 'incorrect' &&
                                                     !hrRemarks.trim())
                                             }
                                             onClick={() => {
@@ -1553,7 +1551,7 @@ function HrOverview({
                                                         hr_decision: hrDecision,
                                                         hr_remarks:
                                                             hrDecision ===
-                                                            'rejected'
+                                                            'incorrect'
                                                                 ? hrRemarks.trim()
                                                                 : null,
                                                     },

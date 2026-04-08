@@ -37,7 +37,9 @@
       "Bash(\"/Users/gabe/Library/Application Support/Herd/bin/php\" artisan test --compact)",
       "Bash(\"/Users/gabe/Library/Application Support/Herd/bin/php\" artisan migrate:rollback --step=1)",
       "Bash(\"/Users/gabe/Library/Application Support/Herd/bin/php\" artisan test --compact --filter=\"IpcrWorkflowV51Test\")",
-      "Bash(\"/Users/gabe/Library/Application Support/Herd/bin/php\" artisan test --compact --filter=\"stays closed\")"
+      "Bash(\"/Users/gabe/Library/Application Support/Herd/bin/php\" artisan test --compact --filter=\"stays closed\")",
+      "Bash(/Applications/Herd.app/Contents/Resources/bin/php artisan:*)",
+      "Bash(vendor/bin/pint app/Http/Controllers/IwrController.php app/Http/Requests/SaveEvaluationRequest.php --format agent)"
     ]
   }
 }

@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import * as ipcr from '@/routes/ipcr';
+import * as ipcrTargetForm from '@/routes/ipcr/target';
 import type { BreadcrumbItem } from '@/types';
 import type { IpcrTarget, IpcrTargetPeriod } from '@/types/ipcr';
 
@@ -87,7 +88,7 @@ export default function IpcrTargetPage() {
                     <CardContent className="space-y-5 pt-6">
                         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                             <Button asChild className="w-full sm:w-auto">
-                                <Link href={ipcr.target.form().url}>
+                                <Link href={ipcrTargetForm.form().url}>
                                     Open IPCR Target Form
                                 </Link>
                             </Button>

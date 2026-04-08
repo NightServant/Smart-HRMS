@@ -3,6 +3,7 @@ import {
     Bell,
     CheckCircle2,
     Clock3,
+    ChevronDown,
     FileCheck2,
     FileSpreadsheet,
     Megaphone,
@@ -14,6 +15,12 @@ import { useState } from 'react';
 import IpcrTargetReadonly from '@/components/ipcr-target-readonly';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
     Card,
     CardContent,
@@ -38,6 +45,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import * as adminIpcr from '@/routes/admin/ipcr';
+import * as adminIpcrTarget from '@/routes/admin/ipcr/target';
 import { cn } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import type { IpcrTarget } from '@/types/ipcr';
@@ -165,16 +174,28 @@ export default function IpcrTargetManagement() {
         String(currentTargetPeriod.year),
     );
     const [notifying, setNotifying] = useState(false);
+    const [targetFormAction, setTargetFormAction] = useState<'enable' | 'disable'>(
+        currentTargetPeriod.submissionOpen ? 'disable' : 'enable',
+    );
 
     const currentYear = new Date().getFullYear();
     const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - 1 + i);
 
     const displayRows = view === 'submitted' ? submittedTargets : finalizedTargets;
+    const targetFormActionLabel = targetFormAction === 'enable'
+        ? 'Enable Target Form'
+        : 'Disable Target Form';
+    const targetFormActionDescription = targetFormAction === 'enable'
+        ? 'Enable the target form and notify employees to start their IPCR targets.'
+        : 'Disable the target form and stop employees from submitting new targets.';
+    const targetFormModeLabel = targetFormAction === 'enable'
+        ? 'Enable'
+        : 'Disable';
 
     function handleFinalize(target: IpcrTarget): void {
         setProcessing(true);
         router.post(
-            `/admin/ipcr/target-finalize/${target.id}`,
+            adminIpcr.targetFinalize(target).url,
             {},
             {
                 preserveScroll: true,
@@ -189,7 +210,7 @@ export default function IpcrTargetManagement() {
     function handleOpenAndNotify(): void {
         setNotifying(true);
         router.post(
-            '/admin/ipcr/target-notify',
+            adminIpcrTarget.notify().url,
             { semester: Number(openSemester), year: Number(openYear) },
             {
                 preserveScroll: true,
@@ -201,13 +222,22 @@ export default function IpcrTargetManagement() {
     function handleCloseWindow(): void {
         setClosing(true);
         router.post(
-            '/admin/ipcr/target-close',
+            adminIpcrTarget.close().url,
             {},
             {
                 preserveScroll: true,
                 onFinish: () => setClosing(false),
             },
         );
+    }
+
+    function handleTargetFormAction(): void {
+        if (targetFormAction === 'enable') {
+            handleOpenAndNotify();
+            return;
+        }
+
+        handleCloseWindow();
     }
 
     return (
@@ -222,10 +252,10 @@ export default function IpcrTargetManagement() {
                                     HR IPCR Targets
                                 </CardTitle>
                                 <CardDescription className="max-w-3xl text-sm leading-6">
-                                    Manage target submission windows, review the
-                                    evaluator-approved targets, and keep the
-                                    target workflow visually aligned with the
-                                    HR submission queue.
+                                    Manage target form access, enable or
+                                    disable the employee target form, and keep
+                                    the target workflow visually aligned with
+                                    the HR queue.
                                 </CardDescription>
                             </div>
                             <div className="flex flex-wrap gap-2">
@@ -281,35 +311,14 @@ export default function IpcrTargetManagement() {
                             <div className="flex items-center gap-2">
                                 <Megaphone className="size-5 text-[#2F5E2B] dark:text-[#9AC68E]" />
                                 <CardTitle className="text-lg">
-                                    Target Submission Window
+                                    Target Form Access
                                 </CardTitle>
                             </div>
                             <div className="flex items-center gap-2">
                                 {currentTargetPeriod.submissionOpen ? (
-                                    <>
-                                        <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
-                                            Window Open — {currentTargetPeriod.label}
-                                        </Badge>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            disabled={closing}
-                                            onClick={handleCloseWindow}
-                                        >
-                                            {closing ? (
-                                                <>
-                                                    <RotateCcw className="size-4 animate-spin" />
-                                                    Closing…
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <XCircle className="size-4" />
-                                                    Close Window
-                                                </>
-                                            )}
-                                        </Button>
-                                    </>
+                                    <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                        Window Open — {currentTargetPeriod.label}
+                                    </Badge>
                                 ) : (
                                     <Badge variant="outline">
                                         Window Closed
@@ -318,10 +327,10 @@ export default function IpcrTargetManagement() {
                             </div>
                         </div>
                         <CardDescription>
-                            Select the semester and year, then open the target
-                            submission window and notify all employees to submit
-                            their IPCR targets. Close the window when the
-                            submission period has ended.
+                            Select the semester and year, then enable or
+                            disable the target form for employees. When you
+                            enable it, the system notifies employees to start
+                            their IPCR targets.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
@@ -368,22 +377,60 @@ export default function IpcrTargetManagement() {
                                 </Select>
                             </div>
 
-                            <div className="flex items-end">
+                            <div className="flex items-end gap-2">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="w-full justify-between sm:w-48"
+                                            disabled={notifying || closing}
+                                            title={targetFormActionDescription}
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                <Bell className="size-4" />
+                                                {targetFormModeLabel}
+                                            </span>
+                                            <ChevronDown className="size-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent
+                                        align="end"
+                                        className="w-64"
+                                    >
+                                        <DropdownMenuItem
+                                            onClick={() => setTargetFormAction('enable')}
+                                        >
+                                            <Bell className="size-4" />
+                                            Enable Target Form
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            onClick={() => setTargetFormAction('disable')}
+                                        >
+                                            <XCircle className="size-4" />
+                                            Disable Target Form
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                                 <Button
                                     type="button"
-                                    className="w-full"
-                                    disabled={notifying}
-                                    onClick={handleOpenAndNotify}
+                                    className="w-full sm:w-auto"
+                                    disabled={notifying || closing}
+                                    onClick={handleTargetFormAction}
                                 >
-                                    {notifying ? (
+                                    {targetFormAction === 'enable' ? (
                                         <>
-                                            <Send className="size-4 animate-pulse" />
-                                            Opening…
+                                            <Send className="size-4" />
+                                            {notifying
+                                                ? 'Enabling…'
+                                                : targetFormActionLabel}
                                         </>
                                     ) : (
                                         <>
-                                            <Bell className="size-4" />
-                                            Open &amp; Notify Employees
+                                            <RotateCcw className="size-4" />
+                                            {closing
+                                                ? 'Disabling…'
+                                                : targetFormActionLabel}
                                         </>
                                     )}
                                 </Button>

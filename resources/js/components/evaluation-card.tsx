@@ -51,6 +51,7 @@ export default function EvaluationCard({
     const ratedRows = formPayload?.summary.rated_rows ?? 0;
     const averageScore = formPayload?.summary.computed_rating ?? null;
     const isReevaluation = submission?.hr_cycle_count || submission?.pmt_cycle_count;
+    const isFailing = averageScore !== null && averageScore < 3.0;
     const canSubmit = Boolean(employee && formPayload && ratedRows === totalRows && totalRows > 0 && remarks.trim() && !processing);
 
     const confirmationMessage = useMemo(() => {
@@ -155,7 +156,9 @@ export default function EvaluationCard({
                         className="min-h-28 resize-y border-border bg-background"
                     />
                     <p className="mt-2 text-xs text-muted-foreground">
-                        Required — remarks are visible to the employee after finalization.
+                        {isFailing
+                            ? 'Required — provide corrective guidance for the employee before routing.'
+                            : 'Required — remarks are visible to the employee after finalization.'}
                     </p>
                 </div>
 

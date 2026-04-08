@@ -91,7 +91,7 @@ export default function HrReview({
     submissions: PaginatedSubmissions;
 }) {
     const [selected, setSelected] = useState<IpcrSubmission | null>(null);
-    const [decision, setDecision] = useState<'approved' | 'rejected' | null>(
+    const [decision, setDecision] = useState<'correct' | 'incorrect' | null>(
         null,
     );
     const [remarks, setRemarks] = useState('');
@@ -107,7 +107,7 @@ export default function HrReview({
             saveHrReview.url(selected.id),
             {
                 hr_decision: decision,
-                hr_remarks: decision === 'rejected' ? remarks.trim() : null,
+                hr_remarks: decision === 'incorrect' ? remarks.trim() : null,
             },
             {
                 preserveScroll: true,
@@ -300,35 +300,35 @@ export default function HrReview({
                                 <Button
                                     type="button"
                                     variant={
-                                        decision === 'approved'
+                                        decision === 'correct'
                                             ? 'default'
                                             : 'outline'
                                     }
                                     className={
-                                        decision === 'approved'
+                                        decision === 'correct'
                                             ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                                             : ''
                                     }
-                                    onClick={() => setDecision('approved')}
+                                    onClick={() => setDecision('correct')}
                                 >
                                     <CheckCircle2 className="mr-1.5 size-4" />
-                                    Approve and Open Appeal
+                                    Correct – Route to PMT
                                 </Button>
                                 <Button
                                     type="button"
                                     variant={
-                                        decision === 'rejected'
+                                        decision === 'incorrect'
                                             ? 'destructive'
                                             : 'outline'
                                     }
-                                    onClick={() => setDecision('rejected')}
+                                    onClick={() => setDecision('incorrect')}
                                 >
                                     <RotateCcw className="mr-1.5 size-4" />
-                                    Return to Evaluator
+                                    Incorrect – Notify Employee
                                 </Button>
                             </div>
 
-                            {decision === 'rejected' && (
+                            {decision === 'incorrect' && (
                                 <Textarea
                                     value={remarks}
                                     onChange={(event) =>
@@ -337,7 +337,7 @@ export default function HrReview({
                                     placeholder={
                                         selected.hr_cycle_count > 0
                                             ? 'Provide remarks. This submission will escalate if returned again.'
-                                            : 'Provide the computation or completeness issues that require re-evaluation.'
+                                            : 'Describe the computation or completeness issues found in the evaluation.'
                                     }
                                     className="min-h-24"
                                 />
@@ -355,7 +355,7 @@ export default function HrReview({
                         <Button
                             disabled={
                                 !decision ||
-                                (decision === 'rejected' && !remarks.trim()) ||
+                                (decision === 'incorrect' && !remarks.trim()) ||
                                 processing
                             }
                             onClick={handleSubmit}

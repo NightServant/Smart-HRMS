@@ -188,7 +188,7 @@ class NotificationService
             ),
             'open_appeal_window' => $employeeUser ? $this->create(
                 $employeeUser->id, 'ipcr_appeal_window', 'IPCR Appeal Window Opened',
-                "Your IPCR passed HR checking and is now open for appeal for 72 hours. You may accept the results or submit an appeal with supporting evidence. {$message}",
+                'HR found issues with the computation or completeness of your IPCR. An appeal window has been opened for 72 hours. You may accept the current results or submit an appeal with supporting evidence.',
                 'ipcr', $submission->id, true,
             ) : null,
             'appeal_expired' => $employeeUser ? $this->create(

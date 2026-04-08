@@ -218,12 +218,37 @@ class IwrController extends Controller
         $targetYear = (int) $request->validated('target_year');
         $action = $request->validated('action');
         $targetPeriod = $this->currentTargetSubmissionPeriod();
+        $existingTarget = IpcrTarget::query()
+            ->where('employee_id', $employee->employee_id)
+            ->where('semester', $semester)
+            ->where('target_year', $targetYear)
+            ->first();
+        $isReturnedTarget = $existingTarget?->evaluator_decision === 'rejected';
 
-        if (! $targetPeriod['submissionOpen']
-            || $semester !== $targetPeriod['semester']
+        if ($semester !== $targetPeriod['semester']
             || $targetYear !== $targetPeriod['year']) {
             throw ValidationException::withMessages([
                 'target_period' => 'IPCR target submissions are only available during the '.$targetPeriod['submissionWindowLabel'].' window for '.$targetPeriod['label'].'.',
+            ]);
+        }
+
+        if ($existingTarget?->status === 'submitted' && ! $isReturnedTarget) {
+            throw ValidationException::withMessages([
+                'target_period' => 'Submitted IPCR targets are locked and cannot be edited.',
+            ]);
+        }
+
+        if ($action === 'submit' && ! $targetPeriod['submissionOpen'] && ! $isReturnedTarget) {
+            throw ValidationException::withMessages([
+                'target_period' => 'IPCR target submissions are only available during the '.$targetPeriod['submissionWindowLabel'].' window for '.$targetPeriod['label'].'.',
+            ]);
+        }
+
+        if ($action === 'save'
+            && ! $targetPeriod['submissionOpen']
+            && ! $existingTarget) {
+            throw ValidationException::withMessages([
+                'target_period' => 'Create your IPCR target draft during the active '.$targetPeriod['submissionWindowLabel'].' window for '.$targetPeriod['label'].'.',
             ]);
         }
 
@@ -724,17 +749,9 @@ class IwrController extends Controller
             $updateData['appeal_window_closes_at'] = now()->addHours(72);
         }
 
-        if (($iwrResult['routing_action'] ?? '') === 're_evaluate') {
-            $updateData['hr_cycle_count'] = $currentHrCycles + 1;
-            $updateData['is_first_submission'] = false;
-            $updateData['appeal_status'] = null;
-            $updateData['appeal_window_opens_at'] = null;
-            $updateData['appeal_window_closes_at'] = null;
-        }
-
         if (($iwrResult['routing_action'] ?? '') === 'escalate') {
             $updateData['is_escalated'] = true;
-            $updateData['escalation_reason'] = $iwrResult['escalation_reason'] ?? 'HR cycle limit reached';
+            $updateData['escalation_reason'] = $iwrResult['escalation_reason'] ?? 'HR review cycle limit reached';
         }
 
         $submission->update($updateData);
@@ -747,7 +764,14 @@ class IwrController extends Controller
             ]);
         }
 
-        $this->notificationService->notifyV51($submission->fresh(['employee']), $iwrResult['routing_action'] ?? '', $request->validated('hr_remarks') ?? '');
+        $routingAction = $iwrResult['routing_action'] ?? '';
+        if ($routingAction === 'route_to_pmt') {
+            $this->notificationService->notifyV51($submission->fresh(['employee']), 'route_to_pmt');
+        } elseif ($routingAction === 'open_appeal_window') {
+            $this->notificationService->notifyV51($submission->fresh(['employee']), 'open_appeal_window');
+        } else {
+            $this->notificationService->notifyV51($submission->fresh(['employee']), $routingAction, $request->validated('hr_remarks') ?? '');
+        }
 
         return to_route('admin.hr-review')->with('success', $iwrResult['notification'] ?? 'HR review saved.');
     }
@@ -824,11 +848,15 @@ class IwrController extends Controller
             ],
         );
 
+        $newAppealCount = ($submission->appeal_count ?? 0) + 1;
+        $submission->update(['appeal_count' => $newAppealCount]);
+
         $iwrResult = $this->iwrService->routeAppeal([
             'stage' => 'appeal',
             'employee_id' => $submission->employee_id,
             'employee_name' => $submission->employee?->name ?? $submission->employee_id,
-            'appeal_status' => 'appeal_window_open',
+            'appeal_status' => 'submitted',
+            'appeal_count' => $newAppealCount,
             'appeal_reason' => $request->validated('appeal_reason'),
             'evidence_files' => $evidencePaths,
         ]);
@@ -845,10 +873,10 @@ class IwrController extends Controller
 
         $submission->update([
             'form_payload' => $formPayload,
-            'appeal_status' => 'appealed',
-            'stage' => $iwrResult['stage'] ?? 'sent_to_pmt',
+            'appeal_status' => 'submitted',
+            'stage' => $iwrResult['stage'] ?? ($newAppealCount >= 2 ? 'sent_to_pmt' : 'sent_to_evaluator'),
             'status' => $iwrResult['status'] ?? 'routed',
-            'routing_action' => $iwrResult['routing_action'] ?? 'route_to_pmt',
+            'routing_action' => $iwrResult['routing_action'] ?? ($newAppealCount >= 2 ? 'route_to_pmt' : 're_evaluate'),
             'notification' => $iwrResult['notification'] ?? 'Appeal submitted.',
         ]);
 
@@ -860,7 +888,13 @@ class IwrController extends Controller
             ]);
         }
 
-        $this->notificationService->notifyV51($submission->fresh(['employee']), 'route_to_pmt');
+        if ($newAppealCount === 1) {
+            // First appeal — route back to evaluator and notify them
+            $this->notificationService->notifyV51($submission->fresh(['employee']), 're_evaluate');
+        } else {
+            // Second or subsequent appeal — route to PMT
+            $this->notificationService->notifyV51($submission->fresh(['employee']), 'route_to_pmt');
+        }
 
         return to_route('submit-evaluation')->with('success', $iwrResult['notification'] ?? 'Appeal submitted.');
     }
@@ -1072,6 +1106,7 @@ class IwrController extends Controller
         $semesterLabel = $semester === 1 ? 'First Semester' : 'Second Semester';
         $periodLabel = "{$semesterLabel} {$year}";
 
+        SystemSetting::setIpcrTargetMode('open', $request->user()->id);
         SystemSetting::set('ipcr_target_open', 'true', $request->user()->id);
         SystemSetting::set('ipcr_target_semester', (string) $semester, $request->user()->id);
         SystemSetting::set('ipcr_target_year', (string) $year, $request->user()->id);
@@ -1083,6 +1118,11 @@ class IwrController extends Controller
 
     public function closeIpcrTargetWindow(Request $request): RedirectResponse
     {
+        $currentTargetPeriod = $this->currentTargetSubmissionPeriod();
+
+        SystemSetting::set('ipcr_target_semester', (string) $currentTargetPeriod['semester'], $request->user()->id);
+        SystemSetting::set('ipcr_target_year', (string) $currentTargetPeriod['year'], $request->user()->id);
+        SystemSetting::setIpcrTargetMode('closed', $request->user()->id);
         SystemSetting::set('ipcr_target_open', 'false', $request->user()->id);
 
         return back()->with('success', 'IPCR target submission window closed.');
@@ -1348,10 +1388,10 @@ class IwrController extends Controller
 
         return [
             'launchFormUrl' => route('ipcr.form'),
-            'canOpenForm' => $currentPeriod['isOpen'] && $canStartNewSubmission,
+            'canOpenForm' => true,
             'periodMessage' => $currentPeriod['isOpen']
                 ? 'HR has enabled the current evaluation period. Start a new IPCR form when you are ready.'
-                : 'HR has not enabled the evaluation period yet. You can still review past forms below.',
+                : 'HR has not enabled the evaluation period yet. You can still preview the IPCR form below, but editing and submission stay disabled until the period opens.',
             'history' => $history,
             'recommendationsEnabled' => $recommendationsEnabled,
             'recommendations' => $recommendations,
@@ -1425,20 +1465,17 @@ class IwrController extends Controller
      *
      * Resolution order:
      *
-     *   1. If HR has explicitly force-opened a window (ipcr_target_open = 'true'),
-     *      the semester and year stored in system settings are authoritative.
-     *      This allows HR to open the window outside the normal November/May months,
-     *      or to re-open it after an accidental early close.
+     *   1. If HR has explicitly overridden the window state, that mode wins.
+     *      `open` uses the stored semester/year and keeps the window open.
+     *      `closed` uses the stored semester/year and keeps the window closed.
      *
-     *   2. Otherwise the calendar heuristic applies:
+     *   2. Otherwise, a legacy explicit open toggle still force-opens the
+     *      stored semester/year.
+     *
+     *   3. Otherwise the calendar heuristic applies:
      *        November → Semester 1 for next year  (window open)
      *        May      → Semester 2 for current year (window open)
      *        All other months                       (window closed)
-     *
-     * Note: closeIpcrTargetWindow() sets ipcr_target_open = 'false', which
-     * the calendar heuristic still overrides in November/May.  This is
-     * intentional — the target windows are defined by the yearly cycle in the
-     * spec, and an explicit close only takes effect outside those months.
      *
      * @return array{semester: 1|2, year: int, label: string, submissionOpen: bool, submissionWindowLabel: string}
      */
@@ -1446,19 +1483,28 @@ class IwrController extends Controller
     {
         $month = (int) now()->month;
         $year = (int) now()->year;
+        $configuredSemester = (int) SystemSetting::get('ipcr_target_semester', 1);
+        $configuredYear = (int) SystemSetting::get('ipcr_target_year', $year);
 
-        // Check if HR has force-opened a specific window.
+        $targetMode = (string) SystemSetting::get('ipcr_target_mode', 'auto');
         $isExplicitlyOpen = (bool) SystemSetting::get('ipcr_target_open', false);
 
-        if ($isExplicitlyOpen) {
-            $semester = (int) SystemSetting::get('ipcr_target_semester', 1);
-            $targetYear = (int) SystemSetting::get('ipcr_target_year', $year);
+        if ($targetMode === 'open' || ($targetMode === 'auto' && $isExplicitlyOpen)) {
+            $semester = in_array($configuredSemester, [1, 2], true) ? $configuredSemester : 1;
+            $targetYear = $configuredYear;
 
             /** @var 1|2 $semester */
-            $semester = in_array($semester, [1, 2], true) ? $semester : 1;
             $windowLabel = $semester === 1 ? 'November '.($targetYear - 1) : 'May '.$targetYear;
 
             return $this->targetPeriodPayload($semester, $targetYear, true, $windowLabel);
+        }
+
+        if ($targetMode === 'closed') {
+            $semester = in_array($configuredSemester, [1, 2], true) ? $configuredSemester : 1;
+            $targetYear = $configuredYear;
+            $windowLabel = $semester === 1 ? 'November '.($targetYear - 1) : 'May '.$targetYear;
+
+            return $this->targetPeriodPayload($semester, $targetYear, false, $windowLabel);
         }
 
         // Calendar heuristic — November and May auto-open as per the yearly cycle.
@@ -1470,11 +1516,11 @@ class IwrController extends Controller
             return $this->targetPeriodPayload(2, $year, true, 'May '.$year);
         }
 
-        if ($month >= 6) {
-            return $this->targetPeriodPayload(1, $year + 1, false, 'November '.$year);
-        }
+        $semester = in_array($configuredSemester, [1, 2], true) ? $configuredSemester : 1;
+        $targetYear = $configuredYear;
+        $windowLabel = $semester === 1 ? 'November '.($targetYear - 1) : 'May '.$targetYear;
 
-        return $this->targetPeriodPayload(2, $year, false, 'May '.$year);
+        return $this->targetPeriodPayload($semester, $targetYear, false, $windowLabel);
     }
 
     /**
@@ -1623,6 +1669,7 @@ class IwrController extends Controller
             'hr_cycle_count' => $submission->hr_cycle_count,
             'pmt_cycle_count' => $submission->pmt_cycle_count,
             'appeal_status' => $submission->appeal_status,
+            'appeal_count' => $submission->appeal_count ?? 0,
             'appeal_window_opens_at' => $submission->appeal_window_opens_at?->toIso8601String(),
             'appeal_window_closes_at' => $submission->appeal_window_closes_at?->toIso8601String(),
             'final_rating' => $submission->final_rating !== null ? (float) $submission->final_rating : null,

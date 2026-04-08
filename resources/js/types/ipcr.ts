@@ -125,6 +125,7 @@ export type IpcrSubmission = {
     hr_cycle_count: number;
     pmt_cycle_count: number;
     appeal_status: string | null;
+    appeal_count: number;
     appeal_window_opens_at: string | null;
     appeal_window_closes_at: string | null;
     final_rating: number | null;

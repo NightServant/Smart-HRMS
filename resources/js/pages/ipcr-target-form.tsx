@@ -10,6 +10,7 @@ import {
 import { Fragment, startTransition, useEffect, useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import IpcrTargetReadonly from '@/components/ipcr-target-readonly';
 import {
     Card,
     CardContent,
@@ -30,6 +31,7 @@ import AppLayout from '@/layouts/app-layout';
 import { cloneIpcrFormPayload } from '@/lib/ipcr';
 import { cn } from '@/lib/utils';
 import * as ipcr from '@/routes/ipcr';
+import * as ipcrTargetForm from '@/routes/ipcr/target';
 import type { BreadcrumbItem } from '@/types';
 import type {
     IpcrEmployee,
@@ -265,6 +267,7 @@ export default function IpcrTargetFormPage() {
     const { employee, targetPeriod, existingTarget, draftFormPayload } =
         usePage<PageProps>().props;
 
+    const isReturned = existingTarget?.evaluator_decision === 'rejected';
     const [formPayload, setFormPayload] = useState<IpcrFormPayload | null>(
         existingTarget?.form_payload ?? draftFormPayload ?? null,
     );
@@ -279,11 +282,14 @@ export default function IpcrTargetFormPage() {
         });
     }, [existingTarget, draftFormPayload]);
 
-    const isSubmitted = existingTarget?.status === 'submitted';
+    const isSubmitted = existingTarget?.status === 'submitted' && !isReturned;
     const hasDraft = existingTarget?.status === 'draft';
+    const canEditTargetForm = hasDraft || isReturned || targetPeriod.submissionOpen;
     const targetStatusLabel = isSubmitted
         ? 'Submitted'
-        : hasDraft
+        : isReturned
+          ? 'Returned'
+          : hasDraft
           ? 'Draft'
           : 'Not Started';
     const targetWindowStatusLabel = targetPeriod.submissionOpen
@@ -291,7 +297,11 @@ export default function IpcrTargetFormPage() {
         : 'Target Window Closed';
     const targetWindowDescription = targetPeriod.submissionOpen
         ? `You can save or submit targets for this cycle during ${targetPeriod.submissionWindowLabel}.`
-        : `This target cycle can only be edited during ${targetPeriod.submissionWindowLabel}.`;
+        : isReturned
+          ? 'Your supervisor returned these targets for revision. You can update them and submit them again from this workspace.'
+        : hasDraft
+          ? `This draft target can still be updated, but new submissions must wait until ${targetPeriod.submissionWindowLabel}.`
+          : `This target cycle can only be edited during ${targetPeriod.submissionWindowLabel}.`;
     const activePayload = existingTarget?.form_payload ?? formPayload;
     const totalRows = activePayload?.sections.reduce(
         (count, section) => count + section.rows.length,
@@ -306,28 +316,60 @@ export default function IpcrTargetFormPage() {
     ) ?? 0;
     const targetSummaryText = isSubmitted
         ? 'Your target has already been submitted for this cycle and will be referenced in the matching IPCR submission.'
+        : isReturned
+          ? 'Your supervisor returned these targets for revision. Update the workspace below and submit them again when ready.'
         : hasDraft
-          ? 'Your draft target is ready to continue. Complete the remaining sections and submit it during the active target window.'
-          : 'Set your targets for this evaluation cycle before the matching IPCR submission opens.';
+          ? targetPeriod.submissionOpen
+            ? 'Your draft target is ready to continue. Complete the remaining sections and submit it during the active target window.'
+            : 'Your draft target remains available for review and updates. You can submit it again once the target window reopens.'
+          : targetPeriod.submissionOpen
+            ? 'Set your targets for this evaluation cycle before the matching IPCR submission opens.'
+            : 'The target form is currently closed. You can preview the workspace below, but editing stays disabled until HR opens the target window.';
     const primaryActionLabel = isSubmitted
         ? 'Open Target Snapshot'
-        : 'Open IPCR Target Form';
+        : isReturned
+          ? 'Open Returned Targets'
+          : hasDraft && !targetPeriod.submissionOpen
+          ? 'Resume Draft'
+          : targetPeriod.submissionOpen
+            ? 'Open IPCR Target Form'
+            : 'Preview Target Form';
     const workspaceTitle = isSubmitted
         ? 'Current Target Record'
-        : 'Current Target Workspace';
+        : isReturned
+          ? 'Returned Target Workspace'
+          : hasDraft && !targetPeriod.submissionOpen
+          ? 'Saved Draft Target'
+          : targetPeriod.submissionOpen
+            ? 'Current Target Workspace'
+            : 'Target Form Preview';
     const workspaceDescription = isSubmitted
         ? 'Review the target snapshot for this cycle in the same sectioned layout used throughout the IPCR process.'
-        : 'Complete your target statements in the same guided section layout used by the IPCR submission workflow.';
+        : isReturned
+          ? 'Your supervisor returned this target for revision. Update the fields below and submit it again when ready.'
+          : hasDraft && !targetPeriod.submissionOpen
+          ? 'Your saved draft remains accessible for review and updates, even though submission is paused until HR reopens the target window.'
+          : targetPeriod.submissionOpen
+            ? 'Complete your target statements in the same guided section layout used by the IPCR submission workflow.'
+            : 'This is a disabled preview of the target form. HR must open the target window before you can save or submit changes.';
 
     function handleSave(action: 'save' | 'submit'): void {
-        if (!formPayload || !employee || !targetPeriod.submissionOpen) return;
+        if (!formPayload || !employee) return;
+
+        if (action === 'submit' && !targetPeriod.submissionOpen && !isReturned) {
+            return;
+        }
+
+        if (action === 'save' && !canEditTargetForm) {
+            return;
+        }
 
         const setProcessing =
             action === 'submit' ? setSubmitting : setSavingDraft;
         setProcessing(true);
 
         router.post(
-            ipcr.target.save().url,
+            ipcrTargetForm.save().url,
             {
                 semester: targetPeriod.semester,
                 target_year: targetPeriod.year,
@@ -392,21 +434,9 @@ export default function IpcrTargetFormPage() {
                     </CardHeader>
                     <CardContent className="space-y-5 pt-6">
                         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                            {targetPeriod.submissionOpen || isSubmitted ? (
-                                <Button asChild className="w-full sm:w-auto">
-                                    <a href="#target-workspace">
-                                        {primaryActionLabel}
-                                    </a>
-                                </Button>
-                            ) : (
-                                <Button
-                                    type="button"
-                                    className="w-full sm:w-auto"
-                                    disabled
-                                >
-                                    Open IPCR Target Form
-                                </Button>
-                            )}
+                            <Button asChild className="w-full sm:w-auto">
+                                <a href="#target-workspace">{primaryActionLabel}</a>
+                            </Button>
                             <p className="flex items-center text-sm text-slate-500 dark:text-slate-400">
                                 {targetWindowDescription}
                             </p>
@@ -414,26 +444,7 @@ export default function IpcrTargetFormPage() {
                     </CardContent>
                 </Card>
 
-                {!isSubmitted && !hasDraft && !targetPeriod.submissionOpen ? (
-                    <Card className="glass-card border-border bg-card shadow-sm">
-                        <CardHeader>
-                            <CardTitle className="text-xl">
-                                Target Window Closed
-                            </CardTitle>
-                            <CardDescription>
-                                The IPCR target submission window is currently
-                                closed. Your form will appear here once HR opens
-                                the target window for{' '}
-                                {semesterLabel(
-                                    targetPeriod.semester,
-                                    targetPeriod.year,
-                                )}
-                                . The window opens during{' '}
-                                {targetPeriod.submissionWindowLabel}.
-                            </CardDescription>
-                        </CardHeader>
-                    </Card>
-                ) : isSubmitted && existingTarget ? (
+                {isSubmitted && existingTarget ? (
                     <Card
                         id="target-workspace"
                         className="glass-card border-border bg-card shadow-sm"
@@ -542,7 +553,7 @@ export default function IpcrTargetFormPage() {
                                                 )}
                                             </p>
                                         </div>
-                                        {targetPeriod.submissionOpen ? (
+                                        {canEditTargetForm ? (
                                             <Button
                                                 type="button"
                                                 variant="outline"
@@ -559,7 +570,12 @@ export default function IpcrTargetFormPage() {
                                                     });
                                                 }}
                                             >
-                                                Open Workspace
+                                                {hasDraft &&
+                                                !targetPeriod.submissionOpen
+                                                    ? 'Resume Draft'
+                                                    : isReturned
+                                                      ? 'Open Returned Targets'
+                                                    : 'Open Workspace'}
                                             </Button>
                                         ) : (
                                             <Button
@@ -600,13 +616,22 @@ export default function IpcrTargetFormPage() {
                                             </p>
                                         </div>
                                     </div>
+                                    {!canEditTargetForm && !hasDraft ? (
+                                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+                                            The target form is closed right now.
+                                            You can preview the workspace below,
+                                            but saving and submitting stay
+                                            disabled until HR opens the target
+                                            window.
+                                        </div>
+                                    ) : null}
                                 </div>
                             </div>
                             <div id="target-form-editor">
                                 <TargetFormEditor
                                     formPayload={formPayload}
                                     onChange={setFormPayload}
-                                    disabled={!targetPeriod.submissionOpen}
+                                    disabled={!canEditTargetForm}
                                 />
                             </div>
 
@@ -618,7 +643,7 @@ export default function IpcrTargetFormPage() {
                                     disabled={
                                         savingDraft ||
                                         submitting ||
-                                        !targetPeriod.submissionOpen
+                                        !canEditTargetForm
                                     }
                                 >
                                     {savingDraft ? (
@@ -636,7 +661,8 @@ export default function IpcrTargetFormPage() {
                                     disabled={
                                         savingDraft ||
                                         submitting ||
-                                        !targetPeriod.submissionOpen
+                                        (!targetPeriod.submissionOpen &&
+                                            !isReturned)
                                     }
                                 >
                                     {submitting ? (

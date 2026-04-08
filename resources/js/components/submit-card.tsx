@@ -144,6 +144,7 @@ export default function SubmitCard({ currentTarget = null }: SubmitCardProps) {
         setFormPayload(draftFormPayload);
     }, [draftFormPayload]);
 
+    const canEditSubmission = periodOpen && canStartNewSubmission;
     const isViewingActiveSubmission = Boolean(
         latestSubmission && !canStartNewSubmission,
     );
@@ -166,6 +167,10 @@ export default function SubmitCard({ currentTarget = null }: SubmitCardProps) {
           : 'Not Started';
 
     const summaryText = useMemo(() => {
+        if (!periodOpen) {
+            return 'The evaluation period is currently closed. You can preview the form below, but editing and submission stay disabled until HR opens the period.';
+        }
+
         if (!latestSubmission) {
             return 'Draft a new submission for the current period.';
         }
@@ -178,7 +183,7 @@ export default function SubmitCard({ currentTarget = null }: SubmitCardProps) {
             latestSubmission.notification ??
             'Your IPCR is currently moving through the workflow.'
         );
-    }, [latestSubmission]);
+    }, [latestSubmission, periodOpen]);
 
     function handleSubmit(): void {
         if (!auth.user.employee_id || !formPayload) {
@@ -282,32 +287,46 @@ export default function SubmitCard({ currentTarget = null }: SubmitCardProps) {
                         <>
                             <IpcrPaperForm
                                 value={formPayload}
-                                mode="employee"
-                                onChange={setFormPayload}
+                                mode={canEditSubmission ? 'employee' : 'review'}
+                                onChange={
+                                    canEditSubmission ? setFormPayload : undefined
+                                }
                                 currentTarget={currentTarget}
                             />
+                            {!canEditSubmission && (
+                                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+                                    The evaluation period is closed right now.
+                                    You can preview the form, but editing and
+                                    submission stay disabled until HR opens the
+                                    period.
+                                </div>
+                            )}
                             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="w-full sm:w-auto"
-                                    onClick={() =>
-                                        setFormPayload(draftFormPayload)
-                                    }
-                                    disabled={processing}
-                                >
-                                    Reset Draft
-                                </Button>
-                                <Button
-                                    type="button"
-                                    className="w-full sm:w-auto"
-                                    disabled={!canSubmit}
-                                    onClick={handleSubmit}
-                                >
-                                    {processing
-                                        ? 'Submitting...'
-                                        : 'Submit IPCR'}
-                                </Button>
+                                {canEditSubmission && (
+                                    <>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="w-full sm:w-auto"
+                                            onClick={() =>
+                                                setFormPayload(draftFormPayload)
+                                            }
+                                            disabled={processing}
+                                        >
+                                            Reset Draft
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            className="w-full sm:w-auto"
+                                            disabled={!canSubmit}
+                                            onClick={handleSubmit}
+                                        >
+                                            {processing
+                                                ? 'Submitting...'
+                                                : 'Submit IPCR'}
+                                        </Button>
+                                    </>
+                                )}
                             </div>
                         </>
                     ) : (

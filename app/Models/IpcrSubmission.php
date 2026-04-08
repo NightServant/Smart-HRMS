@@ -33,6 +33,7 @@ class IpcrSubmission extends Model
         'appeal_status',
         'appeal_window_opens_at',
         'appeal_window_closes_at',
+        'appeal_count',
 
         // Phase 4 — PMT Validation
         'pmt_reviewer_id',
@@ -63,6 +64,7 @@ class IpcrSubmission extends Model
             'pmt_cycle_count' => 'integer',
             'appeal_window_opens_at' => 'datetime',
             'appeal_window_closes_at' => 'datetime',
+            'appeal_count' => 'integer',
             'finalized_at' => 'datetime',
             'final_rating' => 'decimal:2',
             'is_escalated' => 'boolean',

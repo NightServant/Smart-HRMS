@@ -4,6 +4,7 @@ use App\Models\Employee;
 use App\Models\IpcrAppeal;
 use App\Models\IpcrSubmission;
 use App\Models\IpcrTarget;
+use App\Models\IwrAuditLog;
 use App\Models\Notification;
 use App\Models\SystemSetting;
 use App\Models\User;
@@ -537,6 +538,48 @@ test('submit evaluation page returns workflow and form props', function () {
         );
 });
 
+test('submit evaluation page keeps the ipcr form preview launcher enabled while the period is closed', function () {
+    ['employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
+
+    SystemSetting::set('ipcr_period_open', 'false', $employeeUser->id);
+    SystemSetting::set('ipcr_period_label', 'January to June 2026', $employeeUser->id);
+    SystemSetting::set('ipcr_period_year', '2026', $employeeUser->id);
+
+    $this->actingAs($employeeUser)
+        ->get(route('submit-evaluation'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('performance-evaluation')
+            ->where('periodOpen', false)
+            ->where('employeePanel.canOpenForm', true)
+            ->where(
+                'employeePanel.periodMessage',
+                'HR has not enabled the evaluation period yet. You can still preview the IPCR form below, but editing and submission stay disabled until the period opens.',
+            )
+        );
+});
+
+test('ipcr form page remains previewable while the evaluation period is closed', function () {
+    ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
+
+    SystemSetting::set('ipcr_period_open', 'false', $employeeUser->id);
+    SystemSetting::set('ipcr_period_label', 'January to June 2026', $employeeUser->id);
+    SystemSetting::set('ipcr_period_year', '2026', $employeeUser->id);
+
+    $service = app(IpcrFormTemplateService::class);
+    $draft = $service->draft($employee, 'January to June 2026');
+
+    $this->actingAs($employeeUser)
+        ->get(route('ipcr.form'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('ipcr-form')
+            ->where('periodOpen', false)
+            ->has('draftFormPayload.sections', count($draft['sections']))
+            ->has('latestSubmission')
+        );
+});
+
 test('document management includes employees with evaluator-ready submissions', function () {
     ['employee' => $employee, 'evaluatorUser' => $evaluatorUser] = seedIpcrUsersAndEmployees();
 
@@ -1040,6 +1083,65 @@ test('hr target management page renders submitted and finalized targets', functi
         );
 });
 
+test('hr target management page exposes the closed target window state', function () {
+    ['hrUser' => $hrUser] = seedIpcrUsersAndEmployees();
+
+    Carbon::setTestNow('2026-04-08 09:00:00');
+
+    try {
+        $this->actingAs($hrUser)
+            ->get(route('admin.ipcr.target-management'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('admin/ipcr-target-management')
+                ->where('currentTargetPeriod.semester', 1)
+                ->where('currentTargetPeriod.year', 2026)
+                ->where('currentTargetPeriod.submissionOpen', false)
+            );
+    } finally {
+        Carbon::setTestNow();
+    }
+});
+
+test('hr target management page exposes the open target window state', function () {
+    ['hrUser' => $hrUser] = seedIpcrUsersAndEmployees();
+
+    Carbon::setTestNow('2026-05-10 09:00:00');
+
+    try {
+        $this->actingAs($hrUser)
+            ->get(route('admin.ipcr.target-management'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('admin/ipcr-target-management')
+                ->where('currentTargetPeriod.submissionOpen', true)
+            );
+    } finally {
+        Carbon::setTestNow();
+    }
+});
+
+test('ipcr target form page keeps the first semester cycle visible while closed in april', function () {
+    ['employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
+
+    Carbon::setTestNow('2026-04-08 09:00:00');
+
+    try {
+        $this->actingAs($employeeUser)
+            ->get(route('ipcr.target.form'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('ipcr-target-form')
+                ->where('targetPeriod.semester', 1)
+                ->where('targetPeriod.year', 2026)
+                ->where('targetPeriod.submissionOpen', false)
+                ->where('targetPeriod.submissionWindowLabel', 'November 2025')
+            );
+    } finally {
+        Carbon::setTestNow();
+    }
+});
+
 test('notifications include target urls for clickable workflow follow ups', function () {
     ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
     $submission = createAppealWindowSubmission($employee);
@@ -1106,49 +1208,74 @@ test('ipcr target draft form has blank accountable fields so employees fill in t
     }
 });
 
-test('hr can close the ipcr target submission window and force-open state is cleared', function () {
+test('hr can close the ipcr target submission window even during the may cycle', function () {
     ['employeeUser' => $employeeUser, 'hrUser' => $hrUser] = seedIpcrUsersAndEmployees();
 
-    // First force-open outside of Nov/May to verify the close works.
-    SystemSetting::set('ipcr_target_open', 'true', $hrUser->id);
-    SystemSetting::set('ipcr_target_semester', '1', $hrUser->id);
-    SystemSetting::set('ipcr_target_year', '2026', $hrUser->id);
+    Carbon::setTestNow('2026-05-10 09:00:00');
 
-    Carbon::setTestNow('2026-03-10 09:00:00'); // March — only open because of force-open
+    try {
+        $this->actingAs($hrUser)
+            ->post(route('admin.ipcr.target.notify'), [
+                'semester' => 2,
+                'year' => 2026,
+            ])
+            ->assertRedirect();
 
-    $this->actingAs($hrUser)
-        ->post(route('admin.ipcr.target.close'))
-        ->assertRedirect();
+        $this->actingAs($employeeUser)
+            ->get(route('ipcr.target.form'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('ipcr-target-form')
+                ->where('targetPeriod.submissionOpen', true)
+                ->where('targetPeriod.semester', 2)
+                ->where('targetPeriod.year', 2026)
+            );
 
-    expect(SystemSetting::get('ipcr_target_open'))->toBeFalse();
+        $this->actingAs($hrUser)
+            ->post(route('admin.ipcr.target.close'))
+            ->assertRedirect();
 
-    // After closing, March should now show the window as closed.
-    $this->actingAs($employeeUser)
-        ->get(route('ipcr.target'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('ipcr-target')
-            ->where('targetPeriod.submissionOpen', false)
-        );
+        expect(SystemSetting::get('ipcr_target_mode'))->toBe('closed');
+        expect(SystemSetting::get('ipcr_target_open'))->toBeFalse();
 
-    Carbon::setTestNow();
+        // After closing, May should stay closed instead of auto-opening again.
+        $this->actingAs($employeeUser)
+            ->get(route('ipcr.target.form'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('ipcr-target-form')
+                ->where('targetPeriod.submissionOpen', false)
+                ->where('targetPeriod.semester', 2)
+                ->where('targetPeriod.year', 2026)
+                ->where('targetPeriod.submissionWindowLabel', 'May 2026')
+            );
+    } finally {
+        Carbon::setTestNow();
+    }
 });
 
 test('hr force-open window is honoured even outside november and may', function () {
     ['employeeUser' => $employeeUser, 'hrUser' => $hrUser] = seedIpcrUsersAndEmployees();
 
-    SystemSetting::set('ipcr_target_open', 'true', $hrUser->id);
-    SystemSetting::set('ipcr_target_semester', '1', $hrUser->id);
-    SystemSetting::set('ipcr_target_year', '2026', $hrUser->id);
+    SystemSetting::query()
+        ->where('key', 'ipcr_target_mode')
+        ->delete();
 
     Carbon::setTestNow('2026-03-10 09:00:00'); // March — normally closed
 
     try {
+        $this->actingAs($hrUser)
+            ->post(route('admin.ipcr.target.notify'), [
+                'semester' => 1,
+                'year' => 2026,
+            ])
+            ->assertRedirect();
+
         $this->actingAs($employeeUser)
-            ->get(route('ipcr.target'))
+            ->get(route('ipcr.target.form'))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
-                ->component('ipcr-target')
+                ->component('ipcr-target-form')
                 ->where('targetPeriod.submissionOpen', true)
                 ->where('targetPeriod.semester', 1)
                 ->where('targetPeriod.year', 2026)
@@ -1158,10 +1285,55 @@ test('hr force-open window is honoured even outside november and may', function 
     }
 });
 
+test('an existing ipcr target draft can still be saved after the window closes', function () {
+    ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
+
+    Carbon::setTestNow('2026-04-08 09:00:00');
+
+    try {
+        $service = app(\App\Services\IpcrFormTemplateService::class);
+        $payload = $service->targetDraft($employee, 'First Semester 2026');
+        $payload['sections'][0]['rows'][0]['accountable'] = 'Original draft value.';
+
+        IpcrTarget::query()->create([
+            'employee_id' => $employee->employee_id,
+            'semester' => 1,
+            'target_year' => 2026,
+            'form_payload' => $payload,
+            'status' => 'draft',
+            'submitted_at' => null,
+        ]);
+
+        $payload['sections'][0]['rows'][0]['accountable'] = 'Updated after the window closed.';
+
+        $this->actingAs($employeeUser)
+            ->post(route('ipcr.target.save'), [
+                'semester' => 1,
+                'target_year' => 2026,
+                'form_payload' => $payload,
+                'action' => 'save',
+            ])
+            ->assertRedirect();
+
+        $target = IpcrTarget::query()
+            ->where('employee_id', $employee->employee_id)
+            ->where('semester', 1)
+            ->where('target_year', 2026)
+            ->first();
+
+        expect($target)->not->toBeNull();
+        expect($target->status)->toBe('draft');
+        expect($target->form_payload['sections'][0]['rows'][0]['accountable'])->toBe('Updated after the window closed.');
+    } finally {
+        Carbon::setTestNow();
+    }
+});
+
 test('ipcr target submission routes through iwr and assigns evaluator', function () {
     ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
 
     SystemSetting::set('ipcr_target_open', 'true', $employeeUser->id);
+    SystemSetting::setIpcrTargetMode('open', $employeeUser->id);
     SystemSetting::set('ipcr_target_semester', '2', $employeeUser->id);
     SystemSetting::set('ipcr_target_year', '2026', $employeeUser->id);
 
@@ -1194,6 +1366,81 @@ test('ipcr target submission routes through iwr and assigns evaluator', function
     expect($target->status)->toBe('submitted');
     // IWR should have assigned the evaluator (supervisor = EMP-001)
     expect($target->evaluator_id)->toBe('EMP-001');
+
+    $auditLog = IwrAuditLog::query()
+        ->where('employee_id', $employee->employee_id)
+        ->where('document_type', 'ipcr_target')
+        ->where('document_id', $target->id)
+        ->first();
+
+    expect($auditLog)->not->toBeNull();
+    expect($auditLog->routing_action)->toBe('route_to_evaluator');
+});
+
+test('rejected ipcr target can be edited and resubmitted while the target window is closed', function () {
+    ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
+
+    Carbon::setTestNow('2026-04-08 09:00:00');
+
+    try {
+        $service = app(IpcrFormTemplateService::class);
+        $formPayload = $service->targetDraft($employee, 'First Semester 2026');
+        $formPayload['sections'][0]['rows'][0]['accountable'] = 'Original returned target value.';
+
+        $target = IpcrTarget::query()->create([
+            'employee_id' => $employee->employee_id,
+            'semester' => 1,
+            'target_year' => 2026,
+            'form_payload' => $formPayload,
+            'status' => 'submitted',
+            'submitted_at' => now()->subDay(),
+            'evaluator_id' => 'EMP-001',
+            'evaluator_decision' => 'rejected',
+            'evaluator_remarks' => 'Please revise this target.',
+            'evaluator_reviewed_at' => now()->subHours(2),
+        ]);
+
+        $this->actingAs($employeeUser)
+            ->get(route('ipcr.target.form'))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('ipcr-target-form')
+                ->where('existingTarget.id', $target->id)
+                ->where('existingTarget.evaluator_decision', 'rejected')
+            );
+
+        $updatedPayload = $formPayload;
+        $updatedPayload['sections'][0]['rows'][0]['accountable'] = 'Updated after review.';
+
+        mockIwrService(['routeIpcrTarget' => [
+            'status' => 'routed',
+            'stage' => 'sent_to_evaluator',
+            'routing_action' => 'route_to_evaluator',
+            'evaluator_id' => 'EMP-001',
+            'evaluator_name' => 'John Reyes',
+            'confidence_pct' => 100.0,
+            'notification' => 'IPCR targets resent to John Reyes for review.',
+        ]]);
+
+        $this->actingAs($employeeUser)
+            ->post(route('ipcr.target.save'), [
+                'semester' => 1,
+                'target_year' => 2026,
+                'form_payload' => $updatedPayload,
+                'action' => 'submit',
+            ])
+            ->assertRedirect();
+
+        $target->refresh();
+
+        expect($target->status)->toBe('submitted');
+        expect($target->evaluator_decision)->toBeNull();
+        expect($target->evaluator_remarks)->toBeNull();
+        expect($target->evaluator_reviewed_at)->toBeNull();
+        expect($target->form_payload['sections'][0]['rows'][0]['accountable'])->toBe('Updated after review.');
+    } finally {
+        Carbon::setTestNow();
+    }
 });
 
 test('ipcr form page includes the matching target reference when submission period matches target semester', function () {

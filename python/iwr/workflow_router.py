@@ -674,22 +674,22 @@ class WorkflowRouter:
             hr_decision = form.get("hr_decision")
             hr_cycle_count = int(form.get("hr_cycle_count", 0))
 
-            if hr_decision == "approved":
+            if hr_decision == "correct":
+                return {**base, "status": "routed", "stage": "sent_to_pmt", "routing_action": "route_to_pmt",
+                        "notification": f"HR verified computation and completeness for {employee_name}. Routed to PMT for policy-level validation."}
+
+            if hr_decision == "incorrect":
                 return {**base, "status": "routed", "stage": "appeal_window_open", "routing_action": "open_appeal_window",
                         "appeal_window_hours": APPEAL_WINDOW_HOURS,
-                        "notification": f"HR approved IPCR for {employee_name}. Appeal window opened for {APPEAL_WINDOW_HOURS} hours."}
+                        "notification": f"HR found issues with computation/completeness for {employee_name}. Employee notified and appeal window opened for {APPEAL_WINDOW_HOURS} hours."}
 
-            if hr_cycle_count < HR_MAX_CYCLES:
-                return {**base, "status": "routed", "stage": "sent_to_evaluator", "routing_action": "re_evaluate",
-                        "notification": f"HR returned IPCR for {employee_name} to the evaluator for correction."}
-
-            return {**base, "status": "escalated", "stage": "escalated", "routing_action": "escalate",
-                    "escalation_reason": "HR review cycle limit reached",
-                    "notification": f"IPCR for {employee_name} escalated — HR review cycle limit reached."}
+            return {**base, "status": "error", "stage": "hr_review", "routing_action": "validation_failed",
+                    "notification": f"Invalid HR decision: '{hr_decision}'. Must be 'correct' or 'incorrect'."}
 
         # --- Phase 3B: Appeal ---
         if stage == "appeal":
             appeal_status = form.get("appeal_status", "")
+            appeal_count = int(form.get("appeal_count", 1))
 
             if appeal_status in ("expired", "no_appeal"):
                 return {**base, "status": "routed", "stage": "sent_to_pmt", "routing_action": "route_to_pmt",
@@ -699,8 +699,12 @@ class WorkflowRouter:
             if not passed:
                 return {**base, "status": "error", "stage": "appeal", "routing_action": "validation_failed", "notification": reason}
 
+            if appeal_count <= 1:
+                return {**base, "status": "routed", "stage": "sent_to_evaluator", "routing_action": "re_evaluate",
+                        "notification": f"First appeal submitted by {employee_name}. Routed back to evaluator for re-evaluation."}
+
             return {**base, "status": "routed", "stage": "sent_to_pmt", "routing_action": "route_to_pmt",
-                    "notification": f"Appeal submitted for {employee_name}. Routed to PMT for validation."}
+                    "notification": f"Second appeal submitted by {employee_name}. Routed to PMT for policy-level validation."}
 
         # --- Phase 4: PMT Review ---
         if stage == "pmt_review":

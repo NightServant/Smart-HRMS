@@ -15,8 +15,8 @@ class SaveHrReviewRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'hr_decision' => 'required|string|in:approved,rejected',
-            'hr_remarks' => 'required_if:hr_decision,rejected|nullable|string|max:2000',
+            'hr_decision' => 'required|string|in:correct,incorrect',
+            'hr_remarks' => 'required_if:hr_decision,incorrect|nullable|string|max:2000',
         ];
     }
 }
