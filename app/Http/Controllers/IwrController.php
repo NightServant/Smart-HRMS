@@ -51,6 +51,7 @@ class IwrController extends Controller
         $latestSubmission = $employee?->latestSubmission()
             ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
             ->first();
+        $latestSubmission = $this->repairLegacyHrReviewSubmission($latestSubmission);
 
         return Inertia::render('performance-evaluation', [
             'roleView' => 'employee',
@@ -73,6 +74,7 @@ class IwrController extends Controller
         $latestSubmission = $employee?->latestSubmission()
             ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
             ->first();
+        $latestSubmission = $this->repairLegacyHrReviewSubmission($latestSubmission);
         $selectedSubmission = null;
 
         if ($employee && $request->filled('submission_id')) {
@@ -81,6 +83,7 @@ class IwrController extends Controller
                 ->whereKey((int) $request->integer('submission_id'))
                 ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
                 ->first();
+            $selectedSubmission = $this->repairLegacyHrReviewSubmission($selectedSubmission);
         }
 
         $canStartNewSubmission = $employee !== null
@@ -116,6 +119,7 @@ class IwrController extends Controller
         $latestSubmission = $employee->latestSubmission()
             ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
             ->first();
+        $latestSubmission = $this->repairLegacyHrReviewSubmission($latestSubmission);
 
         $selectedSubmission = null;
 
@@ -125,6 +129,7 @@ class IwrController extends Controller
                 ->whereKey((int) $request->integer('submission_id'))
                 ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
                 ->firstOrFail();
+            $selectedSubmission = $this->repairLegacyHrReviewSubmission($selectedSubmission);
         }
 
         $sourceSubmission = $selectedSubmission ?? $latestSubmission;
@@ -188,7 +193,7 @@ class IwrController extends Controller
         ]);
     }
 
-    public function ipcrTargetFormPage(Request $request): Response
+    public function ipcrTargetFormPage(Request $request): Response|RedirectResponse
     {
         $employee = $request->user()->employee;
         abort_unless($employee, 404);
@@ -200,6 +205,19 @@ class IwrController extends Controller
             ->where('semester', $targetPeriod['semester'])
             ->where('target_year', $targetPeriod['year'])
             ->first();
+
+        // Prevent reopening an already-submitted target (unless returned for revision).
+        // Submitted targets are one-shot; employees may only view them as a read-only snapshot.
+        if (
+            $existingTarget
+            && $existingTarget->status === 'submitted'
+            && $existingTarget->evaluator_decision !== 'rejected'
+        ) {
+            return to_route('ipcr.target')->with(
+                'info',
+                'Your IPCR targets for this cycle have already been submitted and are locked.',
+            );
+        }
 
         return Inertia::render('ipcr-target-form', [
             'employee' => $this->employeeResource($employee),
@@ -747,6 +765,10 @@ class IwrController extends Controller
             $updateData['appeal_status'] = 'appeal_window_open';
             $updateData['appeal_window_opens_at'] = now();
             $updateData['appeal_window_closes_at'] = now()->addHours(72);
+        }
+
+        if (in_array($iwrResult['routing_action'] ?? '', ['open_appeal_window', 're_evaluate', 'route_to_pmt'], true)) {
+            $updateData['hr_cycle_count'] = $currentHrCycles + 1;
         }
 
         if (($iwrResult['routing_action'] ?? '') === 'escalate') {
@@ -1325,23 +1347,29 @@ class IwrController extends Controller
 
         $canStartNewSubmission = $latestSubmission === null || $latestSubmission->stage === 'finalized';
 
-        $recommendationsEnabled = Notification::query()
-            ->where('user_id', $request->user()->id)
-            ->where('type', 'training_suggestion')
-            ->exists();
+        $recommendationsEnabled = $latestSubmission
+            ? Notification::query()
+                ->where('user_id', $request->user()->id)
+                ->where('type', 'training_suggestion')
+                ->where('document_type', 'ipcr')
+                ->where('document_id', $latestSubmission->id)
+                ->exists()
+            : false;
 
         $recommendations = [];
         $riskLevel = 'NONE';
         $weakAreas = [];
 
-        if ($recommendationsEnabled && $latestSubmission?->form_payload) {
+        if ($latestSubmission?->form_payload && $recommendationsEnabled) {
             $seminars = \App\Models\Seminars::query()
                 ->orderBy('date')
                 ->get()
                 ->map(fn (\App\Models\Seminars $seminar): array => [
                     'id' => $seminar->id,
+                    'title' => $seminar->title,
                     'description' => $seminar->description,
                     'target_performance_area' => $seminar->target_performance_area,
+                    'rating_tier' => $seminar->rating_tier,
                 ])
                 ->all();
 
@@ -1592,6 +1620,74 @@ class IwrController extends Controller
                 ? $this->employeeResource($target->evaluator)
                 : null,
         ];
+    }
+
+    private function repairLegacyHrReviewSubmission(?IpcrSubmission $submission): ?IpcrSubmission
+    {
+        if (! $submission) {
+            return null;
+        }
+
+        if (
+            $submission->status !== 'error'
+            || $submission->stage !== 'hr_review'
+            || $submission->routing_action !== 'validation_failed'
+            || ! in_array($submission->hr_decision, ['correct', 'incorrect'], true)
+        ) {
+            return $submission;
+        }
+
+        $submission->loadMissing(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal']);
+
+        $iwrResult = $this->iwrService->routeHrReview([
+            'stage' => 'hr_review',
+            'employee_id' => $submission->employee_id,
+            'employee_name' => $submission->employee?->name ?? $submission->employee_id,
+            'hr_decision' => $submission->hr_decision,
+            'hr_remarks' => $submission->hr_remarks,
+            'hr_cycle_count' => $submission->hr_cycle_count,
+        ]);
+
+        if ($this->iwrFailed($iwrResult)) {
+            return $submission;
+        }
+
+        $updateData = [
+            'stage' => $iwrResult['stage'] ?? $submission->stage,
+            'status' => $iwrResult['status'] ?? $submission->status,
+            'routing_action' => $iwrResult['routing_action'] ?? $submission->routing_action,
+            'notification' => $iwrResult['notification'] ?? $submission->notification,
+        ];
+
+        if (($iwrResult['routing_action'] ?? '') === 'open_appeal_window') {
+            $updateData['appeal_status'] = 'appeal_window_open';
+            $updateData['appeal_window_opens_at'] = now();
+            $updateData['appeal_window_closes_at'] = now()->addHours(72);
+        }
+
+        if (in_array($iwrResult['routing_action'] ?? '', ['open_appeal_window', 're_evaluate', 'route_to_pmt'], true)) {
+            $updateData['hr_cycle_count'] = $submission->hr_cycle_count + 1;
+        }
+
+        if (($iwrResult['routing_action'] ?? '') === 'escalate') {
+            $updateData['is_escalated'] = true;
+            $updateData['escalation_reason'] = $iwrResult['escalation_reason'] ?? 'HR review cycle limit reached';
+        }
+
+        $submission->update($updateData);
+
+        $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
+
+        $routingAction = $iwrResult['routing_action'] ?? '';
+        if ($routingAction === 'route_to_pmt') {
+            $this->notificationService->notifyV51($submission->fresh(['employee']), 'route_to_pmt');
+        } elseif ($routingAction === 'open_appeal_window') {
+            $this->notificationService->notifyV51($submission->fresh(['employee']), 'open_appeal_window');
+        } elseif ($routingAction !== '') {
+            $this->notificationService->notifyV51($submission->fresh(['employee']), $routingAction, $submission->hr_remarks ?? '');
+        }
+
+        return $submission->fresh(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal']);
     }
 
     /**

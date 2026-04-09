@@ -27,18 +27,24 @@ class DashboardController extends Controller
                 ->latest()
                 ->first();
 
-            $recommendationsEnabled = Notification::query()
-                ->where('user_id', auth()->id())
-                ->where('type', 'training_suggestion')
-                ->exists();
+            $recommendationsEnabled = $submission
+                ? Notification::query()
+                    ->where('user_id', auth()->id())
+                    ->where('type', 'training_suggestion')
+                    ->where('document_type', 'ipcr')
+                    ->where('document_id', $submission->id)
+                    ->exists()
+                : false;
 
             if ($submission?->form_payload && $recommendationsEnabled) {
                 $seminars = Seminars::query()
                     ->get()
                     ->map(fn (Seminars $s): array => [
                         'id' => $s->id,
+                        'title' => $s->title,
                         'description' => $s->description,
                         'target_performance_area' => $s->target_performance_area,
+                        'rating_tier' => $s->rating_tier,
                     ])
                     ->all();
 

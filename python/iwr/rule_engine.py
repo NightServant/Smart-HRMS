@@ -294,15 +294,15 @@ class RuleEngine:
         """
         hr_decision = form.get("hr_decision")
 
-        # RULE 1: Decision must be 'approved' or 'rejected'
-        if hr_decision not in ("approved", "rejected"):
-            return False, f"Invalid HR decision: '{hr_decision}'. Must be 'approved' or 'rejected'."
+        # RULE 1: Decision must be 'correct' or 'incorrect'
+        if hr_decision not in ("correct", "incorrect"):
+            return False, f"Invalid HR decision: '{hr_decision}'. Must be 'correct' or 'incorrect'."
 
-        # RULE 2: Rejection requires remarks
-        if hr_decision == "rejected":
+        # RULE 2: Incorrect decisions require remarks
+        if hr_decision == "incorrect":
             hr_remarks = form.get("hr_remarks", "")
             if not hr_remarks or not hr_remarks.strip():
-                return False, "HR must provide remarks when rejecting an IPCR."
+                return False, "HR must provide remarks when marking an IPCR incorrect."
 
         return True, "Compliant"
 
@@ -321,8 +321,10 @@ class RuleEngine:
         """
         appeal_status = form.get("appeal_status")
 
-        # RULE 1: Appeal window must be open
-        if appeal_status != "appeal_window_open":
+        # RULE 1: The submission must be in the appeal flow.
+        # The Laravel controller submits appeals with appeal_status="submitted",
+        # while some legacy payloads still surface the open-window state.
+        if appeal_status not in ("submitted", "appeal_window_open"):
             return False, "Appeal window is not open. Cannot submit an appeal."
 
         # RULE 2: Appeal reason is required (R-A2)

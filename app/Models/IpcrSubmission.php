@@ -101,7 +101,7 @@ class IpcrSubmission extends Model
      */
     public function isAppealWindowOpen(): bool
     {
-        return $this->appeal_status === 'appeal_window_open'
+        return ($this->appeal_status === 'appeal_window_open' || $this->stage === 'appeal_window_open')
             && $this->appeal_window_closes_at !== null
             && now()->lt($this->appeal_window_closes_at);
     }

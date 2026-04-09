@@ -1,5 +1,7 @@
 import { Form, Head, usePage } from '@inertiajs/react';
-import { BriefcaseBusiness, IdCard, LockKeyhole, Mail, PencilOff, ShieldCheck, UserRound, Users } from 'lucide-react';
+import type { UserRound} from 'lucide-react';
+import { BriefcaseBusiness, IdCard, LockKeyhole, Mail, PencilOff, ShieldCheck, Users } from 'lucide-react';
+import { Separator } from 'radix-ui';
 import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import ProfileController from '@/actions/App/Http/Controllers/Settings/ProfileController';
@@ -11,9 +13,8 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { edit } from '@/routes/profile';
-import type { Auth } from '@/types/auth';
 import type { BreadcrumbItem } from '@/types';
-import { Separator } from 'radix-ui';
+import type { Auth } from '@/types/auth';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {

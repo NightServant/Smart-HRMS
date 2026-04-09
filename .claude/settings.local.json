@@ -39,7 +39,8 @@
       "Bash(\"/Users/gabe/Library/Application Support/Herd/bin/php\" artisan test --compact --filter=\"IpcrWorkflowV51Test\")",
       "Bash(\"/Users/gabe/Library/Application Support/Herd/bin/php\" artisan test --compact --filter=\"stays closed\")",
       "Bash(/Applications/Herd.app/Contents/Resources/bin/php artisan:*)",
-      "Bash(vendor/bin/pint app/Http/Controllers/IwrController.php app/Http/Requests/SaveEvaluationRequest.php --format agent)"
+      "Bash(vendor/bin/pint app/Http/Controllers/IwrController.php app/Http/Requests/SaveEvaluationRequest.php --format agent)",
+      "Bash(export PATH=\"$HOME/Library/Application Support/Herd/bin:$PATH\")"
     ]
   }
 }

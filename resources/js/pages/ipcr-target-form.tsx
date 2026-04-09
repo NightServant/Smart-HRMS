@@ -8,9 +8,9 @@ import {
     Target,
 } from 'lucide-react';
 import { Fragment, startTransition, useEffect, useMemo, useState } from 'react';
+import IpcrTargetReadonly from '@/components/ipcr-target-readonly';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import IpcrTargetReadonly from '@/components/ipcr-target-readonly';
 import {
     Card,
     CardContent,

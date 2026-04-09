@@ -1,7 +1,7 @@
 import { Head, Link } from '@inertiajs/react';
 import { ShieldCheck } from 'lucide-react';
-import { home } from '@/routes';
 import { ModeToggle } from '@/components/ui/mode-toggle';
+import { home } from '@/routes';
 
 export default function HomepageHeader() {
     return (

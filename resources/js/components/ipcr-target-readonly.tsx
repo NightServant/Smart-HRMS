@@ -1,5 +1,5 @@
-import { Fragment, useState } from 'react';
 import { CheckCircle2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Fragment, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
     Card,

@@ -48,6 +48,20 @@ export default function IpcrTargetPage() {
     const { targetPeriod, existingTarget, selectedTarget, targetHistory } =
         usePage<PageProps>().props;
 
+    const isReturned = existingTarget?.evaluator_decision === 'rejected';
+    const isSubmitted =
+        existingTarget?.status === 'submitted' && !isReturned;
+    const canOpenTargetForm =
+        !isSubmitted &&
+        (targetPeriod.submissionOpen ||
+            existingTarget?.status === 'draft' ||
+            isReturned);
+    const openTargetFormLabel = isReturned
+        ? 'Open Returned Targets'
+        : existingTarget?.status === 'draft'
+          ? 'Resume Target Draft'
+          : 'Open IPCR Target Form';
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="IPCR Target" />
@@ -87,19 +101,54 @@ export default function IpcrTargetPage() {
                     </CardHeader>
                     <CardContent className="space-y-5 pt-6">
                         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                            <Button asChild className="w-full sm:w-auto">
-                                <Link href={ipcrTargetForm.form().url}>
-                                    Open IPCR Target Form
-                                </Link>
-                            </Button>
+                            {canOpenTargetForm ? (
+                                <Button asChild className="w-full sm:w-auto">
+                                    <Link href={ipcrTargetForm.form().url}>
+                                        {openTargetFormLabel}
+                                    </Link>
+                                </Button>
+                            ) : (
+                                <Button
+                                    type="button"
+                                    disabled
+                                    className="w-full sm:w-auto"
+                                >
+                                    {isSubmitted
+                                        ? 'Target Already Submitted'
+                                        : 'Target Window Closed'}
+                                </Button>
+                            )}
                             <p className="flex items-center text-sm text-slate-500 dark:text-slate-400">
-                                The target form is now separate from this
-                                history page so you can review snapshots without
-                                mixing them with the editor.
+                                {isSubmitted
+                                    ? 'Your targets for this cycle have already been submitted and are locked. Review the snapshot below.'
+                                    : isReturned
+                                      ? 'Your supervisor returned these targets for revision. Reopen the form to make your edits.'
+                                      : 'The target form is now separate from this history page so you can review snapshots without mixing them with the editor.'}
                             </p>
                         </div>
                     </CardContent>
                 </Card>
+
+                {isSubmitted && existingTarget ? (
+                    <Card className="glass-card border-border bg-card shadow-sm">
+                        <CardHeader>
+                            <CardTitle className="text-xl">
+                                Current Cycle Target Snapshot
+                            </CardTitle>
+                            <CardDescription>
+                                Your submitted targets for{' '}
+                                {semesterLabel(
+                                    existingTarget.semester,
+                                    existingTarget.target_year,
+                                )}
+                                . These are locked and cannot be edited.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <IpcrTargetReadonly target={existingTarget} />
+                        </CardContent>
+                    </Card>
+                ) : null}
 
                 <Card className="glass-card border-border bg-card shadow-sm">
                     <CardHeader>

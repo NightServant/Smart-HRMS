@@ -13,9 +13,19 @@ import {
 } from '@/components/ui/card';
 import AppHeaderLayout from '@/layouts/app/app-header-layout';
 import { submitEvaluation } from '@/routes';
-import type { IpcrSubmission, IpcrTarget } from '@/types';
+import type {
+    IpcrEmployee,
+    IpcrFormPayload,
+    IpcrSubmission,
+    IpcrTarget,
+} from '@/types/ipcr';
 
 type PageProps = {
+    employee?: IpcrEmployee | null;
+    currentPeriod?: { label: string; year: number; isOpen: boolean };
+    periodOpen?: boolean;
+    canStartNewSubmission?: boolean;
+    draftFormPayload?: IpcrFormPayload | null;
     selectedSubmission?: IpcrSubmission | null;
     latestSubmission?: IpcrSubmission | null;
     currentTarget?: IpcrTarget | null;

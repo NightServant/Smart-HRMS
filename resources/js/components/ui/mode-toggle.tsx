@@ -1,7 +1,7 @@
-import { useAppearance } from "@/hooks/use-appearance"
-import { cn } from "@/lib/utils"
 import { Moon, Sun } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useAppearance } from "@/hooks/use-appearance"
+import { cn } from "@/lib/utils"
 
 type ModeToggleProps = {
   className?: string

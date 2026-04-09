@@ -410,16 +410,12 @@
         @endforeach
 
         <div class="section">
-            <h2 class="section-title">Employee Notes and Self Assessment</h2>
+            <h2 class="section-title">Employee Notes</h2>
             <table class="notes-grid">
                 <tr>
-                    <td style="width: 50%;">
+                    <td>
                         <p class="label">Employee Notes</p>
                         <p class="small">{!! nl2br(e(data_get($workflowNotes, 'employee_notes') ?: '—')) !!}</p>
-                    </td>
-                    <td style="width: 50%;">
-                        <p class="label">Self Assessment QETA</p>
-                        <p class="small">{!! nl2br(e(data_get($workflowNotes, 'self_assessment_qeta') ?: '—')) !!}</p>
                     </td>
                 </tr>
             </table>

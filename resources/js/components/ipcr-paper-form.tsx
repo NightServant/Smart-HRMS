@@ -22,13 +22,36 @@ import { Textarea } from '@/components/ui/textarea';
 import WorkflowSignOff from '@/components/workflow-sign-off';
 import {
     cloneIpcrFormPayload,
+    calculateIpcrSelfAssessmentAverage,
     getAdjectivalRating,
     recalculateIpcrFormPayload,
 } from '@/lib/ipcr';
 import { cn } from '@/lib/utils';
-import type { IpcrFormPayload, IpcrFormRow, IpcrTarget } from '@/types/ipcr';
+import type {
+    IpcrFormPayload,
+    IpcrFormRow,
+    IpcrSelfAssessmentQetaSet,
+    IpcrTarget,
+} from '@/types/ipcr';
 
 type Mode = 'employee' | 'evaluator' | 'review';
+type SelfAssessmentScoreKey = keyof IpcrSelfAssessmentQetaSet;
+
+const SELF_ASSESSMENT_METRICS: Array<{
+    key: SelfAssessmentScoreKey;
+    label: string;
+}> = [
+    { key: 'quality', label: 'Q' },
+    { key: 'efficiency', label: 'E' },
+    { key: 'timeliness', label: 'T' },
+];
+
+const DEFAULT_SELF_ASSESSMENT_SCORES: IpcrSelfAssessmentQetaSet = {
+    quality: null,
+    efficiency: null,
+    timeliness: null,
+    accountability: null,
+};
 
 type Props = {
     value: IpcrFormPayload;
@@ -66,9 +89,9 @@ export default function IpcrPaperForm({
         queueMicrotask(() => {
             setCurrentStep(0);
         });
-    }, [mode, value.template_version, value.metadata.period]);
+    }, [mode, value?.template_version, value?.metadata?.period]);
 
-    const sections = value.sections;
+    const sections = useMemo(() => value?.sections ?? [], [value?.sections]);
     const currentSection = sections[currentStep] ?? sections[0];
     const renderedSections = isPrintPresentation
         ? sections
@@ -78,30 +101,31 @@ export default function IpcrPaperForm({
 
     const filledActualRows = useMemo(
         () =>
-            value.sections.reduce(
+            sections.reduce(
                 (count, section) =>
                     count +
-                    section.rows.filter(
-                        (row) => row.actual_accomplishment.trim().length > 0,
+                    (section.rows ?? []).filter(
+                        (row) =>
+                            (row.actual_accomplishment ?? '').trim().length > 0,
                     ).length,
                 0,
             ),
-        [value.sections],
+        [sections],
     );
     const totalRows = useMemo(
         () =>
-            value.sections.reduce(
-                (count, section) => count + section.rows.length,
+            sections.reduce(
+                (count, section) => count + (section.rows?.length ?? 0),
                 0,
             ),
-        [value.sections],
+        [sections],
     );
     const targetReferenceByRowId = useMemo(() => {
         const references = new Map<string, string>();
 
-        currentTarget?.form_payload?.sections.forEach((section) => {
-            section.rows.forEach((row) => {
-                const referenceText = row.accountable.trim();
+        (currentTarget?.form_payload?.sections ?? []).forEach((section) => {
+            (section.rows ?? []).forEach((row) => {
+                const referenceText = (row.accountable ?? '').trim();
 
                 if (referenceText.length > 0) {
                     references.set(row.id, referenceText);
@@ -117,12 +141,14 @@ export default function IpcrPaperForm({
             : 'Saved target draft';
     const ratingMonitor = useMemo(() => {
         const liveRating =
-            value.finalization.final_rating ?? value.summary.computed_rating;
+            value?.finalization?.final_rating ??
+            value?.summary?.computed_rating ??
+            null;
         const liveAdjectival =
-            value.finalization.adjectival_rating ??
-            value.summary.adjectival_rating ??
+            value?.finalization?.adjectival_rating ??
+            value?.summary?.adjectival_rating ??
             getAdjectivalRating(liveRating);
-        const isLocked = Boolean(value.finalization.finalized_at);
+        const isLocked = Boolean(value?.finalization?.finalized_at);
 
         return {
             rating: liveRating,
@@ -140,11 +166,11 @@ export default function IpcrPaperForm({
     }, [
         canEditRatings,
         mode,
-        value.finalization.adjectival_rating,
-        value.finalization.final_rating,
-        value.finalization.finalized_at,
-        value.summary.adjectival_rating,
-        value.summary.computed_rating,
+        value?.finalization?.adjectival_rating,
+        value?.finalization?.final_rating,
+        value?.finalization?.finalized_at,
+        value?.summary?.adjectival_rating,
+        value?.summary?.computed_rating,
     ]);
 
     function updatePayload(updater: (draft: IpcrFormPayload) => void): void {
@@ -199,10 +225,27 @@ export default function IpcrPaperForm({
         });
     }
 
-    function updateSelfAssessmentQeta(nextValue: string): void {
-        updatePayload((next) => {
-            next.workflow_notes.self_assessment_qeta = nextValue;
-        });
+    function updateSelfAssessmentScore(
+        rowId: string,
+        key: SelfAssessmentScoreKey,
+        inputValue: string,
+    ): void {
+        const parsed = inputValue === '' ? null : Number(inputValue);
+
+        updateRow(rowId, (row) => ({
+            ...row,
+            self_assessment_qeta_scores: {
+                ...(row.self_assessment_qeta_scores ??
+                    DEFAULT_SELF_ASSESSMENT_SCORES),
+                [key]:
+                    parsed !== null &&
+                    Number.isInteger(parsed) &&
+                    parsed >= 1 &&
+                    parsed <= 5
+                        ? parsed
+                        : null,
+            },
+        }));
     }
 
     const infoTileClasses =
@@ -231,12 +274,17 @@ export default function IpcrPaperForm({
         : showRatings || showRemarks
           ? 'min-w-[72rem] xl:min-w-[86rem]'
           : 'min-w-[56rem] xl:min-w-[68rem]';
-    const actualColumnClasses =
-        showRatings || showRemarks
+    const actualColumnClasses = isPrintPresentation
+        ? showRatings || showRemarks
             ? 'w-[20rem] min-w-[20rem] xl:w-[24rem] xl:min-w-[24rem]'
-            : 'w-[20rem] min-w-[20rem] xl:w-[28rem] xl:min-w-[28rem]';
+            : 'w-[20rem] min-w-[20rem] xl:w-[28rem] xl:min-w-[28rem]'
+        : showRatings || showRemarks
+          ? 'w-[24rem] min-w-[24rem] xl:w-[30rem] xl:min-w-[30rem]'
+          : 'w-[24rem] min-w-[24rem] xl:w-[30rem] xl:min-w-[30rem]';
     const remarksColumnClasses =
         'w-[14rem] min-w-[14rem] xl:w-[16rem] xl:min-w-[16rem]';
+    const selfAssessmentColumnClasses =
+        'rounded-xl border border-border/70 bg-background/50 p-2';
 
     return (
         <Card
@@ -262,7 +310,7 @@ export default function IpcrPaperForm({
                             Performance Evaluation
                         </div>
                         <CardTitle className="text-2xl text-foreground">
-                            {readOnlyValue(value.metadata.form_title)}
+                            {readOnlyValue(value?.metadata?.form_title)}
                         </CardTitle>
                         <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
                             Administrative Office IPCR form split into guided
@@ -293,7 +341,8 @@ export default function IpcrPaperForm({
                                 Computed Rating
                             </p>
                             <p className="mt-1 text-lg font-semibold text-foreground">
-                                {value.summary.computed_rating !== null
+                                {value?.summary?.computed_rating !== null &&
+                                value?.summary?.computed_rating !== undefined
                                     ? value.summary.computed_rating.toFixed(2)
                                     : 'Pending'}
                             </p>
@@ -307,7 +356,7 @@ export default function IpcrPaperForm({
                             Department
                         </p>
                         <p className="mt-1 text-sm font-semibold text-foreground">
-                            {readOnlyValue(value.metadata.department)}
+                            {readOnlyValue(value?.metadata?.department)}
                         </p>
                     </div>
                     <div className="rounded-2xl border border-brand-300 bg-white/75 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
@@ -315,7 +364,7 @@ export default function IpcrPaperForm({
                             Period
                         </p>
                         <p className="mt-1 text-sm font-semibold text-foreground">
-                            {readOnlyValue(value.metadata.period)}
+                            {readOnlyValue(value?.metadata?.period)}
                         </p>
                     </div>
                     <div className="rounded-2xl border border-brand-300 bg-white/75 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
@@ -323,7 +372,7 @@ export default function IpcrPaperForm({
                             Employee
                         </p>
                         <p className="mt-1 text-sm font-semibold text-foreground">
-                            {readOnlyValue(value.metadata.employee_name)}
+                            {readOnlyValue(value?.metadata?.employee_name)}
                         </p>
                     </div>
                     <div className="rounded-2xl border border-brand-300 bg-white/75 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
@@ -331,7 +380,7 @@ export default function IpcrPaperForm({
                             Position
                         </p>
                         <p className="mt-1 text-sm font-semibold text-foreground">
-                            {readOnlyValue(value.metadata.employee_position)}
+                            {readOnlyValue(value?.metadata?.employee_position)}
                         </p>
                     </div>
                 </div>
@@ -358,22 +407,23 @@ export default function IpcrPaperForm({
 
                 <div className="flex flex-wrap gap-2">
                     <Badge variant="outline">
-                        Rated Rows: {value.summary.rated_rows}
+                        Rated Rows: {value?.summary?.rated_rows ?? 0}
                     </Badge>
                     <Badge variant="outline">
                         Adjectival:{' '}
-                        {value.summary.adjectival_rating ??
+                        {value?.summary?.adjectival_rating ??
                             getAdjectivalRating(
-                                value.summary.computed_rating,
+                                value?.summary?.computed_rating ?? null,
                             ) ??
                             'Pending'}
                     </Badge>
-                    {value.finalization.final_rating !== null && (
-                        <Badge variant="outline">
-                            Final Rating:{' '}
-                            {value.finalization.final_rating.toFixed(2)}
-                        </Badge>
-                    )}
+                    {value?.finalization?.final_rating !== null &&
+                        value?.finalization?.final_rating !== undefined && (
+                            <Badge variant="outline">
+                                Final Rating:{' '}
+                                {value.finalization.final_rating.toFixed(2)}
+                            </Badge>
+                        )}
                 </div>
             </CardHeader>
 
@@ -488,7 +538,7 @@ export default function IpcrPaperForm({
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {section.rows.map((row, rowIndex) => (
+                                    {(section.rows ?? []).map((row, rowIndex) => (
                                         <Fragment key={row.id}>
                                             <TableRow
                                                 className={
@@ -539,35 +589,141 @@ export default function IpcrPaperForm({
                                                         'align-top',
                                                     )}
                                                 >
-                                                    {canEditActual ? (
-                                                        <Textarea
-                                                            value={
-                                                                row.actual_accomplishment
-                                                            }
-                                                            onChange={(event) =>
-                                                                updateRow(
-                                                                    row.id,
-                                                                    (
-                                                                        current,
-                                                                    ) => ({
-                                                                        ...current,
-                                                                        actual_accomplishment:
-                                                                            event
-                                                                                .target
-                                                                                .value,
-                                                                    }),
-                                                                )
-                                                            }
-                                                            placeholder="Describe the actual accomplishment for this criterion."
-                                                            className="[field-sizing:fixed] min-h-[11rem] w-full min-w-0 resize-y border-border bg-background text-sm leading-6 md:text-base md:leading-7"
-                                                        />
-                                                    ) : (
-                                                        <div className="min-h-[11rem] w-full min-w-0 rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-6 whitespace-pre-wrap text-foreground shadow-sm md:text-base md:leading-7">
-                                                            {readOnlyValue(
-                                                                row.actual_accomplishment,
-                                                            )}
-                                                        </div>
-                                                    )}
+                                                    <div
+                                                        className={cn(
+                                                            'grid gap-3',
+                                                            isPrintPresentation
+                                                                ? ''
+                                                                : 'xl:grid-cols-[minmax(0,1.15fr)_minmax(15rem,0.85fr)]',
+                                                        )}
+                                                    >
+                                                        {canEditActual ? (
+                                                            <Textarea
+                                                                value={
+                                                                    row.actual_accomplishment
+                                                                }
+                                                                onChange={(
+                                                                    event,
+                                                                ) =>
+                                                                    updateRow(
+                                                                        row.id,
+                                                                        (
+                                                                            current,
+                                                                        ) => ({
+                                                                            ...current,
+                                                                            actual_accomplishment:
+                                                                                event
+                                                                                    .target
+                                                                                    .value,
+                                                                        }),
+                                                                    )
+                                                                }
+                                                                placeholder="Describe the actual accomplishment for this criterion."
+                                                                className="[field-sizing:fixed] min-h-[11rem] w-full min-w-0 resize-y border-border bg-background text-sm leading-6 md:text-base md:leading-7"
+                                                            />
+                                                        ) : (
+                                                            <div className="min-h-[11rem] w-full min-w-0 rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-6 whitespace-pre-wrap text-foreground shadow-sm md:text-base md:leading-7">
+                                                                {readOnlyValue(
+                                                                    row.actual_accomplishment,
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        {!isPrintPresentation && (
+                                                            <div
+                                                                className={cn(
+                                                                    selfAssessmentColumnClasses,
+                                                                    'space-y-1.5',
+                                                                )}
+                                                            >
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <div>
+                                                                        <p className="text-[10px] tracking-[0.16em] text-muted-foreground uppercase">
+                                                                            Self Assessment
+                                                                        </p>
+                                                                        <h4 className="text-sm font-medium text-foreground">
+                                                                            QETA
+                                                                        </h4>
+                                                                    </div>
+                                                                    <Badge variant="outline" className="shrink-0 rounded-full px-2 py-0.5 text-[10px]">
+                                                                        AVG{' '}
+                                                                        {calculateIpcrSelfAssessmentAverage(
+                                                                            row.self_assessment_qeta_scores,
+                                                                        ) !== null
+                                                                            ? calculateIpcrSelfAssessmentAverage(
+                                                                                  row.self_assessment_qeta_scores,
+                                                                              )?.toFixed(2)
+                                                                            : 'Pending'}
+                                                                    </Badge>
+                                                                </div>
+                                                                <div className="grid grid-cols-4 gap-2">
+                                                                    {SELF_ASSESSMENT_METRICS.map(
+                                                                        (metric) => (
+                                                                            <div
+                                                                                key={`${row.id}-${metric.key}`}
+                                                                                className="space-y-1"
+                                                                            >
+                                                                                <Label className="text-[9px] tracking-[0.14em] text-muted-foreground uppercase">
+                                                                                    {metric.label}
+                                                                                </Label>
+                                                                                {mode ===
+                                                                                'employee' ? (
+                                                                                    <Input
+                                                                                        type="number"
+                                                                                        min="1"
+                                                                                        max="5"
+                                                                                        step="1"
+                                                                                        value={
+                                                                                            row
+                                                                                                .self_assessment_qeta_scores?.[
+                                                                                                metric.key
+                                                                                            ] ??
+                                                                                            ''
+                                                                                        }
+                                                                                        onChange={(
+                                                                                            event,
+                                                                                        ) =>
+                                                                                            updateSelfAssessmentScore(
+                                                                                                row.id,
+                                                                                                metric.key,
+                                                                                                event
+                                                                                                    .target
+                                                                                                    .value,
+                                                                                            )
+                                                                                        }
+                                                                                        inputMode="numeric"
+                                                                                        className="h-8 w-full border-border bg-background px-1.5 text-center text-sm shadow-none"
+                                                                                    />
+                                                                                ) : (
+                                                                                    <div className="flex h-8 items-center justify-center rounded-md border border-border bg-background px-1.5 text-center text-sm font-semibold text-foreground shadow-none">
+                                                                                        {readOnlyValue(
+                                                                                            row
+                                                                                                .self_assessment_qeta_scores?.[
+                                                                                                metric.key
+                                                                                            ],
+                                                                                        )}
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                            ),
+                                                                        )}
+                                                                    <div className="space-y-1">
+                                                                        <Label className="text-[9px] tracking-[0.14em] text-muted-foreground uppercase">
+                                                                            AVG
+                                                                        </Label>
+                                                                        <div className="flex h-8 items-center justify-center rounded-md border border-border bg-background px-1.5 text-center text-sm font-semibold text-foreground shadow-none">
+                                                                            {readOnlyValue(
+                                                                                row.self_assessment_qeta_average ??
+                                                                                    calculateIpcrSelfAssessmentAverage(
+                                                                                        row.self_assessment_qeta_scores,
+                                                                                    ),
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </TableCell>
                                                 {showRatings && (
                                                     <>
@@ -694,7 +850,7 @@ export default function IpcrPaperForm({
                             {mode === 'employee' ? (
                                 <Textarea
                                     value={
-                                        value.workflow_notes.employee_notes ?? ''
+                                        value?.workflow_notes?.employee_notes ?? ''
                                     }
                                     onChange={(event) =>
                                         updateEmployeeNotes(event.target.value)
@@ -705,42 +861,7 @@ export default function IpcrPaperForm({
                             ) : (
                                 <p className="min-h-28 rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground">
                                     {readOnlyValue(
-                                        value.workflow_notes.employee_notes,
-                                    )}
-                                </p>
-                            )}
-                        </div>
-
-                        <div className={sectionPanelClasses}>
-                            <div className="mb-3 flex items-center gap-2">
-                                <MessageSquareMore className="size-4 text-[#2F5E2B] dark:text-[#9AC68E]" />
-                                <h4 className="text-sm font-semibold text-foreground">
-                                    Self Assessment QETA
-                                </h4>
-                            </div>
-                            <p className="mb-3 text-xs leading-5 text-muted-foreground">
-                                Summarize your quality, efficiency, timeliness,
-                                and accountability before the reviewer enters
-                                ratings.
-                            </p>
-                            {mode === 'employee' ? (
-                                <Textarea
-                                    value={
-                                        value.workflow_notes
-                                            .self_assessment_qeta ?? ''
-                                    }
-                                    onChange={(event) =>
-                                        updateSelfAssessmentQeta(
-                                            event.target.value,
-                                        )
-                                    }
-                                    placeholder="Write your self assessment for this evaluation period."
-                                    className="min-h-28 resize-y border-border bg-background"
-                                />
-                            ) : (
-                                <p className="min-h-28 rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
-                                    {readOnlyValue(
-                                        value.workflow_notes.self_assessment_qeta,
+                                        value?.workflow_notes?.employee_notes,
                                     )}
                                 </p>
                             )}
@@ -755,7 +876,7 @@ export default function IpcrPaperForm({
                                 </Label>
                                 <p className="mt-2 min-h-24 text-sm leading-relaxed whitespace-pre-wrap text-foreground">
                                     {readOnlyValue(
-                                        value.workflow_notes.hr_remarks,
+                                        value?.workflow_notes?.hr_remarks,
                                     )}
                                 </p>
                             </div>
@@ -766,18 +887,18 @@ export default function IpcrPaperForm({
                             slots={[
                                 {
                                     role: 'Evaluator',
-                                    name: value.sign_off.reviewed_by_name,
-                                    date: value.sign_off.reviewed_by_date,
+                                    name: value?.sign_off?.reviewed_by_name ?? null,
+                                    date: value?.sign_off?.reviewed_by_date ?? null,
                                 },
                                 {
                                     role: 'HR Personnel',
-                                    name: value.sign_off.final_rater_name,
-                                    date: value.sign_off.finalized_date,
+                                    name: value?.sign_off?.final_rater_name ?? null,
+                                    date: value?.sign_off?.finalized_date ?? null,
                                 },
                                 {
                                     role: 'PMT',
-                                    name: value.sign_off.pmt_chair_name,
-                                    date: value.sign_off.pmt_date,
+                                    name: value?.sign_off?.pmt_chair_name ?? null,
+                                    date: value?.sign_off?.pmt_date ?? null,
                                 },
                             ]}
                         />
@@ -800,7 +921,7 @@ export default function IpcrPaperForm({
                                     <span
                                         className={cn(
                                             'size-2.5 rounded-full',
-                                            !value.finalization.finalized_at &&
+                                            !value?.finalization?.finalized_at &&
                                                 ratingMonitor.rating !== null
                                                 ? 'animate-pulse'
                                                 : '',

@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import { Download } from 'lucide-react';
 import { useState } from 'react';
+import ReportsDashboardController from '@/actions/App/Http/Controllers/Admin/ReportsDashboardController';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -11,7 +12,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import ReportsDashboardController from '@/actions/App/Http/Controllers/Admin/ReportsDashboardController';
 import * as admin from '@/routes/admin';
 
 type Props = {

@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\NotifyTrainingSuggestionRequest;
 use App\Http\Requests\StoreSeminarsRequest;
 use App\Http\Requests\UpdateSeminarsRequest;
 use App\Models\IpcrSubmission;
 use App\Models\LeaveRequest;
 use App\Models\Notification;
 use App\Models\Seminars;
-use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -187,22 +187,32 @@ class SeminarsController extends Controller
         return to_route('admin.training-scheduling');
     }
 
-    public function triggerTrainingNotification(Request $request): RedirectResponse
+    public function triggerTrainingNotification(NotifyTrainingSuggestionRequest $request): RedirectResponse
     {
-        $employees = User::query()
-            ->where('role', User::ROLE_EMPLOYEE)
-            ->get();
+        $submission = IpcrSubmission::query()
+            ->with(['employee.user'])
+            ->findOrFail($request->validated('submission_id'));
 
-        foreach ($employees as $employee) {
-            Notification::query()->create([
-                'user_id' => $employee->id,
-                'type' => 'training_suggestion',
-                'title' => 'Training Recommendation',
-                'message' => 'HR opened training discovery for your latest Performance Evaluation. Review the recommended seminars tied to your Administrative Office service areas.',
-                'is_important' => true,
+        $employeeUser = $submission->employee?->user;
+
+        if ($employeeUser === null) {
+            return back()->withErrors([
+                'submission_id' => 'The selected employee does not have a linked user account for notifications.',
             ]);
         }
 
-        return back()->with('success', 'Training notification sent to '.$employees->count().' employees.');
+        Notification::query()->create([
+            'user_id' => $employeeUser->id,
+            'type' => 'training_suggestion',
+            'title' => 'Training Recommendation',
+            'message' => 'HR opened training discovery for your latest Performance Evaluation. Review the recommended seminars tied to your Administrative Office service areas.',
+            'document_type' => 'ipcr',
+            'document_id' => $submission->id,
+            'is_important' => true,
+        ]);
+
+        $employeeName = $submission->employee?->name ?? $submission->employee_id;
+
+        return back()->with('success', "Training notification sent to {$employeeName}.");
     }
 }

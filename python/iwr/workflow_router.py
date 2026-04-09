@@ -675,13 +675,13 @@ class WorkflowRouter:
             hr_cycle_count = int(form.get("hr_cycle_count", 0))
 
             if hr_decision == "correct":
-                return {**base, "status": "routed", "stage": "sent_to_pmt", "routing_action": "route_to_pmt",
-                        "notification": f"HR verified computation and completeness for {employee_name}. Routed to PMT for policy-level validation."}
-
-            if hr_decision == "incorrect":
                 return {**base, "status": "routed", "stage": "appeal_window_open", "routing_action": "open_appeal_window",
                         "appeal_window_hours": APPEAL_WINDOW_HOURS,
-                        "notification": f"HR found issues with computation/completeness for {employee_name}. Employee notified and appeal window opened for {APPEAL_WINDOW_HOURS} hours."}
+                        "notification": f"HR verified computation and completeness for {employee_name}. The results were returned to the employee for review and appeal options are available for {APPEAL_WINDOW_HOURS} hours."}
+
+            if hr_decision == "incorrect":
+                return {**base, "status": "routed", "stage": "sent_to_evaluator", "routing_action": "re_evaluate",
+                        "notification": f"HR found issues with computation/completeness for {employee_name}. The evaluation was returned to the evaluator for correction."}
 
             return {**base, "status": "error", "stage": "hr_review", "routing_action": "validation_failed",
                     "notification": f"Invalid HR decision: '{hr_decision}'. Must be 'correct' or 'incorrect'."}

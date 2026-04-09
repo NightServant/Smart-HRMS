@@ -1,10 +1,10 @@
 import { Head, Link } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
+import SubmitCard from '@/components/submit-card';
 import AppLayout from '@/layouts/app-layout';
 import { submitEvaluation } from '@/routes';
 import * as ipcr from '@/routes/ipcr';
 import type { BreadcrumbItem } from '@/types';
-import SubmitCard from '@/components/submit-card';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {

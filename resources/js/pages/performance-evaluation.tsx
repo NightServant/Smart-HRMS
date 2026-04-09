@@ -6,6 +6,7 @@ import {
     FileCheck2,
     FileSpreadsheet,
     Filter,
+    Megaphone,
     RotateCcw,
     Search,
     Send,
@@ -441,8 +442,10 @@ function EmployeeOverview({
                                     reason={latestSubmission.escalation_reason}
                                 />
                             )}
-                            {latestSubmission.appeal_status ===
-                                'appeal_window_open' &&
+                            {(latestSubmission.appeal_status ===
+                                'appeal_window_open' ||
+                                latestSubmission.stage ===
+                                    'appeal_window_open') &&
                                 latestSubmission.appeal_window_closes_at && (
                                     <div className="flex flex-wrap items-center gap-3">
                                         <AppealCountdown
@@ -1027,6 +1030,23 @@ function HrOverview({
         currentPeriod?.isOpen ?? false,
     );
     const [finalRating, setFinalRating] = useState('');
+    const [notifyingTrainingSubmissionId, setNotifyingTrainingSubmissionId] =
+        useState<number | null>(null);
+
+    function notifyTrainingSuggestions(submissionId: number): void {
+        setNotifyingTrainingSubmissionId(submissionId);
+
+        router.post(
+            '/admin/training-suggestions/notify',
+            {
+                submission_id: submissionId,
+            },
+            {
+                preserveScroll: true,
+                onFinish: () => setNotifyingTrainingSubmissionId(null),
+            },
+        );
+    }
 
     useEffect(() => {
         startTransition(() => {
@@ -1083,7 +1103,7 @@ function HrOverview({
         ? 'Submissions Awaiting HR Review'
         : 'Submissions Awaiting HR Finalization';
     const queueDescription = isReviewView
-        ? 'Check computation and completeness of evaluator submissions. Correct submissions route to PMT; incorrect ones notify the employee to appeal.'
+        ? 'Check computation and completeness of evaluator submissions. Correct submissions return to the employee for review and possible appeal; incorrect ones return to the evaluator for correction.'
         : 'Finalize submissions that have already moved past PMT review and keep the record aligned with the saved IPCR snapshot.';
     const queueButtonLabel = isReviewView ? 'Review' : 'Finalize';
     const queueEmptyMessage = isReviewView
@@ -1400,31 +1420,56 @@ function HrOverview({
                                             </Button>
                                         </td>
                                         <td className="px-4 py-3 text-right">
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                onClick={() => {
-                                                    if (isReviewView) {
-                                                        setSelectedReview(
-                                                            submission,
-                                                        );
-                                                    } else {
-                                                        setSelectedFinalize(
-                                                            submission,
-                                                        );
-                                                    }
-                                                }}
-                                            >
-                                                {isReviewView
-                                                    ? submission.stage ===
-                                                      'sent_to_hr'
-                                                        ? queueButtonLabel
-                                                        : 'View Review'
-                                                    : submission.stage ===
-                                                        'sent_to_hr_finalize'
-                                                      ? queueButtonLabel
-                                                      : 'View Finalization'}
-                                            </Button>
+                                            <div className="flex flex-wrap justify-end gap-2">
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        if (isReviewView) {
+                                                            setSelectedReview(
+                                                                submission,
+                                                            );
+                                                        } else {
+                                                            setSelectedFinalize(
+                                                                submission,
+                                                            );
+                                                        }
+                                                    }}
+                                                >
+                                                    {isReviewView
+                                                        ? submission.stage ===
+                                                          'sent_to_hr'
+                                                            ? queueButtonLabel
+                                                            : 'View Review'
+                                                        : submission.stage ===
+                                                            'sent_to_hr_finalize'
+                                                          ? queueButtonLabel
+                                                          : 'View Finalization'}
+                                                </Button>
+                                                {!isReviewView && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="gap-2"
+                                                        disabled={
+                                                            notifyingTrainingSubmissionId ===
+                                                            submission.id
+                                                        }
+                                                        onClick={() =>
+                                                            notifyTrainingSuggestions(
+                                                                submission.id,
+                                                            )
+                                                        }
+                                                    >
+                                                        <Megaphone className="size-4" />
+                                                        {notifyingTrainingSubmissionId ===
+                                                        submission.id
+                                                            ? 'Sending...'
+                                                            : 'Notify Training'}
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -1503,10 +1548,10 @@ function HrOverview({
                                                         Select a decision
                                                     </SelectItem>
                                                     <SelectItem value="correct">
-                                                        Correct – Route to PMT
+                                                        Correct – Return to Employee
                                                     </SelectItem>
                                                     <SelectItem value="incorrect">
-                                                        Incorrect – Notify Employee for Appeal
+                                                        Incorrect – Return to Evaluator
                                                     </SelectItem>
                                                 </SelectContent>
                                             </Select>
@@ -1854,32 +1899,37 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                                                 .appeal_reason
                                         }
                                     </p>
-                                    {selectedSubmission.appeal.evidence_files
-                                        .length > 0 && (
-                                        <div className="mt-3 flex flex-wrap gap-2">
-                                            {selectedSubmission.appeal.evidence_files.map(
-                                                (file, index) => (
-                                                    <Button
-                                                        key={file}
-                                                        asChild
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="outline"
-                                                    >
-                                                        <a
-                                                            href={getAppealEvidenceUrl(
-                                                                selectedSubmission
-                                                                    .appeal.id,
-                                                                index,
-                                                            )}
-                                                            target="_blank"
-                                                            rel="noreferrer"
+                                    {(selectedSubmission.appeal.evidence_files
+                                        ?.length ?? 0) > 0 && (
+                                        <div className="mt-3 space-y-2">
+                                            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                                Attached Evidence
+                                            </p>
+                                            <div className="flex flex-wrap gap-2">
+                                                {(selectedSubmission.appeal.evidence_files ?? []).map(
+                                                    (file, index) => (
+                                                        <Button
+                                                            key={`${file}-${index}`}
+                                                            asChild
+                                                            type="button"
+                                                            size="sm"
+                                                            variant="outline"
                                                         >
-                                                            {getFileName(file)}
-                                                        </a>
-                                                    </Button>
-                                                ),
-                                            )}
+                                                            <a
+                                                                href={getAppealEvidenceUrl(
+                                                                    selectedSubmission
+                                                                        .appeal!.id,
+                                                                    index,
+                                                                )}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                            >
+                                                                {getFileName(file)}
+                                                            </a>
+                                                        </Button>
+                                                    ),
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                 </div>

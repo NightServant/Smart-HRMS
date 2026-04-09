@@ -1,13 +1,13 @@
 import { Head } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
 import { Clock, Layers, Wifi, WifiOff } from 'lucide-react';
-import { AdminSystemSettingsForm } from '@/components/admin-system-settings-form';
+import SystemSettingController from '@/actions/App/Http/Controllers/Admin/SystemSettingController';
 import { DashboardMetricCard, DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
+import { AdminSystemSettingsForm } from '@/components/admin-system-settings-form';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import SystemSettingController from '@/actions/App/Http/Controllers/Admin/SystemSettingController';
 import AppLayout from '@/layouts/app-layout';
 import * as admin from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types/navigation';

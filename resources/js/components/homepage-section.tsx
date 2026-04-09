@@ -1,8 +1,8 @@
-import { dashboard, login, performanceDashboard } from '@/routes';
+import { Link, usePage } from '@inertiajs/react';
 import { LayoutDashboard, LogIn } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { dashboard, login, performanceDashboard } from '@/routes';
 import * as admin from '@/routes/admin';
-import { Link, usePage } from '@inertiajs/react';
 import type { User } from '@/types';
 
 type TiltState = {

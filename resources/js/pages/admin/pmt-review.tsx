@@ -326,8 +326,7 @@ export default function PmtReview({
                                                         >
                                                             <a
                                                                 href={getAppealEvidenceUrl(
-                                                                    selected.appeal
-                                                                        .id,
+                                                                    selected.appeal!.id,
                                                                     index,
                                                                 )}
                                                                 target="_blank"

@@ -6,13 +6,17 @@ use App\Models\IpcrSubmission;
 use App\Models\IpcrTarget;
 use App\Models\IwrAuditLog;
 use App\Models\Notification;
+use App\Models\Seminars;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\AtreService;
 use App\Services\IpcrFormTemplateService;
 use App\Services\IwrService;
 use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
+use Mockery\MockInterface;
 
 function seedIpcrUsersAndEmployees(): array
 {
@@ -254,7 +258,7 @@ test('employee sees a workflow error when ipcr routing is unavailable', function
         ->and($submission->notification)->toBe('IWR service is unavailable. Please try again later.');
 });
 
-test('hr approve opens the appeal window', function () {
+test('hr correct returns the submission to the employee for appeal review', function () {
     ['employee' => $employee, 'hrUser' => $hrUser] = seedIpcrUsersAndEmployees();
     $submission = createSentToHrSubmission($employee);
 
@@ -263,22 +267,80 @@ test('hr approve opens the appeal window', function () {
         'stage' => 'appeal_window_open',
         'routing_action' => 'open_appeal_window',
         'appeal_window_hours' => 72,
-        'notification' => 'HR approved IPCR. Appeal window opened for 72 hours.',
+        'notification' => 'HR verified the evaluation and returned it to the employee.',
     ]]);
 
     $this->actingAs($hrUser)->post(route('ipcr.hr-review', $submission), [
-        'hr_decision' => 'approved',
+        'hr_decision' => 'correct',
         'hr_remarks' => null,
     ])->assertRedirect(route('admin.hr-review'));
 
     $submission->refresh();
 
     expect($submission->stage)->toBe('appeal_window_open')
+        ->and($submission->hr_cycle_count)->toBe(1)
         ->and($submission->appeal_status)->toBe('appeal_window_open')
         ->and($submission->appeal_window_closes_at)->not->toBeNull();
 });
 
-test('hr reject first cycle returns to evaluator', function () {
+test('appeal window is still exposed when the stage is open but appeal status is missing', function () {
+    ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
+
+    $submission = createSentToHrSubmission($employee);
+    $submission->update([
+        'stage' => 'appeal_window_open',
+        'appeal_status' => null,
+        'appeal_window_opens_at' => now(),
+        'appeal_window_closes_at' => now()->addHours(72),
+    ]);
+
+    $this->actingAs($employeeUser)
+        ->get(route('submit-evaluation'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('performance-evaluation')
+            ->where('latestSubmission.stage', 'appeal_window_open')
+            ->where('latestSubmission.appeal_window_closes_at', $submission->appeal_window_closes_at->toIso8601String())
+            ->where('latestSubmission.appeal_url', route('ipcr.appeal', $submission))
+        );
+});
+
+test('legacy hr review errors are repaired into an appeal window when the employee opens submit evaluation', function () {
+    ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
+
+    $submission = createSentToHrSubmission($employee);
+    $submission->update([
+        'status' => 'error',
+        'stage' => 'hr_review',
+        'routing_action' => 'validation_failed',
+        'hr_decision' => 'correct',
+        'hr_remarks' => null,
+        'appeal_status' => null,
+        'appeal_window_opens_at' => null,
+        'appeal_window_closes_at' => null,
+    ]);
+
+    mockIwrService(['routeHrReview' => [
+        'status' => 'routed',
+        'stage' => 'appeal_window_open',
+        'routing_action' => 'open_appeal_window',
+        'appeal_window_hours' => 72,
+        'notification' => 'HR verified the evaluation and returned it to the employee.',
+    ]]);
+
+    $this->actingAs($employeeUser)
+        ->get(route('submit-evaluation'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('performance-evaluation')
+            ->where('latestSubmission.status', 'routed')
+            ->where('latestSubmission.stage', 'appeal_window_open')
+            ->where('latestSubmission.appeal_status', 'appeal_window_open')
+            ->where('latestSubmission.appeal_url', route('ipcr.appeal', $submission))
+        );
+});
+
+test('hr incorrect returns the submission to the evaluator for correction', function () {
     ['employee' => $employee, 'hrUser' => $hrUser] = seedIpcrUsersAndEmployees();
     $submission = createSentToHrSubmission($employee);
 
@@ -290,7 +352,7 @@ test('hr reject first cycle returns to evaluator', function () {
     ]]);
 
     $this->actingAs($hrUser)->post(route('ipcr.hr-review', $submission), [
-        'hr_decision' => 'rejected',
+        'hr_decision' => 'incorrect',
         'hr_remarks' => 'Please correct the supporting computation.',
     ])->assertRedirect(route('admin.hr-review'));
 
@@ -298,7 +360,8 @@ test('hr reject first cycle returns to evaluator', function () {
 
     expect($submission->stage)->toBe('sent_to_evaluator')
         ->and($submission->hr_cycle_count)->toBe(1)
-        ->and($submission->is_escalated)->toBeFalse();
+        ->and($submission->is_escalated)->toBeFalse()
+        ->and($submission->appeal_status)->toBeNull();
 });
 
 test('hr reject second cycle escalates the submission', function () {
@@ -368,6 +431,35 @@ test('appeal submission requires evidence', function () {
         'appeal_evidence_description' => 'Supporting reports',
         'evidence_files' => [],
     ])->assertSessionHasErrors(['evidence_files']);
+});
+
+test('appeal submission routes successfully when the appeal window is open', function () {
+    ['employeeUser' => $employeeUser, 'employee' => $employee] = seedIpcrUsersAndEmployees();
+    $submission = createAppealWindowSubmission($employee);
+
+    mockIwrService(['routeAppeal' => [
+        'status' => 'routed',
+        'stage' => 'sent_to_evaluator',
+        'routing_action' => 're_evaluate',
+        'notification' => 'First appeal submitted by Patricia Garcia. Routed back to evaluator for re-evaluation.',
+    ]]);
+
+    $response = $this->actingAs($employeeUser)->post(route('ipcr.appeal.submit', $submission), [
+        'appeal_reason' => 'Need to correct the actual accomplishments.',
+        'appeal_evidence_description' => 'Supporting reports',
+        'evidence_files' => [
+            UploadedFile::fake()->create('supporting-report.pdf', 120, 'application/pdf'),
+        ],
+    ]);
+
+    $response->assertRedirect(route('submit-evaluation'));
+
+    $submission->refresh();
+
+    expect($submission->appeal_count)->toBe(1)
+        ->and($submission->appeal_status)->toBe('submitted')
+        ->and($submission->stage)->toBe('sent_to_evaluator')
+        ->and($submission->status)->toBe('routed');
 });
 
 test('appeal evidence files can be viewed inline', function () {
@@ -902,6 +994,30 @@ test('printable ipcr page returns the selected submission for the employee', fun
     expect($response->baseResponse->headers->get('content-disposition'))->toContain('inline');
 });
 
+test('printable ipcr blade omits the self assessment section', function () {
+    ['employee' => $employee] = seedIpcrUsersAndEmployees();
+
+    $payload = employeeFormPayload($employee);
+    $payload['workflow_notes']['employee_notes'] = 'Employee notes for the printable copy.';
+    $payload['workflow_notes']['self_assessment_qeta'] = 'This should stay out of the PDF.';
+    $payload['workflow_notes']['self_assessment_qeta_scores'] = [
+        'quality' => 4,
+        'efficiency' => 3,
+        'timeliness' => 5,
+        'accountability' => 4,
+    ];
+
+    $html = view('pdf.ipcr-print', [
+        'submission' => null,
+        'printableFormPayload' => $payload,
+    ])->render();
+
+    expect($html)
+        ->toContain('Employee Notes')
+        ->not->toContain('Self Assessment')
+        ->not->toContain('self_assessment_qeta');
+});
+
 test('ipcr submission draft includes employee self assessment qeta', function () {
     ['employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
 
@@ -910,7 +1026,189 @@ test('ipcr submission draft includes employee self assessment qeta', function ()
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('ipcr-form')
-            ->where('draftFormPayload.workflow_notes.self_assessment_qeta', ''));
+            ->where('draftFormPayload.workflow_notes.self_assessment_qeta', '')
+            ->where('draftFormPayload.workflow_notes.self_assessment_qeta_scores.quality', null)
+            ->where('draftFormPayload.workflow_notes.self_assessment_qeta_scores.efficiency', null)
+            ->where('draftFormPayload.workflow_notes.self_assessment_qeta_scores.timeliness', null)
+            ->where('draftFormPayload.workflow_notes.self_assessment_qeta_scores.accountability', null)
+            ->where('draftFormPayload.sections.0.rows.0.self_assessment_qeta_average', null)
+            ->where('draftFormPayload.sections.0.rows.0.self_assessment_qeta_scores.quality', null)
+            ->where('draftFormPayload.sections.0.rows.0.self_assessment_qeta_scores.efficiency', null)
+            ->where('draftFormPayload.sections.0.rows.0.self_assessment_qeta_scores.timeliness', null)
+            ->where('draftFormPayload.sections.0.rows.0.self_assessment_qeta_scores.accountability', null));
+});
+
+test('employee self assessment qeta scores are preserved for evaluator review', function () {
+    ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
+
+    SystemSetting::set('ipcr_period_open', 'true', $employeeUser->id);
+    SystemSetting::set('ipcr_period_label', 'January to June 2026', $employeeUser->id);
+
+    mockIwrService(['routeIpcr' => [
+        'status' => 'routed',
+        'stage' => 'sent_to_evaluator',
+        'routing_action' => 'route_to_evaluator',
+        'evaluator_id' => 'EMP-001',
+        'evaluator_name' => 'John Reyes',
+        'confidence_pct' => 100.0,
+        'notification' => 'IPCR form sent to John Reyes for evaluation.',
+    ]]);
+
+    $payload = employeeFormPayload($employee);
+    $payload['sections'][0]['rows'][0]['self_assessment_qeta_scores'] = [
+        'quality' => 4,
+        'efficiency' => 3,
+        'timeliness' => 5,
+        'accountability' => 4,
+    ];
+
+    $this->actingAs($employeeUser)
+        ->post(route('ipcr.submit'), [
+            'employee_id' => $employee->employee_id,
+            'period' => 'January to June 2026',
+            'form_payload' => $payload,
+        ])
+        ->assertRedirect(route('submit-evaluation'));
+
+    $this->actingAs($employeeUser)
+        ->get(route('submit-evaluation'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('performance-evaluation')
+            ->where('latestSubmission.form_payload.sections.0.rows.0.self_assessment_qeta_scores.quality', 4)
+            ->where('latestSubmission.form_payload.sections.0.rows.0.self_assessment_qeta_scores.efficiency', 3)
+            ->where('latestSubmission.form_payload.sections.0.rows.0.self_assessment_qeta_scores.timeliness', 5)
+            ->where('latestSubmission.form_payload.sections.0.rows.0.self_assessment_qeta_scores.accountability', 4)
+            ->where('latestSubmission.form_payload.sections.0.rows.0.self_assessment_qeta_average', 4));
+});
+
+test('submit evaluation page surfaces training recommendations for notified employees', function () {
+    ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
+
+    $submission = IpcrSubmission::query()->create([
+        'employee_id' => $employee->employee_id,
+        'performance_rating' => 4.25,
+        'form_payload' => evaluatorFormPayload($employee, 4.25),
+        'is_first_submission' => false,
+        'evaluator_gave_remarks' => true,
+        'status' => 'routed',
+        'stage' => 'finalized',
+        'routing_action' => 'finalized',
+        'evaluator_id' => 'EMP-001',
+        'notification' => 'Finalized.',
+    ]);
+
+    Seminars::query()->create([
+        'title' => 'Customer Service Excellence',
+        'description' => 'Service skills workshop.',
+        'target_performance_area' => 'Customer service delivery',
+        'rating_tier' => '3-4',
+        'date' => '2026-04-01',
+    ]);
+
+    Notification::query()->create([
+        'user_id' => $employeeUser->id,
+        'type' => 'training_suggestion',
+        'title' => 'Training Recommendation',
+        'message' => 'HR opened training discovery for your latest Performance Evaluation. Review the recommended seminars tied to your Administrative Office service areas.',
+        'document_type' => 'ipcr',
+        'document_id' => $submission->id,
+        'is_important' => true,
+    ]);
+
+    $this->mock(AtreService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('recommend')
+            ->once()
+            ->with(
+                \Mockery::on(function (array $seminars): bool {
+                    return count($seminars) >= 1
+                        && array_key_exists('rating_tier', $seminars[0])
+                        && array_key_exists('title', $seminars[0]);
+                }),
+                \Mockery::on(function (array $formPayload): bool {
+                    return ($formPayload['summary']['computed_rating'] ?? null) === 4.25;
+                }),
+            )
+            ->andReturn([
+                'status' => 'ok',
+                'recommendations' => [
+                    [
+                        'seminar_id' => 1,
+                        'title' => 'Customer Service Excellence',
+                        'description' => 'Service skills workshop.',
+                        'target_performance_area' => 'Customer service delivery',
+                        'rating_tier' => '3-4',
+                        'score' => 1.5,
+                        'priority' => 'MEDIUM',
+                        'matched_area' => 'Administrative Services',
+                    ],
+                ],
+                'risk_level' => 'MEDIUM',
+                'risk_actions' => [],
+                'weak_areas' => [],
+            ]);
+    });
+
+    $this->actingAs($employeeUser)
+        ->get(route('submit-evaluation'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('performance-evaluation')
+            ->where('employeePanel.recommendations.0.title', 'Customer Service Excellence')
+            ->where('employeePanel.riskLevel', 'MEDIUM')
+            ->where('employeePanel.recommendationsEnabled', true));
+});
+
+test('submit evaluation page hides training recommendations when the notification belongs to an older submission', function () {
+    ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
+
+    $olderSubmission = IpcrSubmission::query()->create([
+        'employee_id' => $employee->employee_id,
+        'performance_rating' => 4.1,
+        'form_payload' => evaluatorFormPayload($employee, 4.1),
+        'is_first_submission' => false,
+        'evaluator_gave_remarks' => true,
+        'status' => 'routed',
+        'stage' => 'finalized',
+        'routing_action' => 'finalized',
+        'evaluator_id' => 'EMP-001',
+        'notification' => 'Previous cycle finalized.',
+    ]);
+
+    IpcrSubmission::query()->create([
+        'employee_id' => $employee->employee_id,
+        'performance_rating' => 4.25,
+        'form_payload' => evaluatorFormPayload($employee, 4.25),
+        'is_first_submission' => false,
+        'evaluator_gave_remarks' => true,
+        'status' => 'routed',
+        'stage' => 'finalized',
+        'routing_action' => 'finalized',
+        'evaluator_id' => 'EMP-001',
+        'notification' => 'Current cycle finalized.',
+    ]);
+
+    Notification::query()->create([
+        'user_id' => $employeeUser->id,
+        'type' => 'training_suggestion',
+        'title' => 'Training Recommendation',
+        'message' => 'HR opened training discovery for a previous Performance Evaluation.',
+        'document_type' => 'ipcr',
+        'document_id' => $olderSubmission->id,
+        'is_important' => true,
+    ]);
+
+    $this->mock(AtreService::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('recommend')->never();
+    });
+
+    $this->actingAs($employeeUser)
+        ->get(route('submit-evaluation'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('performance-evaluation')
+            ->where('employeePanel.recommendations', [])
+            ->where('employeePanel.recommendationsEnabled', false));
 });
 
 test('submission resource falls back to workflow note remarks when hr remarks column is empty', function () {
@@ -980,6 +1278,53 @@ test('hr can notify employees to set ipcr targets during the active target windo
     } finally {
         Carbon::setTestNow();
     }
+});
+
+test('hr can notify employees about training suggestions from the finalization view', function () {
+    ['employee' => $employee, 'employeeUser' => $employeeUser, 'hrUser' => $hrUser] = seedIpcrUsersAndEmployees();
+
+    $secondaryEmployee = Employee::query()->create([
+        'employee_id' => 'EMP-006',
+        'name' => 'Marlon Santos',
+        'job_title' => 'Administrative Aide II',
+        'supervisor_id' => null,
+    ]);
+
+    $secondaryEmployeeUser = User::factory()->create([
+        'name' => $secondaryEmployee->name,
+        'email' => 'employee2@example.com',
+        'employee_id' => $secondaryEmployee->employee_id,
+        'role' => User::ROLE_EMPLOYEE,
+    ]);
+
+    $submission = IpcrSubmission::query()->create([
+        'employee_id' => $employee->employee_id,
+        'performance_rating' => 4.14,
+        'form_payload' => evaluatorFormPayload($employee, 4.14),
+        'is_first_submission' => false,
+        'evaluator_gave_remarks' => true,
+        'status' => 'routed',
+        'stage' => 'sent_to_hr_finalize',
+        'routing_action' => 'route_to_hr_finalize',
+        'evaluator_id' => 'EMP-001',
+        'notification' => 'Routed to HR finalization.',
+    ]);
+
+    $this->actingAs($hrUser)
+        ->post('/admin/training-suggestions/notify', [
+            'submission_id' => $submission->id,
+        ])
+        ->assertRedirect();
+
+    expect(Notification::query()
+        ->where('user_id', $employeeUser->id)
+        ->where('type', 'training_suggestion')
+        ->count())->toBe(1);
+
+    expect(Notification::query()
+        ->where('user_id', $secondaryEmployeeUser->id)
+        ->where('type', 'training_suggestion')
+        ->count())->toBe(0);
 });
 
 test('hr can close the evaluation period and the page reflects the saved closed state', function () {
@@ -1182,6 +1527,41 @@ test('target window notifications route employees to the ipcr target page', func
         ->assertInertia(fn (Assert $page) => $page
             ->component('notifications')
             ->where('notifications.0.targetUrl', route('ipcr.target'))
+        );
+});
+
+test('ipcr target notifications route employees back to the target workspace', function () {
+    ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
+
+    $service = app(IpcrFormTemplateService::class);
+    $targetPayload = $service->targetDraft($employee, 'First Semester 2026');
+    $targetPayload['sections'][0]['rows'][0]['accountable'] = 'Document the planned accomplishment.';
+
+    $target = IpcrTarget::query()->create([
+        'employee_id' => $employee->employee_id,
+        'semester' => 1,
+        'target_year' => 2026,
+        'form_payload' => $targetPayload,
+        'status' => 'submitted',
+        'submitted_at' => now(),
+    ]);
+
+    Notification::query()->create([
+        'user_id' => $employeeUser->id,
+        'type' => 'ipcr_target_approved',
+        'title' => 'IPCR Target Approved',
+        'message' => 'Your IPCR target has been approved.',
+        'document_type' => 'ipcr_target',
+        'document_id' => $target->id,
+        'is_important' => false,
+    ]);
+
+    $this->actingAs($employeeUser)
+        ->get(route('notifications'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('notifications')
+            ->where('notifications.0.targetUrl', route('ipcr.target', ['target_id' => $target->id]))
         );
 });
 

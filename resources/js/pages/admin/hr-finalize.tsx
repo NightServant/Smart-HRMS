@@ -17,7 +17,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { getAdjectivalRating } from '@/lib/ipcr';
 import AppLayout from '@/layouts/app-layout';
 import * as admin from '@/routes/admin';
 import type { BreadcrumbItem, IpcrSubmission } from '@/types';
@@ -75,16 +74,20 @@ export default function HrFinalize({
     const [selected, setSelected] = useState<IpcrSubmission | null>(null);
     const [finalRating, setFinalRating] = useState('');
     const [processing, setProcessing] = useState(false);
-    const [isNotifying, setIsNotifying] = useState(false);
+    const [notifyingTrainingSubmissionId, setNotifyingTrainingSubmissionId] =
+        useState<number | null>(null);
 
-    function notifyEmployees(): void {
-        setIsNotifying(true);
+    function notifyTrainingSuggestions(submissionId: number): void {
+        setNotifyingTrainingSubmissionId(submissionId);
+
         router.post(
             '/admin/training-suggestions/notify',
-            {},
+            {
+                submission_id: submissionId,
+            },
             {
                 preserveScroll: true,
-                onFinish: () => setIsNotifying(false),
+                onFinish: () => setNotifyingTrainingSubmissionId(null),
             },
         );
     }
@@ -98,9 +101,6 @@ export default function HrFinalize({
             );
         }
     }, [selected]);
-
-    const adjectivalPreview =
-        finalRating === '' ? null : getAdjectivalRating(Number(finalRating));
 
     function handleFinalize(): void {
         if (!selected || finalRating === '') {
@@ -165,15 +165,6 @@ export default function HrFinalize({
                 <Card className="glass-card overflow-hidden border border-border bg-card shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between border-b border-border bg-card">
                         <CardTitle>Submissions Awaiting Finalization</CardTitle>
-                        <Button
-                            size="sm"
-                            onClick={notifyEmployees}
-                            disabled={isNotifying}
-                            className="gap-2"
-                        >
-                            <Megaphone className="size-4" />
-                            {isNotifying ? 'Sending...' : 'Notify Employees'}
-                        </Button>
                     </CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm">
@@ -209,15 +200,37 @@ export default function HrFinalize({
                                                 '—'}
                                         </td>
                                         <td className="px-4 py-3 text-center">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() =>
-                                                    setSelected(submission)
-                                                }
-                                            >
-                                                Finalize
-                                            </Button>
+                                            <div className="flex flex-wrap justify-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() =>
+                                                        setSelected(submission)
+                                                    }
+                                                >
+                                                    Finalize
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="gap-2"
+                                                    disabled={
+                                                        notifyingTrainingSubmissionId ===
+                                                        submission.id
+                                                    }
+                                                    onClick={() =>
+                                                        notifyTrainingSuggestions(
+                                                            submission.id,
+                                                        )
+                                                    }
+                                                >
+                                                    <Megaphone className="size-4" />
+                                                    {notifyingTrainingSubmissionId ===
+                                                    submission.id
+                                                        ? 'Sending...'
+                                                        : 'Notify Training'}
+                                                </Button>
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
@@ -280,7 +293,7 @@ export default function HrFinalize({
                                 mode="review"
                             />
 
-                            <div className="grid gap-4 md:grid-cols-2">
+                            <div className="grid gap-4">
                                 <div className="glass-card space-y-2 rounded-[26px] border border-border bg-card p-4 shadow-sm">
                                     <label className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
                                         Final Rating
@@ -296,14 +309,6 @@ export default function HrFinalize({
                                         }
                                         className="border-border bg-background"
                                     />
-                                </div>
-                                <div className="glass-card space-y-2 rounded-[26px] border border-emerald-300/70 bg-emerald-50/80 p-4 shadow-sm dark:border-emerald-500/30 dark:bg-emerald-500/10">
-                                    <p className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                                        Adjectival Preview
-                                    </p>
-                                    <p className="text-lg font-semibold text-foreground">
-                                        {adjectivalPreview ?? 'Pending'}
-                                    </p>
                                 </div>
                             </div>
                         </div>

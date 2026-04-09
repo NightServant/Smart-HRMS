@@ -38,8 +38,8 @@ import {
     notifications,
     submitEvaluation,
 } from '@/routes';
-import * as ipcr from '@/routes/ipcr';
 import * as admin from '@/routes/admin';
+import * as ipcr from '@/routes/ipcr';
 import type { Auth, NavItem } from '@/types';
 
 const employeeNavItems: NavItem[] = [

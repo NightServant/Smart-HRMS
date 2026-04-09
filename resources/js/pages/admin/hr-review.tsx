@@ -312,7 +312,7 @@ export default function HrReview({
                                     onClick={() => setDecision('correct')}
                                 >
                                     <CheckCircle2 className="mr-1.5 size-4" />
-                                    Correct – Route to PMT
+                                    Correct – Return to Employee
                                 </Button>
                                 <Button
                                     type="button"
@@ -324,7 +324,7 @@ export default function HrReview({
                                     onClick={() => setDecision('incorrect')}
                                 >
                                     <RotateCcw className="mr-1.5 size-4" />
-                                    Incorrect – Notify Employee
+                                    Incorrect – Return to Evaluator
                                 </Button>
                             </div>
 

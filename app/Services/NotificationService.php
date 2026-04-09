@@ -109,10 +109,12 @@ class NotificationService
 
             return match ($action) {
                 'route_to_evaluator' => "Your IPCR form has been submitted and sent to {$evaluatorName} for evaluation.",
+                'open_appeal_window' => 'Your IPCR review is ready. HR returned the results to you so you can accept them or submit an appeal within the appeal window.',
                 'save_data' => $rating !== null
                     ? 'Your IPCR evaluation is complete with a rating of '.number_format((float) $rating, 2).'. Data has been saved.'
                     : 'Your IPCR evaluation is complete. Data has been saved.',
                 'route_back_to_evaluator' => "Your IPCR needs evaluator remarks before it can proceed. It has been sent back to {$evaluatorName}.",
+                're_evaluate' => "Your IPCR was returned to {$evaluatorName} for correction after HR review.",
                 default => $result['notification'] ?? 'Your IPCR has been updated.',
             };
         }
@@ -188,7 +190,7 @@ class NotificationService
             ),
             'open_appeal_window' => $employeeUser ? $this->create(
                 $employeeUser->id, 'ipcr_appeal_window', 'IPCR Appeal Window Opened',
-                'HR found issues with the computation or completeness of your IPCR. An appeal window has been opened for 72 hours. You may accept the current results or submit an appeal with supporting evidence.',
+                'HR reviewed your IPCR and returned it to you for confirmation. You may accept the current results or submit an appeal with supporting evidence within 72 hours.',
                 'ipcr', $submission->id, true,
             ) : null,
             'appeal_expired' => $employeeUser ? $this->create(

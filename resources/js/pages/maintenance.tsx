@@ -1,7 +1,7 @@
 import { Head } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import { Construction, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { router } from '@inertiajs/react';
 
 type Props = {
     message: string;

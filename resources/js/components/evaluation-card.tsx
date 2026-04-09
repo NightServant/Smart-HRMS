@@ -16,6 +16,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { getAppealEvidenceUrl, getFileName } from '@/lib/ipcr';
 import type { IpcrEmployee, IpcrFormPayload, IpcrSubmission } from '@/types';
 
 type Props = {
@@ -132,6 +133,97 @@ export default function EvaluationCard({
             </CardHeader>
 
             <CardContent className="space-y-5">
+                {submission?.appeal?.appeal_reason ? (
+                    <div className="glass-card rounded-[26px] border border-sky-300/70 bg-sky-50/80 p-5 shadow-sm dark:border-sky-500/30 dark:bg-sky-500/10">
+                        <div className="mb-3 flex items-center gap-2">
+                            <span className="size-2.5 rounded-full bg-sky-500 shadow-[0_0_0_6px_rgba(14,165,233,0.14)]" />
+                            <h3 className="text-sm font-semibold tracking-[0.18em] text-sky-900 uppercase dark:text-sky-100">
+                                Employee Appeal
+                            </h3>
+                        </div>
+                        <p className="text-sm leading-6 whitespace-pre-wrap text-foreground">
+                            {submission.appeal.appeal_reason}
+                        </p>
+                        {(submission.appeal.evidence_files?.length ?? 0) > 0 ? (
+                            <div className="mt-4 space-y-2">
+                                <p className="text-[11px] font-semibold tracking-[0.2em] text-sky-700 uppercase dark:text-sky-300">
+                                    Attached Evidence
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                    {(submission.appeal.evidence_files ?? []).map(
+                                        (file, index) => (
+                                            <Button
+                                                key={`${file}-${index}`}
+                                                asChild
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                            >
+                                                <a
+                                                    href={getAppealEvidenceUrl(
+                                                        submission.appeal!.id,
+                                                        index,
+                                                    )}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                >
+                                                    {getFileName(file)}
+                                                </a>
+                                            </Button>
+                                        ),
+                                    )}
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+                ) : null}
+
+                {isReevaluation && (submission?.hr_remarks || submission?.pmt_remarks) ? (
+                    <div className="glass-card rounded-[26px] border border-amber-300/70 bg-amber-50/80 p-5 shadow-sm dark:border-amber-500/30 dark:bg-amber-500/10">
+                        <div className="mb-3 flex items-center gap-2">
+                            <span className="size-2.5 rounded-full bg-amber-500 shadow-[0_0_0_6px_rgba(245,158,11,0.14)]" />
+                            <h3 className="text-sm font-semibold tracking-[0.18em] text-amber-900 uppercase dark:text-amber-100">
+                                Previous Review Feedback
+                            </h3>
+                        </div>
+                        <p className="mb-4 text-xs leading-5 text-amber-900/80 dark:text-amber-100/80">
+                            This IPCR was returned for re-evaluation. Address the feedback below before re-routing.
+                        </p>
+                        <div className="grid gap-3 md:grid-cols-2">
+                            {submission?.hr_remarks ? (
+                                <div className="rounded-2xl border border-amber-200 bg-white/80 p-4 shadow-sm dark:border-amber-500/30 dark:bg-amber-950/30">
+                                    <p className="text-[11px] font-semibold tracking-[0.2em] text-amber-700 uppercase dark:text-amber-300">
+                                        HR Personnel Remarks
+                                    </p>
+                                    <p className="mt-2 text-sm leading-6 whitespace-pre-wrap text-foreground">
+                                        {submission.hr_remarks}
+                                    </p>
+                                    {submission.hr_cycle_count > 0 ? (
+                                        <p className="mt-2 text-[11px] text-muted-foreground">
+                                            HR cycle count: {submission.hr_cycle_count}
+                                        </p>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                            {submission?.pmt_remarks ? (
+                                <div className="rounded-2xl border border-amber-200 bg-white/80 p-4 shadow-sm dark:border-amber-500/30 dark:bg-amber-950/30">
+                                    <p className="text-[11px] font-semibold tracking-[0.2em] text-amber-700 uppercase dark:text-amber-300">
+                                        PMT Remarks
+                                    </p>
+                                    <p className="mt-2 text-sm leading-6 whitespace-pre-wrap text-foreground">
+                                        {submission.pmt_remarks}
+                                    </p>
+                                    {submission.pmt_cycle_count > 0 ? (
+                                        <p className="mt-2 text-[11px] text-muted-foreground">
+                                            PMT cycle count: {submission.pmt_cycle_count}
+                                        </p>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                        </div>
+                    </div>
+                ) : null}
+
                 {formPayload ? (
                     <IpcrPaperForm
                         value={formPayload}

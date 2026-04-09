@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\IpcrSubmission;
+use App\Models\IpcrTarget;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
@@ -86,6 +87,10 @@ class NotificationController extends Controller
             return route('dashboard');
         }
 
+        if ($notification->document_type === 'ipcr_target') {
+            return $this->resolveIpcrTargetDocumentUrl($notification, $user);
+        }
+
         return match ($notification->document_type) {
             'ipcr' => $this->resolveIpcrTargetUrl($notification, $user),
             'leave' => $this->resolveLeaveTargetUrl($user),
@@ -123,6 +128,22 @@ class NotificationController extends Controller
         }
 
         return route('submit-evaluation');
+    }
+
+    private function resolveIpcrTargetDocumentUrl(Notification $notification, User $user): string
+    {
+        $target = $notification->document_id
+            ? IpcrTarget::query()->find($notification->document_id)
+            : null;
+
+        return match ($user->role) {
+            User::ROLE_EMPLOYEE => $target
+                ? route('ipcr.target', ['target_id' => $target->id])
+                : route('ipcr.target'),
+            User::ROLE_EVALUATOR => route('evaluator.ipcr-target'),
+            User::ROLE_HR_PERSONNEL => route('admin.ipcr.target-management'),
+            default => route('notifications'),
+        };
     }
 
     private function resolveLeaveTargetUrl(User $user): string

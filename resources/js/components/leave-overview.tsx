@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
 import { format } from 'date-fns';
 import {
     ArrowRight,
@@ -7,7 +8,6 @@ import {
     XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Link } from '@inertiajs/react';
 import { DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
 import { DatePicker } from '@/components/ui/date-picker';
 import * as admin from '@/routes/admin';

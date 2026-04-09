@@ -16,12 +16,6 @@ import IpcrTargetReadonly from '@/components/ipcr-target-readonly';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
     Card,
     CardContent,
     CardDescription,
@@ -36,6 +30,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -45,9 +45,9 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
+import { cn } from '@/lib/utils';
 import * as adminIpcr from '@/routes/admin/ipcr';
 import * as adminIpcrTarget from '@/routes/admin/ipcr/target';
-import { cn } from '@/lib/utils';
 import type { BreadcrumbItem } from '@/types';
 import type { IpcrTarget } from '@/types/ipcr';
 

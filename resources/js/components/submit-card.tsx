@@ -120,7 +120,7 @@ function allActualAccomplishmentsFilled(
 
     return formPayload.sections.every((section) =>
         section.rows.every(
-            (row) => row.actual_accomplishment.trim().length > 0,
+            (row) => (row.actual_accomplishment ?? '').trim().length > 0,
         ),
     );
 }
@@ -256,7 +256,8 @@ export default function SubmitCard({ currentTarget = null }: SubmitCardProps) {
                         />
                     )}
 
-                    {latestSubmission?.appeal_status === 'appeal_window_open' &&
+                    {(latestSubmission?.appeal_status === 'appeal_window_open' ||
+                        latestSubmission?.stage === 'appeal_window_open') &&
                         latestSubmission.appeal_window_closes_at && (
                             <div className="flex flex-wrap items-center gap-3">
                                 <AppealCountdown
