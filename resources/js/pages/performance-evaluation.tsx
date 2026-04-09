@@ -12,7 +12,7 @@ import {
     Send,
     ShieldAlert,
 } from 'lucide-react';
-import { startTransition, useEffect, useMemo, useState } from 'react';
+import { startTransition, useEffect, useState } from 'react';
 import AppealCountdown from '@/components/appeal-countdown';
 import EscalationWarning from '@/components/escalation-warning';
 import IpcrPaperForm from '@/components/ipcr-paper-form';
@@ -60,11 +60,7 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
-import {
-    getAdjectivalRating,
-    getAppealEvidenceUrl,
-    getFileName,
-} from '@/lib/ipcr';
+import { getAppealEvidenceUrl, getFileName } from '@/lib/ipcr';
 import { cn } from '@/lib/utils';
 import { evaluationPage, submitEvaluation, documentManagement } from '@/routes';
 import * as admin from '@/routes/admin';
@@ -383,7 +379,6 @@ function EmployeeOverview({
     latestSubmission: IpcrSubmission | null | undefined;
     employeePanel: EmployeePanel | null | undefined;
 }) {
-    const history = employeePanel?.history ?? [];
     const periodOpen = currentPeriod?.isOpen ?? false;
     const launchFormLabel = periodOpen
         ? 'Open IPCR Form'
@@ -483,104 +478,6 @@ function EmployeeOverview({
                     </div>
                 </CardContent>
             </Card>
-
-            <div className="grid gap-6">
-                <Card className="glass-card border-border bg-card shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="text-xl">
-                            Past IPCR Forms
-                        </CardTitle>
-                        <CardDescription>
-                            Review your previous performance evaluation
-                            submissions and open the selected snapshot in the
-                            IPCR workspace.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-3">
-                            {history.length === 0 ? (
-                                <div className="rounded-2xl border border-border/70 bg-background/45 px-4 py-8 text-center text-sm text-muted-foreground">
-                                    No IPCR history yet.
-                                </div>
-                            ) : (
-                                history.map((submission) => (
-                                    <div
-                                        key={submission.id}
-                                        className="glass-card rounded-2xl border border-border/70 bg-background/40 p-4 sm:p-5"
-                                    >
-                                        <div className="space-y-4">
-                                            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                                <div className="min-w-0 space-y-1">
-                                                    <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                                                        Period
-                                                    </p>
-                                                    <p className="text-sm font-semibold text-foreground sm:text-base">
-                                                        {submission.form_payload
-                                                            .metadata.period ??
-                                                            'Current Period'}
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="w-full lg:w-auto"
-                                                    onClick={() =>
-                                                        router.get(
-                                                            employeePanel?.launchFormUrl ??
-                                                                '#',
-                                                            {
-                                                                submission_id:
-                                                                    submission.id,
-                                                            },
-                                                        )
-                                                    }
-                                                >
-                                                    Open Snapshot
-                                                </Button>
-                                            </div>
-
-                                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                                <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-2.5">
-                                                    <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                                                        Status
-                                                    </p>
-                                                    <p className="mt-1 font-medium text-foreground">
-                                                        {statusLabel(
-                                                            submission.status,
-                                                        )}
-                                                    </p>
-                                                </div>
-                                                <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-2.5">
-                                                    <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                                                        Stage
-                                                    </p>
-                                                    <p className="mt-1 font-medium text-foreground">
-                                                        {stageLabel(
-                                                            submission.stage,
-                                                        )}
-                                                    </p>
-                                                </div>
-                                                <div className="rounded-xl border border-border/60 bg-background/50 px-3 py-2.5 sm:col-span-2 xl:col-span-1">
-                                                    <p className="text-[11px] font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                                                        Rating
-                                                    </p>
-                                                    <p className="mt-1 font-medium text-foreground">
-                                                        {finalDisplayRating(
-                                                            submission,
-                                                        )?.toFixed(2) ??
-                                                            'Pending'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
         </div>
     );
 }
@@ -1110,13 +1007,6 @@ function HrOverview({
         ? 'No submissions awaiting HR review.'
         : 'No submissions awaiting finalization.';
 
-    const adjectivalPreview = useMemo(() => {
-        const numeric = Number(finalRating);
-
-        return Number.isNaN(numeric)
-            ? 'Pending'
-            : (getAdjectivalRating(numeric) ?? 'Pending');
-    }, [finalRating]);
     const currentYear = new Date().getFullYear();
     const yearOptions = Array.from(
         { length: 6 },
@@ -1659,33 +1549,6 @@ function HrOverview({
                                             finalization snapshot anytime.
                                         </div>
                                     )}
-                                    <div className="grid gap-4 md:grid-cols-2">
-                                        <div className="space-y-2">
-                                            <Label>Final Rating</Label>
-                                            <Input
-                                                type="number"
-                                                min="1"
-                                                max="5"
-                                                step="0.01"
-                                                value={finalRating}
-                                                onChange={(event) =>
-                                                    setFinalRating(
-                                                        event.target.value,
-                                                    )
-                                                }
-                                                className="border-border bg-background"
-                                                readOnly={!isFinalizeEditable}
-                                            />
-                                        </div>
-                                        <div className="rounded-[24px] border border-border bg-card p-4 shadow-sm">
-                                            <p className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
-                                                Live Adjectival Preview
-                                            </p>
-                                            <p className="mt-2 text-lg font-semibold">
-                                                {adjectivalPreview}
-                                            </p>
-                                        </div>
-                                    </div>
                                     <DialogFooter>
                                         <Button
                                             type="button"

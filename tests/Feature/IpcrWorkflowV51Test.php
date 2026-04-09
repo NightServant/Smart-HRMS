@@ -462,6 +462,33 @@ test('appeal submission routes successfully when the appeal window is open', fun
         ->and($submission->status)->toBe('routed');
 });
 
+test('appeal submission falls back to local routing when the workflow service errors', function () {
+    ['employeeUser' => $employeeUser, 'employee' => $employee] = seedIpcrUsersAndEmployees();
+    $submission = createAppealWindowSubmission($employee);
+
+    mockIwrService(['routeAppeal' => [
+        'status' => 'error',
+        'notification' => 'IWR service is unavailable. Please try again later.',
+    ]]);
+
+    $response = $this->actingAs($employeeUser)->post(route('ipcr.appeal.submit', $submission), [
+        'appeal_reason' => 'Need to correct the actual accomplishments.',
+        'appeal_evidence_description' => 'Supporting reports',
+        'evidence_files' => [
+            UploadedFile::fake()->create('supporting-report.pdf', 120, 'application/pdf'),
+        ],
+    ]);
+
+    $response->assertRedirect(route('submit-evaluation'));
+
+    $submission->refresh();
+
+    expect($submission->appeal_count)->toBe(1)
+        ->and($submission->appeal_status)->toBe('submitted')
+        ->and($submission->stage)->toBe('sent_to_evaluator')
+        ->and($submission->status)->toBe('routed');
+});
+
 test('appeal evidence files can be viewed inline', function () {
     Storage::fake('local');
 

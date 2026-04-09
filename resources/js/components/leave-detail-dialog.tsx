@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { useAppearance } from '@/hooks/use-appearance';
 import WorkflowSignOff from '@/components/workflow-sign-off';
 
 export type LeaveRequestDetail = {
@@ -50,9 +51,6 @@ export type LeaveRequestDetail = {
         evaluatorDate: string | null;
         hrPersonnelName: string | null;
         hrPersonnelDate: string | null;
-        pmtName: string | null;
-        pmtDate: string | null;
-        pmtNote: string | null;
     };
 };
 
@@ -327,6 +325,7 @@ export function LeaveDetailDialog({
 }) {
     const [actionState, setActionState] = useState<ActionState>('idle');
     const [rejectionReason, setRejectionReason] = useState('');
+    const { resolvedAppearance } = useAppearance();
 
     const isOpen = leave !== null;
 
@@ -463,7 +462,7 @@ export function LeaveDetailDialog({
                                     <WorkflowSignOff
                                         title="Workflow Sign-Off"
                                         description="Names captured from the leave routing trail."
-                                        tone="dark"
+                                        tone={resolvedAppearance === 'dark' ? 'dark' : 'light'}
                                         slots={[
                                             {
                                                 role: 'Evaluator',
@@ -474,12 +473,6 @@ export function LeaveDetailDialog({
                                                 role: 'HR Personnel',
                                                 name: leave.workflowSignOff.hrPersonnelName,
                                                 date: leave.workflowSignOff.hrPersonnelDate,
-                                            },
-                                            {
-                                                role: 'PMT',
-                                                name: leave.workflowSignOff.pmtName ?? 'Not applicable',
-                                                date: leave.workflowSignOff.pmtDate,
-                                                note: leave.workflowSignOff.pmtNote ?? 'Leave requests do not route through PMT.',
                                             },
                                         ]}
                                     />

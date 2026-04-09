@@ -15,6 +15,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             EmployeeSeeder::class,
             UserSeeder::class,
+            IpcrWorkflowSeeder::class,
+            LeaveWorkflowSeeder::class,
         ]);
     }
 }

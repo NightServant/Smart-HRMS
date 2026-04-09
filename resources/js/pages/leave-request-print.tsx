@@ -344,7 +344,7 @@ export default function LeaveRequestPrintPage() {
 
                     <WorkflowSignOff
                         title="Workflow Sign-Off"
-                        description="Evaluator, HR personnel, and PMT names captured from the leave workflow."
+                        description="Evaluator and HR personnel names captured from the leave workflow."
                         slots={[
                             {
                                 role: 'Evaluator',
@@ -359,17 +359,6 @@ export default function LeaveRequestPrintPage() {
                                 date: formatPrintedTimestamp(
                                     leaveRequest.workflowSignOff?.hrPersonnelDate,
                                 ),
-                            },
-                            {
-                                role: 'PMT',
-                                name: leaveRequest.workflowSignOff?.pmtName ??
-                                    'Not applicable',
-                                date: formatPrintedTimestamp(
-                                    leaveRequest.workflowSignOff?.pmtDate,
-                                ),
-                                note:
-                                    leaveRequest.workflowSignOff?.pmtNote ??
-                                    'Leave requests do not route through PMT.',
                             },
                         ]}
                     />

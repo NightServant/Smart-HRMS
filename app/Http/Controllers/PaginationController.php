@@ -58,10 +58,7 @@ class PaginationController extends Controller
      *     evaluatorName: string|null,
      *     evaluatorDate: string|null,
      *     hrPersonnelName: string|null,
-     *     hrPersonnelDate: string|null,
-     *     pmtName: string|null,
-     *     pmtDate: string|null,
-     *     pmtNote: string|null
+     *     hrPersonnelDate: string|null
      * }
      */
     private function leaveWorkflowSignOffResource(LeaveRequest $leaveRequest): array
@@ -85,18 +82,7 @@ class PaginationController extends Controller
             'evaluatorDate' => $evaluatorNotification?->created_at?->format('M d, Y g:i A'),
             'hrPersonnelName' => $hrNotification?->user?->name,
             'hrPersonnelDate' => $hrNotification?->created_at?->format('M d, Y g:i A'),
-            'pmtName' => $this->roleHolderName(User::ROLE_PMT),
-            'pmtDate' => null,
-            'pmtNote' => null,
         ];
-    }
-
-    private function roleHolderName(string $role): ?string
-    {
-        return User::query()
-            ->where('role', $role)
-            ->orderBy('name')
-            ->value('name');
     }
 
     private function applyLeaveStatusFilter(Builder $query, string $statusFilter): void

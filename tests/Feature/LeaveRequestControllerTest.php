@@ -203,7 +203,11 @@ test('employee leave records include workflow sign off names', function () {
             ->component('leave-application')
             ->where('leaveHistory.0.workflowSignOff.evaluatorName', 'History Evaluator')
             ->where('leaveHistory.0.workflowSignOff.hrPersonnelName', 'History HR')
-            ->where('leaveHistory.0.workflowSignOff.pmtName', 'Mark Reyes'));
+            ->where('leaveHistory.0.workflowSignOff', function ($workflowSignOff): bool {
+                return ! $workflowSignOff->has('pmtName')
+                    && ! $workflowSignOff->has('pmtDate')
+                    && ! $workflowSignOff->has('pmtNote');
+            }));
 });
 
 test('employee leave history normalizes rejected leaves as returned', function () {

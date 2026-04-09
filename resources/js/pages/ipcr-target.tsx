@@ -20,7 +20,6 @@ type PageProps = {
     targetPeriod: IpcrTargetPeriod;
     existingTarget: IpcrTarget | null;
     selectedTarget: IpcrTarget | null;
-    targetHistory: IpcrTarget[];
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -45,7 +44,7 @@ function targetStatusLabel(target: IpcrTarget | null): string {
 }
 
 export default function IpcrTargetPage() {
-    const { targetPeriod, existingTarget, selectedTarget, targetHistory } =
+    const { targetPeriod, existingTarget, selectedTarget } =
         usePage<PageProps>().props;
 
     const isReturned = existingTarget?.evaluator_decision === 'rejected';
@@ -149,80 +148,6 @@ export default function IpcrTargetPage() {
                         </CardContent>
                     </Card>
                 ) : null}
-
-                <Card className="glass-card border-border bg-card shadow-sm">
-                    <CardHeader>
-                        <CardTitle className="text-xl">
-                            Past IPCR Target Forms
-                        </CardTitle>
-                        <CardDescription>
-                            Open any previous target snapshot without leaving
-                            the history page.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        {targetHistory.length === 0 ? (
-                            <div className="rounded-2xl border border-border/70 bg-background/45 px-4 py-8 text-center text-sm text-muted-foreground">
-                                No past IPCR target forms yet.
-                            </div>
-                        ) : (
-                            targetHistory.map((target) => (
-                                <div
-                                    key={target.id}
-                                    className="glass-card rounded-2xl border border-border/70 bg-background/40 p-4 sm:p-5"
-                                >
-                                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                                        <div className="min-w-0 space-y-1">
-                                            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                                                Period
-                                            </p>
-                                            <p className="text-sm font-semibold text-foreground sm:text-base">
-                                                {semesterLabel(
-                                                    target.semester,
-                                                    target.target_year,
-                                                )}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {target.status === 'submitted'
-                                                    ? 'Submitted'
-                                                    : 'Draft'}
-                                                {' • '}
-                                                {target.submitted_at
-                                                    ? new Date(
-                                                          target.submitted_at,
-                                                      ).toLocaleDateString()
-                                                    : 'Not yet submitted'}
-                                            </p>
-                                        </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() =>
-                                                    router.get(
-                                                        ipcr.target().url,
-                                                        {
-                                                            target_id:
-                                                                target.id,
-                                                        },
-                                                        {
-                                                            preserveScroll:
-                                                                true,
-                                                            preserveState: true,
-                                                        },
-                                                    )
-                                                }
-                                            >
-                                                Open Snapshot
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </CardContent>
-                </Card>
 
                 {selectedTarget && (
                     <Card className="glass-card border-border bg-card shadow-sm">

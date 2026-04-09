@@ -51,7 +51,7 @@ class IwrController extends Controller
         $latestSubmission = $employee?->latestSubmission()
             ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
             ->first();
-        $latestSubmission = $this->repairLegacyHrReviewSubmission($latestSubmission);
+        $latestSubmission = $this->repairLegacySubmission($latestSubmission);
 
         return Inertia::render('performance-evaluation', [
             'roleView' => 'employee',
@@ -74,7 +74,7 @@ class IwrController extends Controller
         $latestSubmission = $employee?->latestSubmission()
             ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
             ->first();
-        $latestSubmission = $this->repairLegacyHrReviewSubmission($latestSubmission);
+        $latestSubmission = $this->repairLegacySubmission($latestSubmission);
         $selectedSubmission = null;
 
         if ($employee && $request->filled('submission_id')) {
@@ -83,7 +83,7 @@ class IwrController extends Controller
                 ->whereKey((int) $request->integer('submission_id'))
                 ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
                 ->first();
-            $selectedSubmission = $this->repairLegacyHrReviewSubmission($selectedSubmission);
+            $selectedSubmission = $this->repairLegacySubmission($selectedSubmission);
         }
 
         $canStartNewSubmission = $employee !== null
@@ -119,7 +119,7 @@ class IwrController extends Controller
         $latestSubmission = $employee->latestSubmission()
             ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
             ->first();
-        $latestSubmission = $this->repairLegacyHrReviewSubmission($latestSubmission);
+        $latestSubmission = $this->repairLegacySubmission($latestSubmission);
 
         $selectedSubmission = null;
 
@@ -129,7 +129,7 @@ class IwrController extends Controller
                 ->whereKey((int) $request->integer('submission_id'))
                 ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
                 ->firstOrFail();
-            $selectedSubmission = $this->repairLegacyHrReviewSubmission($selectedSubmission);
+            $selectedSubmission = $this->repairLegacySubmission($selectedSubmission);
         }
 
         $sourceSubmission = $selectedSubmission ?? $latestSubmission;
@@ -834,13 +834,17 @@ class IwrController extends Controller
             'notification' => $iwrResult['notification'] ?? 'No appeal submitted. Routed to PMT review.',
         ]);
 
-        $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
-
         if ($this->iwrFailed($iwrResult)) {
-            return to_route('submit-evaluation')->withErrors([
-                'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+            $iwrResult = $this->fallbackAppealRouting($submission, $submission->appeal_count ?? 0, false);
+            $submission->update([
+                'stage' => $iwrResult['stage'],
+                'status' => $iwrResult['status'],
+                'routing_action' => $iwrResult['routing_action'],
+                'notification' => $iwrResult['notification'],
             ]);
         }
+
+        $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
 
         $this->notificationService->notifyV51($submission->fresh(['employee']), 'route_to_pmt');
 
@@ -902,13 +906,17 @@ class IwrController extends Controller
             'notification' => $iwrResult['notification'] ?? 'Appeal submitted.',
         ]);
 
-        $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
-
         if ($this->iwrFailed($iwrResult)) {
-            return to_route('submit-evaluation')->withErrors([
-                'workflow' => $iwrResult['notification'] ?? 'The workflow service is currently unavailable.',
+            $iwrResult = $this->fallbackAppealRouting($submission, $newAppealCount, true);
+            $submission->update([
+                'stage' => $iwrResult['stage'],
+                'status' => $iwrResult['status'],
+                'routing_action' => $iwrResult['routing_action'],
+                'notification' => $iwrResult['notification'],
             ]);
         }
+
+        $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
 
         if ($newAppealCount === 1) {
             // First appeal — route back to evaluator and notify them
@@ -1622,6 +1630,13 @@ class IwrController extends Controller
         ];
     }
 
+    private function repairLegacySubmission(?IpcrSubmission $submission): ?IpcrSubmission
+    {
+        return $this->repairLegacyAppealSubmission(
+            $this->repairLegacyHrReviewSubmission($submission),
+        );
+    }
+
     private function repairLegacyHrReviewSubmission(?IpcrSubmission $submission): ?IpcrSubmission
     {
         if (! $submission) {
@@ -1688,6 +1703,108 @@ class IwrController extends Controller
         }
 
         return $submission->fresh(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal']);
+    }
+
+    private function repairLegacyAppealSubmission(?IpcrSubmission $submission): ?IpcrSubmission
+    {
+        if (! $submission) {
+            return null;
+        }
+
+        if (
+            $submission->status !== 'error'
+            || $submission->stage !== 'appeal'
+            || $submission->routing_action !== 'validation_failed'
+            || ! in_array($submission->appeal_status, ['submitted', 'no_appeal'], true)
+        ) {
+            return $submission;
+        }
+
+        $submission->loadMissing(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal']);
+
+        $appealCount = $submission->appeal_count ?? 0;
+        $hasAppeal = $submission->appeal_status === 'submitted';
+        $appealReason = $hasAppeal
+            ? ($submission->appeal?->appeal_reason ?? data_get($submission->form_payload, 'workflow_notes.appeal_reason'))
+            : null;
+        $evidenceFiles = $hasAppeal
+            ? ($submission->appeal?->evidence_files ?? [])
+            : [];
+
+        if ($hasAppeal && (
+            ! is_string($appealReason)
+            || trim($appealReason) === ''
+            || ! is_array($evidenceFiles)
+            || count($evidenceFiles) === 0
+        )) {
+            return $submission;
+        }
+
+        $iwrResult = $this->iwrService->routeAppeal([
+            'stage' => 'appeal',
+            'employee_id' => $submission->employee_id,
+            'employee_name' => $submission->employee?->name ?? $submission->employee_id,
+            'appeal_status' => $hasAppeal ? 'submitted' : 'no_appeal',
+            'appeal_count' => $appealCount,
+            'appeal_reason' => $appealReason,
+            'evidence_files' => $evidenceFiles,
+        ]);
+
+        if ($this->iwrFailed($iwrResult)) {
+            $iwrResult = $this->fallbackAppealRouting($submission, $appealCount, $hasAppeal);
+        }
+
+        $submission->update([
+            'stage' => $iwrResult['stage'] ?? $submission->stage,
+            'status' => $iwrResult['status'] ?? $submission->status,
+            'routing_action' => $iwrResult['routing_action'] ?? $submission->routing_action,
+            'notification' => $iwrResult['notification'] ?? $submission->notification,
+            'appeal_status' => $hasAppeal ? 'submitted' : 'no_appeal',
+        ]);
+
+        $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
+
+        $routingAction = $iwrResult['routing_action'] ?? '';
+        if ($routingAction === 'route_to_pmt') {
+            $this->notificationService->notifyV51($submission->fresh(['employee']), 'route_to_pmt');
+        } elseif ($routingAction === 're_evaluate') {
+            $this->notificationService->notifyV51($submission->fresh(['employee']), 're_evaluate');
+        }
+
+        return $submission->fresh(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal']);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function fallbackAppealRouting(IpcrSubmission $submission, int $appealCount, bool $hasAppeal): array
+    {
+        $employeeName = $submission->employee?->name ?? $submission->employee_id;
+
+        if (! $hasAppeal) {
+            return [
+                'status' => 'routed',
+                'stage' => 'sent_to_pmt',
+                'routing_action' => 'route_to_pmt',
+                'notification' => 'No appeal submitted. Routed to PMT review.',
+            ];
+        }
+
+        if ($appealCount <= 1) {
+            return [
+                'status' => 'routed',
+                'stage' => 'sent_to_evaluator',
+                'routing_action' => 're_evaluate',
+                'notification' => "First appeal submitted by {$employeeName}. Routed back to evaluator for re-evaluation.",
+            ];
+        }
+
+        return [
+            'status' => 'routed',
+            'stage' => 'sent_to_pmt',
+            'routing_action' => 'route_to_pmt',
+            'notification' => "Second appeal submitted by {$employeeName}. Routed to PMT for policy-level validation.",
+        ];
     }
 
     /**

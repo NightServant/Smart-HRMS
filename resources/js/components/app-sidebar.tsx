@@ -189,11 +189,6 @@ const pmtNavItems: NavItem[] = [
         icon: ClipboardCheck,
         children: [
             {
-                title: 'IPCR Target',
-                href: '/ipcr/target-review',
-                icon: Target,
-            },
-            {
                 title: 'IPCR Submission',
                 href: admin.pmtReview(),
                 icon: FileText,

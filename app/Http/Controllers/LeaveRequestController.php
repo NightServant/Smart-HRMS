@@ -200,10 +200,7 @@ class LeaveRequestController extends Controller
      *     evaluatorName: string|null,
      *     evaluatorDate: string|null,
      *     hrPersonnelName: string|null,
-     *     hrPersonnelDate: string|null,
-     *     pmtName: string|null,
-     *     pmtDate: string|null,
-     *     pmtNote: string|null
+     *     hrPersonnelDate: string|null
      * }
      */
     private function leaveWorkflowSignOffResource(LeaveRequest $leaveRequest): array
@@ -229,9 +226,6 @@ class LeaveRequestController extends Controller
             'hrPersonnelName' => $hrNotification?->user?->name
                 ?? $this->resolveRoleHolderName(User::ROLE_HR_PERSONNEL),
             'hrPersonnelDate' => $hrNotification?->created_at?->format('M d, Y g:i A'),
-            'pmtName' => $this->resolveRoleHolderName(User::ROLE_PMT),
-            'pmtDate' => null,
-            'pmtNote' => null,
         ];
     }
 
