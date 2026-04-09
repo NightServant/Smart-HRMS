@@ -72,6 +72,10 @@ class LeaveRequest extends Model
 
     public function resolvedStatus(): string
     {
+        if ($this->dh_decision === 1 && $this->hr_decision === 1) {
+            return 'completed';
+        }
+
         if ($this->dh_decision === 2 || $this->hr_decision === 2) {
             return 'returned';
         }

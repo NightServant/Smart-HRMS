@@ -200,6 +200,38 @@ test('leave management filters records by leave type status and stage', function
             ->where('leaveRequests.0.leaveAccrual', fn ($value) => (float) $value === 2.0));
 });
 
+test('leave management treats fully approved records as completed even when the stored status is stale', function () {
+    $evaluatorUser = User::factory()->asEvaluator()->create();
+
+    $employee = User::factory()->create([
+        'name' => 'Stale Approval Employee',
+        'email' => 'stale-approval@example.com',
+    ]);
+
+    LeaveRequest::query()->create([
+        'user_id' => $employee->id,
+        'leave_type' => 'sick-leave',
+        'start_date' => '2026-04-14',
+        'end_date' => '2026-04-17',
+        'reason' => 'Medical consultation.',
+        'status' => 'returned',
+        'stage' => 'completed',
+        'dh_decision' => 1,
+        'hr_decision' => 1,
+        'days_requested' => 4,
+    ]);
+
+    $this->actingAs($evaluatorUser)
+        ->get(route('admin.leave-management', [
+            'statusFilter' => 'completed',
+            'stageFilter' => 'completed',
+        ]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/leave-management')
+            ->where('leaveRequests.0.name', 'Stale Approval Employee')
+            ->where('leaveRequests.0.status', 'completed'));
+});
+
 test('leave management normalizes rejected records as returned', function () {
     $evaluatorUser = User::factory()->asEvaluator()->create();
 

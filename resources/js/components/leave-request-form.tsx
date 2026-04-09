@@ -6,6 +6,7 @@ import {
     eachDayOfInterval,
     format,
     getDay,
+    startOfMonth,
     startOfDay,
 } from 'date-fns';
 import { FileCheck2, ShieldCheck, Upload, Wallet } from 'lucide-react';
@@ -643,7 +644,10 @@ export default function LeaveRequestForm({
                                 <DatePicker
                                     value={startDate}
                                     onChange={handleStartDateChange}
+                                    startMonth={startOfMonth(new Date())}
+                                    disabled={{ before: startOfDay(new Date()) }}
                                     placeholder="Select start date"
+                                    hidePreviousMonthButton
                                 />
                                 <InputError message={dateNoticeMessage ?? errors.startDate} />
                             </div>
@@ -652,9 +656,15 @@ export default function LeaveRequestForm({
                                 <DatePicker
                                     value={endDate}
                                     onChange={handleEndDateChange}
-                                    fromDate={startDate}
+                                    startMonth={startOfMonth(startDate ?? new Date())}
                                     toDate={maximumEndDate}
+                                    disabled={
+                                        startDate
+                                            ? { before: startDate }
+                                            : { before: startOfDay(new Date()) }
+                                    }
                                     placeholder="Select end date"
+                                    hidePreviousMonthButton
                                 />
                                 <InputError message={dateValidationMessage ?? errors.endDate} />
                             </div>

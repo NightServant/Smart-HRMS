@@ -16,18 +16,22 @@ type DatePickerProps = {
   value?: Date
   onChange?: (date: Date | undefined) => void
   placeholder?: string
+  startMonth?: Date
   fromDate?: Date
   toDate?: Date
   disabled?: Matcher | Matcher[]
+  hidePreviousMonthButton?: boolean
 }
 
 export function DatePicker({
   value,
   onChange,
   placeholder = "Pick a date",
+  startMonth,
   fromDate,
   toDate,
   disabled,
+  hidePreviousMonthButton = false,
 }: DatePickerProps) {
   const [internalDate, setInternalDate] = React.useState<Date>()
 
@@ -59,9 +63,11 @@ export function DatePicker({
           mode="single"
           selected={selectedDate}
           onSelect={handleSelect}
+          startMonth={startMonth}
           fromDate={fromDate}
           toDate={toDate}
           disabled={disabled}
+          hidePreviousMonthButton={hidePreviousMonthButton}
         />
       </PopoverContent>
     </Popover>

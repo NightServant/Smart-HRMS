@@ -89,7 +89,6 @@ class PaginationController extends Controller
     {
         if ($statusFilter === 'completed') {
             $query
-                ->where('status', 'completed')
                 ->where('dh_decision', 1)
                 ->where('hr_decision', 1);
 
