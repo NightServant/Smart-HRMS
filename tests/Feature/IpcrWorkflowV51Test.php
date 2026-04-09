@@ -1013,6 +1013,18 @@ test('printable ipcr page returns the selected submission for the employee', fun
     ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
     $submission = createAppealWindowSubmission($employee);
 
+    $targetPayload = app(IpcrFormTemplateService::class)->targetDraft($employee, 'January to June 2026');
+    $targetPayload['sections'][0]['rows'][0]['accountable'] = 'Maria Santos will coordinate employee records, plantilla movement, and office staffing requirements.';
+
+    IpcrTarget::query()->create([
+        'employee_id' => $employee->employee_id,
+        'semester' => 1,
+        'target_year' => 2026,
+        'form_payload' => $targetPayload,
+        'status' => 'submitted',
+        'submitted_at' => now(),
+    ]);
+
     $response = $this->actingAs($employeeUser)
         ->get(route('ipcr.print', ['submission_id' => $submission->id]));
 
@@ -1021,10 +1033,11 @@ test('printable ipcr page returns the selected submission for the employee', fun
     expect($response->baseResponse->headers->get('content-disposition'))->toContain('inline');
 });
 
-test('printable ipcr blade omits the self assessment section', function () {
+test('printable ipcr blade uses compact criterion blocks', function () {
     ['employee' => $employee] = seedIpcrUsersAndEmployees();
 
     $payload = employeeFormPayload($employee);
+    $targetPayload = app(IpcrFormTemplateService::class)->targetDraft($employee, 'January to June 2026');
     $payload['workflow_notes']['employee_notes'] = 'Employee notes for the printable copy.';
     $payload['workflow_notes']['self_assessment_qeta'] = 'This should stay out of the PDF.';
     $payload['workflow_notes']['self_assessment_qeta_scores'] = [
@@ -1033,14 +1046,28 @@ test('printable ipcr blade omits the self assessment section', function () {
         'timeliness' => 5,
         'accountability' => 4,
     ];
+    $payload['sections'][0]['rows'][0]['actual_accomplishment'] = "  Completed and documented.\n    Followed through with the office.";
+    $payload['sections'][0]['rows'][0]['remarks'] = "  Excellent execution.\n    No missing references.";
+    $payload['sections'][0]['rows'][0]['accountable'] = 'This is the submission template placeholder and should not win.';
+    $targetPayload['sections'][0]['rows'][0]['accountable'] = "  Maria Santos will coordinate employee records, plantilla movement, and office staffing requirements.\n    Followed through with the office.";
 
     $html = view('pdf.ipcr-print', [
         'submission' => null,
         'printableFormPayload' => $payload,
+        'printableTargetFormPayload' => $targetPayload,
     ])->render();
 
     expect($html)
+        ->toContain('IPCR Criterion')
+        ->toContain('Target (Employee Input)')
+        ->toContain('Maria Santos will coordinate employee records, plantilla movement, and office staffing requirements.')
+        ->toContain('Actual Accomplishment')
+        ->toContain('QETA from Evaluator')
+        ->toContain('Remarks from Evaluator')
         ->toContain('Employee Notes')
+        ->not->toContain('Measures:')
+        ->not->toContain('  Completed and documented.')
+        ->not->toContain('  Excellent execution.')
         ->not->toContain('Self Assessment')
         ->not->toContain('self_assessment_qeta');
 });

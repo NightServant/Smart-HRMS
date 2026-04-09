@@ -1,12 +1,24 @@
 @php
     $leave = $leaveRequest;
-    $status = data_get($leave, 'status') === 'returned' ? 'Rejected' : 'Approved';
-    $statusClass = $status === 'Approved' ? 'status status-emerald' : 'status status-rose';
+    $dhDecision = (int) data_get($leave, 'dhDecision', 0);
+    $hrDecision = (int) data_get($leave, 'hrDecision', 0);
+    $rawStatus = (string) data_get($leave, 'status', 'pending');
+    $status = match (true) {
+        $dhDecision === 2 || $hrDecision === 2 || $rawStatus === 'returned' => 'Rejected',
+        $dhDecision === 1 && $hrDecision === 1 && in_array($rawStatus, ['completed', 'finalized'], true) => 'Approved',
+        in_array($rawStatus, ['routed', 'pending', 'draft'], true) => 'Pending',
+        default => ucfirst(str_replace('_', ' ', $rawStatus)),
+    };
+    $statusClass = match ($status) {
+        'Approved' => 'status status-emerald',
+        'Rejected' => 'status status-rose',
+        default => 'status status-slate',
+    };
     $supportingDocuments = data_get($leave, 'supportingDocuments', []);
     $generatedAt = now()->format('F j, Y g:i A');
     $daysRequested = data_get($leave, 'daysRequested');
     $leaveAccrualComputation = $daysRequested !== null
-        ? number_format((float) $daysRequested, 0).' day(s) / 1.25 = '.number_format(((float) $daysRequested) / 1.25, 2).' day(s)'
+        ? number_format((float) $daysRequested, 2).' day(s)'
         : '—';
 
     $formatDate = static function (?string $value): string {
@@ -24,13 +36,21 @@
 
         return \Carbon\Carbon::parse($value)->format('F j, Y g:i A');
     };
+
+    $decisionLabel = static function (int $decision): string {
+        return match ($decision) {
+            1 => 'Approved',
+            2 => 'Rejected',
+            default => 'Pending',
+        };
+    };
 @endphp
 <!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>Leave Request Form</title>
+    <title>Application for Leave</title>
     <style>
         @page {
             size: letter portrait;
@@ -45,8 +65,8 @@
             margin: 0;
             font-family: DejaVu Sans, sans-serif;
             color: #0f172a;
-            font-size: 10.5px;
-            line-height: 1.5;
+            font-size: 10px;
+            line-height: 1.42;
             background: #ffffff;
         }
 
@@ -56,8 +76,8 @@
 
         .header {
             border-bottom: 2px solid #1f2937;
-            padding-bottom: 10px;
-            margin-bottom: 12px;
+            padding-bottom: 8px;
+            margin-bottom: 10px;
         }
 
         .header-table {
@@ -114,15 +134,21 @@
             color: #9f1239;
         }
 
+        .status-slate {
+            border-color: #cbd5e1;
+            background: #f8fafc;
+            color: #334155;
+        }
+
         .meta-grid {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
 
         .meta-grid td {
             border: 1px solid #cbd5e1;
-            padding: 8px 10px;
+            padding: 7px 9px;
             vertical-align: top;
         }
 
@@ -143,13 +169,13 @@
         }
 
         .section {
-            margin-bottom: 12px;
+            margin-bottom: 10px;
             page-break-inside: avoid;
         }
 
         .section-title {
             margin: 0 0 6px;
-            font-size: 10px;
+            font-size: 9.5px;
             font-weight: 700;
             letter-spacing: 0.16em;
             text-transform: uppercase;
@@ -162,15 +188,26 @@
             color: #64748b;
         }
 
-        .info-table {
+        .info-table,
+        .decision-table,
+        .documents-table,
+        .sign-off-table {
             width: 100%;
             border-collapse: collapse;
+        }
+
+        .info-table,
+        .decision-table {
             table-layout: fixed;
         }
 
-        .info-table td {
+        .info-table td,
+        .decision-table td,
+        .documents-table th,
+        .documents-table td,
+        .sign-off-table td {
             border: 1px solid #cbd5e1;
-            padding: 7px 8px;
+            padding: 6px 7px;
             vertical-align: top;
         }
 
@@ -182,10 +219,43 @@
             color: #0f172a;
         }
 
+        .decision-table td {
+            width: 33.333%;
+        }
+
+        .qeta-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .qeta-table td {
+            border: 1px solid #cbd5e1;
+            padding: 4px 5px;
+            text-align: center;
+            vertical-align: top;
+        }
+
+        .qeta-label {
+            margin: 0;
+            font-size: 7px;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+
+        .qeta-value {
+            margin: 2px 0 0;
+            font-size: 10px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
         .reason-box {
             border: 1px solid #cbd5e1;
-            padding: 10px;
-            min-height: 56px;
+            padding: 9px 10px;
+            min-height: 52px;
         }
 
         .reason-text {
@@ -194,25 +264,12 @@
             color: #0f172a;
         }
 
-        .notes-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .notes-table td {
-            border: 1px solid #cbd5e1;
-            padding: 8px 10px;
-            vertical-align: top;
-        }
-
         .sign-off-table {
             width: 100%;
             border-collapse: collapse;
         }
 
         .sign-off-table td {
-            border: 1px solid #cbd5e1;
-            padding: 8px 10px;
             vertical-align: top;
             width: 33.333%;
         }
@@ -240,8 +297,6 @@
 
         .documents-table th,
         .documents-table td {
-            border: 1px solid #cbd5e1;
-            padding: 7px 8px;
             vertical-align: top;
         }
 
@@ -267,9 +322,9 @@
                 <tr>
                     <td style="width: 72%;">
                         <div class="eyebrow">Printable PDF View</div>
-                        <h1>Leave Request Form</h1>
+                        <h1>Application for Leave</h1>
                         <p class="subtitle">
-                            Employee leave application, review outcome, workflow sign-off, and supporting documents.
+                            CS Form No. 6, Revised 2020 | Employee leave application, review outcome, workflow sign-off, and supporting documents.
                         </p>
                     </td>
                     <td style="width: 28%; text-align: right;">
@@ -318,20 +373,44 @@
         </table>
 
         <div class="section">
-            <h2 class="section-title">Leave Accrual Computation</h2>
+            <h2 class="section-title">Leave Application Details</h2>
             <table class="info-table">
                 <tr>
-                    <td style="width: 50%;">
-                        <div class="label">Computation</div>
+                    <td style="width: 25%;">
+                        <div class="label">Leave Type</div>
                         <div class="value-block">
-                            {{ $leaveAccrualComputation }}
+                            {{ data_get($leave, 'leaveType') ? str_replace('_', ' ', ucwords((string) data_get($leave, 'leaveType'), '_')) : '—' }}
                         </div>
                     </td>
                     <td style="width: 25%;">
-                        <div class="label">Status</div>
-                        <div class="value-block">{{ $status }}</div>
+                        <div class="label">Date From</div>
+                        <div class="value-block">{{ $formatDate(data_get($leave, 'startDate')) }}</div>
                     </td>
                     <td style="width: 25%;">
+                        <div class="label">Date To</div>
+                        <div class="value-block">{{ $formatDate(data_get($leave, 'endDate')) }}</div>
+                    </td>
+                    <td style="width: 25%;">
+                        <div class="label">Days Requested</div>
+                        <div class="value-block">
+                            {{ $daysRequested !== null ? number_format((float) $daysRequested, 0).' day(s)' : '—' }}
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <div class="label">Leave Credits / Accrual</div>
+                        <div class="value-block">{{ $leaveAccrualComputation }}</div>
+                    </td>
+                    <td>
+                        <div class="label">Department Head Decision</div>
+                        <div class="value-block">{{ $decisionLabel($dhDecision) }}</div>
+                    </td>
+                    <td>
+                        <div class="label">HR Decision</div>
+                        <div class="value-block">{{ $decisionLabel($hrDecision) }}</div>
+                    </td>
+                    <td>
                         <div class="label">Created At</div>
                         <div class="value-block">{{ $formatTimestamp(data_get($leave, 'createdAt')) }}</div>
                     </td>
@@ -348,13 +427,17 @@
 
         <div class="section">
             <h2 class="section-title">Review Outcome</h2>
-            <table class="notes-table">
+            <table class="decision-table">
                 <tr>
-                    <td style="width: 50%;">
+                    <td>
                         <p class="label">Final Status</p>
                         <p class="value">{{ $status }}</p>
                     </td>
-                    <td style="width: 50%;">
+                    <td>
+                        <p class="label">Stage</p>
+                        <p class="value">{{ data_get($leave, 'stage') ? str_replace('_', ' ', ucwords((string) data_get($leave, 'stage'), '_')) : '—' }}</p>
+                    </td>
+                    <td>
                         <p class="label">Rejection Reason</p>
                         <p class="small">{{ $status === 'Rejected' ? (data_get($leave, 'rejectionReasonText') ?: '—') : '—' }}</p>
                     </td>

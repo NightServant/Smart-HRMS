@@ -6,6 +6,25 @@
     $signOff = data_get($payload, 'sign_off', []);
     $workflowNotes = data_get($payload, 'workflow_notes', []);
     $finalization = data_get($payload, 'finalization', []);
+    $normalizePrintableText = static function (mixed $value): string {
+        $text = trim((string) $value);
+
+        return preg_replace('/^[\t ]+/m', '', $text) ?? $text;
+    };
+    $targetPayload = data_get($printableTargetFormPayload ?? null, 'sections', [])
+        ? $printableTargetFormPayload
+        : null;
+    $targetRowsById = collect(data_get($targetPayload, 'sections', []))
+        ->flatMap(function (array $section) use ($normalizePrintableText): array {
+            return collect(data_get($section, 'rows', []))
+                ->mapWithKeys(function (array $row) use ($normalizePrintableText): array {
+                    return [
+                        $row['id'] => $normalizePrintableText($row['accountable'] ?? ''),
+                    ];
+                })
+                ->all();
+        })
+        ->all();
     $period = data_get($metadata, 'period', 'IPCR');
     $employeeName = data_get($metadata, 'employee_name', data_get($signOff, 'ratee_name', '—'));
     $employeePosition = data_get($metadata, 'employee_position', '—');
@@ -148,13 +167,13 @@
         }
 
         .section {
-            margin-bottom: 12px;
+            margin-bottom: 9px;
             page-break-inside: avoid;
         }
 
         .section-title {
             margin: 0 0 6px;
-            font-size: 10px;
+            font-size: 9.5px;
             font-weight: 700;
             letter-spacing: 0.16em;
             text-transform: uppercase;
@@ -176,23 +195,18 @@
         .rows-table th,
         .rows-table td {
             border: 1px solid #cbd5e1;
-            padding: 6px 7px;
+            padding: 4px 5px;
             vertical-align: top;
+            text-align: left;
         }
 
         .rows-table th {
             background: #f8fafc;
-            font-size: 8px;
+            font-size: 7.5px;
             font-weight: 700;
             letter-spacing: 0.12em;
             text-transform: uppercase;
             color: #475569;
-        }
-
-        .row-number {
-            width: 26px;
-            text-align: center;
-            font-weight: 700;
         }
 
         .cell-title {
@@ -204,7 +218,7 @@
         .cell-note {
             margin-top: 3px;
             color: #334155;
-            font-size: 9px;
+            font-size: 8.5px;
         }
 
         .cell-note strong {
@@ -213,6 +227,55 @@
 
         .cell-compact {
             font-size: 9px;
+        }
+
+        .cell-text {
+            margin: 0;
+            display: block;
+            width: 100%;
+            line-height: 1.35;
+            white-space: pre-wrap;
+            color: #0f172a;
+            text-align: left;
+        }
+
+        .target-text {
+            margin: 0;
+            display: block;
+            width: 100%;
+            line-height: 1.35;
+            color: #0f172a;
+            white-space: pre-wrap;
+            text-align: left;
+        }
+
+        .qeta-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        .qeta-table td {
+            border: 1px solid #cbd5e1;
+            padding: 4px 5px;
+            text-align: center;
+            vertical-align: top;
+        }
+
+        .qeta-label {
+            margin: 0;
+            font-size: 7px;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #64748b;
+        }
+
+        .qeta-value {
+            margin: 2px 0 0;
+            font-size: 10px;
+            font-weight: 700;
+            color: #0f172a;
         }
 
         .summary-grid {
@@ -342,65 +405,65 @@
             </tr>
         </table>
 
-        @foreach ($payload['sections'] as $sectionIndex => $section)
+        @foreach ($payload['sections'] as $section)
             <div class="section">
                 <h2 class="section-title">{{ $section['title'] }}</h2>
                 <table class="rows-table">
                     <colgroup>
-                        <col style="width: 3%;">
-                        <col style="width: 25%;">
+                        <col style="width: 23%;">
+                        <col style="width: 19%;">
                         <col style="width: 22%;">
-                        <col style="width: 7%;">
-                        <col style="width: 7%;">
-                        <col style="width: 7%;">
-                        <col style="width: 8%;">
-                        <col style="width: 21%;">
+                        <col style="width: 17%;">
+                        <col style="width: 19%;">
                     </colgroup>
                     <thead>
                         <tr>
-                            <th>#</th>
-                            <th>Target / Measures</th>
+                            <th>IPCR Criterion</th>
+                            <th>Target (Employee Input)</th>
                             <th>Actual Accomplishment</th>
-                            <th>Q</th>
-                            <th>E</th>
-                            <th>T</th>
-                            <th>Avg</th>
-                            <th>Remarks</th>
+                            <th>QETA from Evaluator</th>
+                            <th>Remarks from Evaluator</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($section['rows'] as $rowIndex => $row)
+                        @foreach ($section['rows'] as $row)
                             <tr>
-                                <td class="row-number">{{ $rowIndex + 1 }}</td>
                                 <td>
                                     <div class="cell-title">{{ $row['target'] }}</div>
                                     @if (! empty($row['target_details']))
-                                        <div class="cell-note">{{ $row['target_details'] }}</div>
-                                    @endif
-                                    @if (! empty($row['measures']))
-                                        <div class="cell-note"><strong>Measures:</strong> {{ $row['measures'] }}</div>
-                                    @endif
-                                    @if (! empty($row['accountable']))
-                                        <div class="cell-note"><strong>Target:</strong> {{ $row['accountable'] }}</div>
+                                        <div class="cell-note">{{ $normalizePrintableText($row['target_details']) }}</div>
                                     @endif
                                 </td>
                                 <td class="cell-compact">
-                                    {!! nl2br(e($row['actual_accomplishment'] ?: '—')) !!}
-                                </td>
-                                <td class="cell-compact" style="text-align: center;">
-                                    {{ data_get($row, 'ratings.quality') ?? '—' }}
-                                </td>
-                                <td class="cell-compact" style="text-align: center;">
-                                    {{ data_get($row, 'ratings.efficiency') ?? '—' }}
-                                </td>
-                                <td class="cell-compact" style="text-align: center;">
-                                    {{ data_get($row, 'ratings.timeliness') ?? '—' }}
-                                </td>
-                                <td class="cell-compact" style="text-align: center;">
-                                    {{ data_get($row, 'average') !== null ? number_format((float) data_get($row, 'average'), 2) : '—' }}
+                                    <p class="target-text">{!! nl2br(e($normalizePrintableText($targetRowsById[$row['id']] ?? $row['accountable'])) ?: '—') !!}</p>
                                 </td>
                                 <td class="cell-compact">
-                                    {!! nl2br(e($row['remarks'] ?: '—')) !!}
+                                    <p class="cell-text">{!! nl2br(e($normalizePrintableText($row['actual_accomplishment'] ?? ''))) ?: '—' !!}</p>
+                                </td>
+                                <td>
+                                    <table class="qeta-table">
+                                        <tr>
+                                            <td style="width: 25%;">
+                                                <p class="qeta-label">Q</p>
+                                                <p class="qeta-value">{{ data_get($row, 'ratings.quality') ?? '—' }}</p>
+                                            </td>
+                                            <td style="width: 25%;">
+                                                <p class="qeta-label">E</p>
+                                                <p class="qeta-value">{{ data_get($row, 'ratings.efficiency') ?? '—' }}</p>
+                                            </td>
+                                            <td style="width: 25%;">
+                                                <p class="qeta-label">T</p>
+                                                <p class="qeta-value">{{ data_get($row, 'ratings.timeliness') ?? '—' }}</p>
+                                            </td>
+                                            <td style="width: 25%;">
+                                                <p class="qeta-label">Avg</p>
+                                                <p class="qeta-value">{{ data_get($row, 'average') !== null ? number_format((float) data_get($row, 'average'), 2) : '—' }}</p>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                                <td class="cell-compact">
+                                    <p class="cell-text">{!! nl2br(e($normalizePrintableText($row['remarks'] ?? ''))) ?: '—' !!}</p>
                                 </td>
                             </tr>
                         @endforeach

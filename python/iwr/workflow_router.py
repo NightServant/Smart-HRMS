@@ -406,7 +406,7 @@ class WorkflowRouter:
                     return {
                         **base,
                         "routing_action": "completed",
-                        "status":        "returned",
+                        "status":        "completed",
                         "stage":         "completed",
                         "approver_id":   None,
                         "approver_name": None,
@@ -550,7 +550,7 @@ class WorkflowRouter:
 
             return {
                 **base,
-                "status":        "returned",
+                "status":        "completed",
                 "stage":         "completed",
                 "approver_id":   None,
                 "approver_name": None,

@@ -136,11 +136,20 @@ class IwrController extends Controller
         $printableSubmission = $sourceSubmission
             ? $this->submissionResource($sourceSubmission)
             : null;
+        $printablePeriodLabel = $printableSubmission
+            ? (string) data_get($printableSubmission, 'form_payload.metadata.period', $this->currentPeriod()['label'])
+            : $this->currentPeriod()['label'];
+        $printableTarget = $this->findEmployeeTargetForPeriod(
+            $employee,
+            $printablePeriodLabel,
+            $this->currentPeriod()['year'],
+        );
 
         $pdf = Pdf::loadView('pdf.ipcr-print', [
             'submission' => $printableSubmission,
             'printableFormPayload' => $printableSubmission['form_payload']
                 ?? $this->ipcrFormTemplateService->draft($employee, $this->currentPeriod()['label']),
+            'printableTargetFormPayload' => $printableTarget?->form_payload,
         ]);
 
         return $pdf

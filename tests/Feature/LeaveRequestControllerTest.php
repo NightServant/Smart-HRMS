@@ -127,6 +127,52 @@ test('employee can open the printable leave request page', function () {
     expect($response->baseResponse->headers->get('content-disposition'))->toContain('inline');
 });
 
+test('printable leave blade mirrors the formal application layout', function () {
+    $html = view('pdf.leave-request-print', [
+        'leaveRequest' => [
+            'department' => 'Administrative Office',
+            'name' => 'Printable Leave Employee',
+            'jobTitle' => 'Administrative Officer II',
+            'employeeId' => 'EMP-1101',
+            'leaveType' => 'vacation_leave',
+            'startDate' => '2026-06-01',
+            'endDate' => '2026-06-03',
+            'daysRequested' => 3,
+            'leaveAccrual' => 3.0,
+            'reason' => 'Family event.',
+            'status' => 'completed',
+            'stage' => 'completed',
+            'dhDecision' => 1,
+            'hrDecision' => 1,
+            'rejectionReasonText' => null,
+            'createdAt' => '2026-05-28 08:30:00',
+            'workflowSignOff' => [
+                'evaluatorName' => 'Evaluator Person',
+                'evaluatorDate' => '2026-05-29 09:15:00',
+                'hrPersonnelName' => 'HR Person',
+                'hrPersonnelDate' => '2026-05-30 14:20:00',
+                'pmtName' => null,
+                'pmtDate' => null,
+            ],
+            'supportingDocuments' => [
+                [
+                    'label' => 'Medical Certificate',
+                    'available' => true,
+                ],
+            ],
+        ],
+    ])->render();
+
+    expect($html)
+        ->toContain('Application for Leave')
+        ->toContain('Leave Application Details')
+        ->toContain('Review Outcome')
+        ->toContain('Workflow Sign-Off')
+        ->toContain('Supporting Documents')
+        ->toContain('Medical Certificate')
+        ->toContain('Approved');
+});
+
 test('employee leave records include workflow sign off names', function () {
     Employee::query()->create([
         'employee_id' => 'EMP-1105',
