@@ -314,6 +314,9 @@ export default function IpcrTargetFormPage() {
                 .length,
         0,
     ) ?? 0;
+    const allRowsFilled = (formPayload?.sections ?? []).every((section) =>
+        section.rows.every((row) => row.accountable.trim().length > 0),
+    );
     const targetSummaryText = isSubmitted
         ? 'Your target has already been submitted for this cycle and will be referenced in the matching IPCR submission.'
         : isReturned
@@ -357,6 +360,10 @@ export default function IpcrTargetFormPage() {
         if (!formPayload || !employee) return;
 
         if (action === 'submit' && !targetPeriod.submissionOpen && !isReturned) {
+            return;
+        }
+
+        if (action === 'submit' && !allRowsFilled) {
             return;
         }
 
@@ -662,7 +669,8 @@ export default function IpcrTargetFormPage() {
                                         savingDraft ||
                                         submitting ||
                                         (!targetPeriod.submissionOpen &&
-                                            !isReturned)
+                                            !isReturned) ||
+                                        !allRowsFilled
                                     }
                                 >
                                     {submitting ? (

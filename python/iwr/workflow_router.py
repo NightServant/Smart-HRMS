@@ -51,6 +51,7 @@ from datetime import datetime, timezone
 
 from org_and_rules import (
     EMPLOYEES, ROLE_ENCODING, LEAVE_TYPE_ENCODING,
+    IPCR_PASSING_SCORE,
     HR_MAX_CYCLES, PMT_MAX_CYCLES, APPEAL_WINDOW_HOURS,
     get_adjectival_rating,
 )
@@ -179,6 +180,26 @@ class WorkflowRouter:
                 ),
             }
 
+        # Passing rating: save data immediately — no remarks required.
+        if rating >= IPCR_PASSING_SCORE:
+            return {
+                "status":          "completed",
+                "stage":           "data_saved",
+                "employee_id":     employee_id,
+                "employee_name":   employee["name"],
+                "routing_action":  "save_data",
+                "rating":          rating,
+                "evaluator_id":    evaluator["employee_id"],
+                "evaluator_name":  evaluator["name"],
+                "evaluator_role":  evaluator["role"],
+                "confidence_pct":  confidence_pct,
+                "notification": (
+                    f"IPCR for {employee['name']} passed with a rating of {rating:.2f}. "
+                    f"Data saved."
+                ),
+            }
+
+        # Failing rating: evaluator must give remarks before routing proceeds.
         gave_remarks = form.get("evaluator_gave_remarks", False)
         if not gave_remarks:
             return {
@@ -194,24 +215,6 @@ class WorkflowRouter:
                 "confidence_pct":  confidence_pct,
                 "notification": (
                     f"Routed back to {evaluator['name']} to provide the required evaluator remarks."
-                ),
-            }
-
-        if rating >= 3.0:
-            return {
-                "status":          "completed",
-                "stage":           "data_saved",
-                "employee_id":     employee_id,
-                "employee_name":   employee["name"],
-                "routing_action":  "save_data",
-                "rating":          rating,
-                "evaluator_id":    evaluator["employee_id"],
-                "evaluator_name":  evaluator["name"],
-                "evaluator_role":  evaluator["role"],
-                "confidence_pct":  confidence_pct,
-                "notification": (
-                    f"IPCR for {employee['name']} passed with a rating of {rating:.2f}. "
-                    f"Data saved."
                 ),
             }
 

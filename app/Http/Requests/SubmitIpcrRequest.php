@@ -26,7 +26,7 @@ class SubmitIpcrRequest extends FormRequest
             'form_payload.sections.*.id' => 'required|string',
             'form_payload.sections.*.rows' => 'required|array|min:1',
             'form_payload.sections.*.rows.*.id' => 'required|string',
-            'form_payload.sections.*.rows.*.actual_accomplishment' => 'nullable|string',
+            'form_payload.sections.*.rows.*.actual_accomplishment' => 'required|string|min:1',
             'form_payload.sections.*.rows.*.ratings' => 'nullable|array',
             'form_payload.sections.*.rows.*.self_assessment_qeta_scores' => 'nullable|array',
             'form_payload.sections.*.rows.*.self_assessment_qeta_scores.quality' => 'nullable|integer|min:1|max:5',

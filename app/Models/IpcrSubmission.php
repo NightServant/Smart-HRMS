@@ -22,6 +22,7 @@ class IpcrSubmission extends Model
         'confidence_pct',
         'notification',
         'rejection_reason',
+        'evaluator_pass_fail',
 
         // Phase 3 — HR Checking
         'hr_reviewer_id',

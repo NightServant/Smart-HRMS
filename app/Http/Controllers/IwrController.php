@@ -279,6 +279,19 @@ class IwrController extends Controller
             ]);
         }
 
+        if ($action === 'submit') {
+            $payload = $request->validated('form_payload');
+            $emptyRows = collect($payload['sections'] ?? [])
+                ->flatMap(fn ($s) => $s['rows'] ?? [])
+                ->filter(fn ($r) => trim($r['accountable'] ?? '') === '')
+                ->count();
+            if ($emptyRows > 0) {
+                throw ValidationException::withMessages([
+                    'form_payload' => "All target rows must be filled before submitting. {$emptyRows} row(s) are still empty.",
+                ]);
+            }
+        }
+
         $status = $action === 'submit' ? 'submitted' : 'draft';
 
         $target = IpcrTarget::query()->updateOrCreate(
@@ -474,6 +487,7 @@ class IwrController extends Controller
     {
         $employeeId = $request->validated('employee_id');
         $remarks = $request->validated('remarks');
+        $passFail = $request->validated('evaluator_pass_fail');
         $user = $request->user();
 
         $submission = IpcrSubmission::query()
@@ -489,6 +503,7 @@ class IwrController extends Controller
             [
                 'workflow_notes' => [
                     'evaluator_remarks' => $remarks,
+                    'evaluator_pass_fail' => $passFail,
                 ],
                 'sign_off' => [
                     'ratee_name' => $employee?->name ?? $employeeId,
@@ -513,6 +528,7 @@ class IwrController extends Controller
             'is_first_submission' => false,
             'evaluator_gave_remarks' => true,
             'rejection_reason' => $remarks,
+            'evaluator_pass_fail' => $passFail,
         ]);
 
         $iwrResult = $this->iwrService->routeIpcr([

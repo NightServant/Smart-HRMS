@@ -47,7 +47,8 @@ RUN python3 -m venv /opt/venv \
     && /opt/venv/bin/pip install --no-cache-dir \
         -r python/iwr/requirements.txt \
         -r python/ppe/requirements.txt \
-        -r python/atre/requirements.txt
+        -r python/atre/requirements.txt \
+        -r python/rt-hr-dashboard/requirements.txt
 
 COPY . .
 

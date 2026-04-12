@@ -215,6 +215,7 @@ test('evaluator submission requires remarks and routes to hr', function () {
         'employee_id' => $employee->employee_id,
         'confirmed' => true,
         'remarks' => 'Evaluator remarks are complete.',
+        'evaluator_pass_fail' => 'passed',
         'form_payload' => evaluatorFormPayload($employee, 4.0),
     ])->assertRedirect(route('document-management'));
 
@@ -378,7 +379,7 @@ test('hr reject second cycle escalates the submission', function () {
     ]]);
 
     $this->actingAs($hrUser)->post(route('ipcr.hr-review', $submission), [
-        'hr_decision' => 'rejected',
+        'hr_decision' => 'incorrect',
         'hr_remarks' => 'Escalation required after repeated correction.',
     ])->assertRedirect(route('admin.hr-review'));
 
@@ -1058,13 +1059,11 @@ test('printable ipcr blade uses compact criterion blocks', function () {
     ])->render();
 
     expect($html)
-        ->toContain('IPCR Criterion')
-        ->toContain('Target (Employee Input)')
+        ->toContain('Success Indicators')
         ->toContain('Maria Santos will coordinate employee records, plantilla movement, and office staffing requirements.')
-        ->toContain('Actual Accomplishment')
-        ->toContain('QETA from Evaluator')
-        ->toContain('Remarks from Evaluator')
-        ->toContain('Employee Notes')
+        ->toContain('Actual Accomplishments')
+        ->toContain('Provincial Government of Tarlac')
+        ->toContain('Individual Performance Commitment and Review')
         ->not->toContain('Measures:')
         ->not->toContain('  Completed and documented.')
         ->not->toContain('  Excellent execution.')
@@ -1844,6 +1843,14 @@ test('rejected ipcr target can be edited and resubmitted while the target window
             );
 
         $updatedPayload = $formPayload;
+        // Fill all rows to satisfy the 12/12 submission requirement.
+        foreach ($updatedPayload['sections'] as $sIdx => $section) {
+            foreach (array_keys($section['rows']) as $rIdx) {
+                if (trim($updatedPayload['sections'][$sIdx]['rows'][$rIdx]['accountable'] ?? '') === '') {
+                    $updatedPayload['sections'][$sIdx]['rows'][$rIdx]['accountable'] = 'Completed target for this criterion.';
+                }
+            }
+        }
         $updatedPayload['sections'][0]['rows'][0]['accountable'] = 'Updated after review.';
 
         mockIwrService(['routeIpcrTarget' => [

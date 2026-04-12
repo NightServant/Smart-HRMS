@@ -15,7 +15,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { getAppealEvidenceUrl, getFileName } from '@/lib/ipcr';
 import type { IpcrEmployee, IpcrFormPayload, IpcrSubmission } from '@/types';
 
@@ -40,12 +42,14 @@ export default function EvaluationCard({
 }: Props) {
     const [formPayload, setFormPayload] = useState<IpcrFormPayload | null>(submission?.form_payload ?? draftFormPayload);
     const [remarks, setRemarks] = useState(submission?.remarks ?? '');
+    const [passFail, setPassFail] = useState<'passed' | 'failed' | null>(null);
     const [processing, setProcessing] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
 
     useEffect(() => {
         setFormPayload(submission?.form_payload ?? draftFormPayload);
         setRemarks(submission?.remarks ?? '');
+        setPassFail(null);
     }, [draftFormPayload, submission]);
 
     const totalRows = rowCount(formPayload);
@@ -53,7 +57,7 @@ export default function EvaluationCard({
     const averageScore = formPayload?.summary.computed_rating ?? null;
     const isReevaluation = submission?.hr_cycle_count || submission?.pmt_cycle_count;
     const isFailing = averageScore !== null && averageScore < 3.0;
-    const canSubmit = Boolean(employee && formPayload && ratedRows === totalRows && totalRows > 0 && remarks.trim() && !processing);
+    const canSubmit = Boolean(employee && formPayload && ratedRows === totalRows && totalRows > 0 && remarks.trim() && passFail !== null && !processing);
 
     const confirmationMessage = useMemo(() => {
         if (!submission) {
@@ -79,6 +83,7 @@ export default function EvaluationCard({
                 employee_id: employee.employee_id,
                 confirmed: true,
                 remarks: remarks.trim(),
+                evaluator_pass_fail: passFail,
                 form_payload: formPayload,
             },
             {
@@ -254,6 +259,51 @@ export default function EvaluationCard({
                     </p>
                 </div>
 
+                <div className="glass-card rounded-[26px] border border-border bg-card p-5 shadow-sm">
+                    <div className="mb-3 flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-[#4A7C3C] shadow-[0_0_0_4px_rgba(74,124,60,0.15)]" />
+                        <Label className="text-sm font-semibold text-foreground">
+                            Overall Assessment <span className="text-destructive">*</span>
+                        </Label>
+                    </div>
+                    <p className="mb-4 text-xs text-muted-foreground">
+                        Required — declare whether the employee passed or failed based on the Q/E/T ratings. The passing mark is an average of <strong>3.0 (Satisfactory)</strong> or above.
+                    </p>
+                    <div className="flex flex-wrap gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setPassFail('passed')}
+                            className={cn(
+                                'flex items-center gap-2 rounded-full border px-5 py-2 text-sm font-semibold transition-colors',
+                                passFail === 'passed'
+                                    ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm dark:border-emerald-400 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                    : 'border-border bg-background text-muted-foreground hover:border-emerald-400 hover:bg-emerald-50/60 hover:text-emerald-700 dark:hover:bg-emerald-950/30',
+                            )}
+                        >
+                            <span className={cn('size-2.5 rounded-full', passFail === 'passed' ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
+                            Passed
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setPassFail('failed')}
+                            className={cn(
+                                'flex items-center gap-2 rounded-full border px-5 py-2 text-sm font-semibold transition-colors',
+                                passFail === 'failed'
+                                    ? 'border-rose-500 bg-rose-50 text-rose-700 shadow-sm dark:border-rose-400 dark:bg-rose-950/50 dark:text-rose-300'
+                                    : 'border-border bg-background text-muted-foreground hover:border-rose-400 hover:bg-rose-50/60 hover:text-rose-700 dark:hover:bg-rose-950/30',
+                            )}
+                        >
+                            <span className={cn('size-2.5 rounded-full', passFail === 'failed' ? 'bg-rose-500' : 'bg-muted-foreground/40')} />
+                            Failed
+                        </button>
+                    </div>
+                    {passFail === null && (
+                        <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
+                            Please select an overall assessment before submitting.
+                        </p>
+                    )}
+                </div>
+
                 <div className="flex flex-wrap justify-end gap-3">
                     <Button
                         type="button"
@@ -261,6 +311,7 @@ export default function EvaluationCard({
                         onClick={() => {
                             setFormPayload(submission?.form_payload ?? draftFormPayload);
                             setRemarks(submission?.remarks ?? '');
+                            setPassFail(null);
                         }}
                         disabled={processing}
                     >

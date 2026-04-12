@@ -40,7 +40,11 @@
       "Bash(\"/Users/gabe/Library/Application Support/Herd/bin/php\" artisan test --compact --filter=\"stays closed\")",
       "Bash(/Applications/Herd.app/Contents/Resources/bin/php artisan:*)",
       "Bash(vendor/bin/pint app/Http/Controllers/IwrController.php app/Http/Requests/SaveEvaluationRequest.php --format agent)",
-      "Bash(export PATH=\"$HOME/Library/Application Support/Herd/bin:$PATH\")"
+      "Bash(export PATH=\"$HOME/Library/Application Support/Herd/bin:$PATH\")",
+      "Bash(.venv/bin/python tests.py)",
+      "Bash(.venv/bin/python setup.py)",
+      "Bash(pdftotext -layout \"/Users/gabe/Downloads/CS-Form-No.-6-Revised-2020-Application-for-Leave-Secured.pdf\" -)",
+      "Bash(php -r ':*)"
     ]
   }
 }

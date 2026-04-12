@@ -48,9 +48,13 @@ class LeaveRequestController extends Controller
 
         $leaveRequest->loadMissing(['employee:employee_id,job_title']);
 
-        $pdf = Pdf::loadView('pdf.leave-request-print', [
-            'leaveRequest' => $this->leaveRequestResource($leaveRequest, $user->name, true),
-        ]);
+        [$vlCredits, $slCredits] = $this->computeLeaveCredits($user);
+
+        $resource = $this->leaveRequestResource($leaveRequest, $user->name, true);
+        $resource['vlCredits'] = round($vlCredits, 3);
+        $resource['slCredits'] = round($slCredits, 3);
+
+        $pdf = Pdf::loadView('pdf.leave-request-print', ['leaveRequest' => $resource]);
 
         return $pdf
             ->setPaper('letter', 'portrait')
