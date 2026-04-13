@@ -44,7 +44,12 @@
       "Bash(.venv/bin/python tests.py)",
       "Bash(.venv/bin/python setup.py)",
       "Bash(pdftotext -layout \"/Users/gabe/Downloads/CS-Form-No.-6-Revised-2020-Application-for-Leave-Secured.pdf\" -)",
-      "Bash(php -r ':*)"
+      "Bash(php -r ':*)",
+      "mcp__Control_Chrome__open_url",
+      "mcp__Control_Chrome__get_current_tab",
+      "mcp__Control_Chrome__list_tabs",
+      "mcp__Control_Chrome__switch_to_tab",
+      "mcp__Control_Chrome__get_page_content"
     ]
   }
 }

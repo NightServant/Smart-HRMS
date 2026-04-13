@@ -113,6 +113,12 @@ function TargetFormEditor({
         return null;
     }
 
+    const sectionFilledRows = currentSection.rows.filter(
+        (row) => row.accountable.trim().length > 0,
+    ).length;
+    const sectionTotalRows = currentSection.rows.length;
+    const sectionAllFilled = sectionFilledRows === sectionTotalRows;
+
     return (
         <div className="space-y-4">
             <Card className="glass-card min-w-0 overflow-hidden border border-border bg-card shadow-sm">
@@ -160,9 +166,18 @@ function TargetFormEditor({
 
                 <CardContent className="space-y-4 px-3 py-4 sm:px-6 sm:py-5">
                     <div className="flex items-center justify-between gap-3">
-                        <h3 className="text-lg font-semibold text-foreground">
-                            {currentSection.title}
-                        </h3>
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-lg font-semibold text-foreground">
+                                {currentSection.title}
+                            </h3>
+                            <Badge
+                                className={sectionAllFilled
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'}
+                            >
+                                {sectionFilledRows}/{sectionTotalRows} filled
+                            </Badge>
+                        </div>
                         <div className="flex gap-2">
                             <Button
                                 type="button"
@@ -546,6 +561,19 @@ export default function IpcrTargetFormPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            {isReturned && existingTarget?.evaluator_remarks ? (
+                                <div className="glass-card rounded-[26px] border border-red-300/70 bg-red-50/80 p-5 shadow-sm dark:border-red-500/30 dark:bg-red-500/10">
+                                    <div className="mb-3 flex items-center gap-2">
+                                        <span className="size-2.5 rounded-full bg-red-500 shadow-[0_0_0_6px_rgba(239,68,68,0.14)]" />
+                                        <h3 className="text-sm font-semibold tracking-[0.18em] text-red-900 uppercase dark:text-red-100">
+                                            Target Returned for Revision
+                                        </h3>
+                                    </div>
+                                    <p className="text-sm leading-6 whitespace-pre-wrap text-foreground">
+                                        {existingTarget.evaluator_remarks}
+                                    </p>
+                                </div>
+                            ) : null}
                             <div className="glass-card rounded-2xl border border-border/70 bg-background/40 p-4 sm:p-5">
                                 <div className="space-y-4">
                                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -683,6 +711,11 @@ export default function IpcrTargetFormPage() {
                                         : 'Submit Targets'}
                                 </Button>
                             </div>
+                            {!allRowsFilled && (targetPeriod.submissionOpen || isReturned) ? (
+                                <p className="text-right text-xs text-amber-600 dark:text-amber-400">
+                                    All rows must be filled before submitting.
+                                </p>
+                            ) : null}
                         </CardContent>
                     </Card>
                 )}

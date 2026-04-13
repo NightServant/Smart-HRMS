@@ -115,7 +115,7 @@ export default function IpcrAppeal({
                                 {submission.performance_rating?.toFixed(2) ??
                                     'Pending'}
                             </Badge>
-                            <Badge variant="outline">
+                            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                                 Status: {submission.status ?? 'Pending'}
                             </Badge>
                         </div>
@@ -153,16 +153,16 @@ export default function IpcrAppeal({
 
                         {(evaluatorRemarks || hrRemarks) && (
                             <div className="grid gap-4 md:grid-cols-2">
-                                <div className="glass-card rounded-[26px] border border-border bg-card p-4 shadow-sm">
-                                    <p className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                                <div className="rounded-xl border border-l-4 border-l-[#4A7C3C] bg-[#DDEFD7]/40 p-4 dark:bg-[#274827]/30">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2F5E2B] dark:text-[#9AC68E]">
                                         Evaluator Remarks
                                     </p>
                                     <p className="mt-2 text-sm leading-relaxed">
                                         {evaluatorRemarks ?? '—'}
                                     </p>
                                 </div>
-                                <div className="glass-card rounded-[26px] border border-border bg-card p-4 shadow-sm">
-                                    <p className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                                <div className="rounded-xl border border-l-4 border-l-sky-500 bg-sky-50/60 p-4 dark:bg-sky-950/20">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700 dark:text-sky-300">
                                         HR Remarks
                                     </p>
                                     <p className="mt-2 text-sm leading-relaxed">
@@ -301,6 +301,11 @@ export default function IpcrAppeal({
                                             ? 'Submitting...'
                                             : 'Submit Appeal'}
                                     </Button>
+                                    {!canSubmitAppeal && !isExpired && (
+                                        <p className="text-xs text-amber-600 dark:text-amber-400">
+                                            An appeal reason and at least one file are required.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </div>

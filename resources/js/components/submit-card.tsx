@@ -227,12 +227,20 @@ export default function SubmitCard({ currentTarget = null }: SubmitCardProps) {
                             <Badge variant="outline">
                                 Period: {currentPeriod.label}
                             </Badge>
-                            <Badge variant="outline">
+                            <Badge className={periodOpen
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'}>
                                 {periodOpen ? 'Period Open' : 'Period Closed'}
                             </Badge>
-                            <Badge variant="outline">
-                                Status: {submissionStatusLabel}
-                            </Badge>
+                            {submissionStatusLabel === 'In Progress' || (latestSubmission && latestSubmission.stage !== 'finalized') ? (
+                                <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                                    Status: {submissionStatusLabel}
+                                </Badge>
+                            ) : (
+                                <Badge variant="outline">
+                                    Status: {submissionStatusLabel}
+                                </Badge>
+                            )}
                         </div>
                     </div>
 
@@ -302,32 +310,39 @@ export default function SubmitCard({ currentTarget = null }: SubmitCardProps) {
                                     period.
                                 </div>
                             )}
-                            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-                                {canEditSubmission && (
-                                    <>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            className="w-full sm:w-auto"
-                                            onClick={() =>
-                                                setFormPayload(draftFormPayload)
-                                            }
-                                            disabled={processing}
-                                        >
-                                            Reset Draft
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            className="w-full sm:w-auto"
-                                            disabled={!canSubmit}
-                                            onClick={handleSubmit}
-                                        >
-                                            {processing
-                                                ? 'Submitting...'
-                                                : 'Submit IPCR'}
-                                        </Button>
-                                    </>
-                                )}
+                            <div className="space-y-2">
+                                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                                    {canEditSubmission && (
+                                        <>
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                className="w-full sm:w-auto"
+                                                onClick={() =>
+                                                    setFormPayload(draftFormPayload)
+                                                }
+                                                disabled={processing}
+                                            >
+                                                Reset Draft
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                className="w-full sm:w-auto"
+                                                disabled={!canSubmit}
+                                                onClick={handleSubmit}
+                                            >
+                                                {processing
+                                                    ? 'Submitting...'
+                                                    : 'Submit IPCR'}
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
+                                {canEditSubmission && !allActualAccomplishmentsFilled(formPayload) ? (
+                                    <p className="text-right text-xs text-amber-600 dark:text-amber-400">
+                                        All actual accomplishments must be filled before submitting.
+                                    </p>
+                                ) : null}
                             </div>
                         </>
                     ) : (

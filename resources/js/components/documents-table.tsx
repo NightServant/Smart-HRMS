@@ -1,6 +1,7 @@
 import { Link, router, usePage } from '@inertiajs/react';
 import { FileText, Search } from 'lucide-react';
 import { useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -47,6 +48,32 @@ type PaginationMeta = {
     perPage: number;
     total: number;
 };
+
+function SubmissionStatusBadge({
+    status,
+    stage,
+}: {
+    status: string | null;
+    stage: string | null;
+}) {
+    if (status === 'completed' || stage === 'evaluation_saved') {
+        return (
+            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                Evaluated
+            </Badge>
+        );
+    }
+
+    if (status !== null) {
+        return (
+            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                In Progress
+            </Badge>
+        );
+    }
+
+    return <Badge variant="outline">Not Started</Badge>;
+}
 
 export default function DocumentsTable({
     employees,
@@ -167,8 +194,9 @@ export default function DocumentsTable({
                             <TableHead>Name</TableHead>
                             <TableHead>Email Address</TableHead>
                             <TableHead>Position</TableHead>
-                            <TableHead className="w-[26rem] text-center">
-                                Evaluation
+                            <TableHead>Status</TableHead>
+                            <TableHead className="w-[14rem] text-center">
+                                Action
                             </TableHead>
                         </TableRow>
                     </TableHeader>
@@ -183,6 +211,12 @@ export default function DocumentsTable({
                                 <TableCell>{employee.name}</TableCell>
                                 <TableCell>{employee.email}</TableCell>
                                 <TableCell>{employee.position}</TableCell>
+                                <TableCell>
+                                    <SubmissionStatusBadge
+                                        status={employee.submissionStatus}
+                                        stage={employee.submissionStage}
+                                    />
+                                </TableCell>
                                 <TableCell className="text-center">
                                     {employee.submissionStatus ===
                                         'completed' ||
@@ -192,7 +226,7 @@ export default function DocumentsTable({
                                             asChild
                                             type="button"
                                             variant="outline"
-                                            className="w-1/2 bg-secondary px-3 py-2 text-xs font-bold shadow-md transition-colors"
+                                            className="px-3 py-2 text-xs font-bold shadow-md transition-colors"
                                         >
                                             <Link
                                                 href={
@@ -212,7 +246,7 @@ export default function DocumentsTable({
                                         <Button
                                             asChild
                                             type="button"
-                                            className="w-1/2 bg-secondary px-3 py-2 text-xs font-bold text-foreground shadow-md transition-colors hover:bg-secondary/90"
+                                            className="bg-[#2F5E2B] px-3 py-2 text-xs font-bold text-white shadow-md transition-colors hover:bg-[#274827]"
                                         >
                                             <Link
                                                 href={
@@ -235,7 +269,7 @@ export default function DocumentsTable({
                         {employees.length === 0 && (
                             <TableRow>
                                 <TableCell
-                                    colSpan={5}
+                                    colSpan={6}
                                     className="app-table-empty py-8"
                                 >
                                     No matching records found.

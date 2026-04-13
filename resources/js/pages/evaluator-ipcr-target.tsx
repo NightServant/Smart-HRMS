@@ -26,9 +26,25 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
+import * as ipcrTargetRoutes from '@/routes/ipcr/target';
 import type { BreadcrumbItem } from '@/types';
 import type { IpcrTarget, IpcrTargetPeriod } from '@/types/ipcr';
 
@@ -54,14 +70,11 @@ type PageProps = {
     stats: Stats;
 };
 
+type StatusFilter = 'all' | 'not_set' | 'pending' | 'approved' | 'returned';
+
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Performance Evaluation', href: '/evaluator/ipcr-target' },
     { title: 'IPCR Target', href: '/evaluator/ipcr-target' },
-];
-
-const stripedRows = [
-    'bg-[#DDEFD7] dark:bg-[#345A34]/80',
-    'bg-[#BFDDB5] dark:bg-[#274827]/80',
 ];
 
 function semesterLabel(semester: 1 | 2, year: number): string {
@@ -100,6 +113,15 @@ function targetStatusBadge(target: IpcrTarget | null): React.ReactNode {
     }
 
     return <Badge variant="outline">Draft</Badge>;
+}
+
+function rowMatchesFilter(row: EmployeeRow, filter: StatusFilter): boolean {
+    if (filter === 'all') return true;
+    if (filter === 'not_set') return !row.target;
+    if (filter === 'pending') return !!row.target && row.target.status === 'submitted' && !row.target.evaluator_decision;
+    if (filter === 'approved') return row.target?.evaluator_decision === 'approved';
+    if (filter === 'returned') return row.target?.evaluator_decision === 'rejected';
+    return true;
 }
 
 function StatCard({
@@ -156,6 +178,9 @@ export default function EvaluatorIpcrTarget() {
     const [decision, setDecision] = useState<'approved' | 'rejected' | ''>('');
     const [remarks, setRemarks] = useState('');
     const [processing, setProcessing] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+
+    const filteredEmployees = employees.filter((row) => rowMatchesFilter(row, statusFilter));
 
     function openReview(row: EmployeeRow): void {
         setSelected(row);
@@ -168,7 +193,7 @@ export default function EvaluatorIpcrTarget() {
 
         setProcessing(true);
         router.post(
-            `/ipcr/target/${selected.target.id}/review`,
+            ipcrTargetRoutes.evaluatorReview(selected.target.id).url,
             { decision, remarks: decision === 'rejected' ? remarks : null },
             {
                 preserveScroll: true,
@@ -261,7 +286,7 @@ export default function EvaluatorIpcrTarget() {
 
                 <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
                     <CardHeader className="border-b border-border bg-card">
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <CardTitle>Employee IPCR Targets</CardTitle>
                                 <CardDescription className="mt-1">
@@ -269,115 +294,100 @@ export default function EvaluatorIpcrTarget() {
                                     evaluator review for the selected employee.
                                 </CardDescription>
                             </div>
-                            <Badge variant="outline" className="w-fit">
-                                {employees.length} Employee
-                                {employees.length === 1 ? '' : 's'}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                                <Select
+                                    value={statusFilter}
+                                    onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+                                >
+                                    <SelectTrigger className="w-44">
+                                        <SelectValue placeholder="Filter by status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All</SelectItem>
+                                        <SelectItem value="not_set">Not Set</SelectItem>
+                                        <SelectItem value="pending">Pending Review</SelectItem>
+                                        <SelectItem value="approved">Approved</SelectItem>
+                                        <SelectItem value="returned">Returned</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <Badge variant="outline" className="shrink-0">
+                                    {filteredEmployees.length} Employee
+                                    {filteredEmployees.length === 1 ? '' : 's'}
+                                </Badge>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
-                                        <th>Employee ID</th>
-                                        <th>Name</th>
-                                        <th>Position</th>
-                                        <th>Target Status</th>
-                                        <th>Submitted</th>
-                                        <th className="text-center">
-                                            Open Target
-                                        </th>
-                                        <th className="text-center">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {employees.map((row, index) => (
-                                        <tr
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:border-r [&_th]:border-white/10 [&_th]:text-white">
+                                        <TableHead>Employee ID</TableHead>
+                                        <TableHead>Name</TableHead>
+                                        <TableHead>Position</TableHead>
+                                        <TableHead>Target Status</TableHead>
+                                        <TableHead>Submitted</TableHead>
+                                        <TableHead className="text-center">Open Target</TableHead>
+                                        <TableHead className="text-center">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredEmployees.map((row, index) => (
+                                        <TableRow
                                             key={row.employee_id}
-                                            className={stripedRows[index % 2]}
+                                            className={index % 2 === 0
+                                                ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80'
+                                                : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
                                         >
-                                            <td className="px-4 py-3">
-                                                {row.employee_id}
-                                            </td>
-                                            <td className="px-4 py-3 font-medium">
-                                                {row.name}
-                                            </td>
-                                            <td className="px-4 py-3 text-muted-foreground">
-                                                {row.job_title}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {targetStatusBadge(row.target)}
-                                            </td>
-                                            <td className="px-4 py-3 text-muted-foreground">
+                                            <TableCell>{row.employee_id}</TableCell>
+                                            <TableCell className="font-medium">{row.name}</TableCell>
+                                            <TableCell className="text-muted-foreground">{row.job_title}</TableCell>
+                                            <TableCell>{targetStatusBadge(row.target)}</TableCell>
+                                            <TableCell className="text-muted-foreground">
                                                 {row.target?.submitted_at
-                                                    ? new Date(
-                                                          row.target.submitted_at,
-                                                      ).toLocaleDateString()
+                                                    ? new Date(row.target.submitted_at).toLocaleDateString()
                                                     : '—'}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
+                                            </TableCell>
+                                            <TableCell className="text-center">
                                                 {row.target ? (
-                                                    <Button
-                                                        asChild
-                                                        size="sm"
-                                                        variant="outline"
-                                                    >
-                                                        <Link
-                                                            href={
-                                                                row.target_review_url
-                                                            }
-                                                        >
+                                                    <Button asChild size="sm" variant="outline">
+                                                        <Link href={row.target_review_url}>
                                                             Open Target
                                                         </Link>
                                                     </Button>
                                                 ) : (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        —
-                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">—</span>
                                                 )}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
+                                            </TableCell>
+                                            <TableCell className="text-center">
                                                 {canReview(row) ? (
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() =>
-                                                            openReview(row)
-                                                        }
-                                                    >
+                                                    <Button size="sm" onClick={() => openReview(row)}>
                                                         Review
                                                     </Button>
                                                 ) : row.target ? (
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() =>
-                                                            openReview(row)
-                                                        }
-                                                    >
+                                                    <Button size="sm" variant="outline" onClick={() => openReview(row)}>
                                                         View
                                                     </Button>
                                                 ) : (
-                                                    <span className="text-xs text-muted-foreground">
-                                                        —
-                                                    </span>
+                                                    <span className="text-xs text-muted-foreground">—</span>
                                                 )}
-                                            </td>
-                                        </tr>
+                                            </TableCell>
+                                        </TableRow>
                                     ))}
-                                    {employees.length === 0 && (
-                                        <tr>
-                                            <td
+                                    {filteredEmployees.length === 0 && (
+                                        <TableRow>
+                                            <TableCell
                                                 colSpan={7}
-                                                className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                                className="bg-[#DDEFD7] py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
                                             >
-                                                No employees are assigned to
-                                                you as supervisor.
-                                            </td>
-                                        </tr>
+                                                {employees.length === 0
+                                                    ? 'No employees are assigned to you as supervisor.'
+                                                    : 'No employees match the selected filter.'}
+                                            </TableCell>
+                                        </TableRow>
                                     )}
-                                </tbody>
-                            </table>
+                                </TableBody>
+                            </Table>
                         </div>
                     </CardContent>
                 </Card>
@@ -435,16 +445,8 @@ export default function EvaluatorIpcrTarget() {
                             <div className="flex flex-wrap gap-3">
                                 <Button
                                     type="button"
-                                    variant={
-                                        decision === 'approved'
-                                            ? 'default'
-                                            : 'outline'
-                                    }
-                                    className={
-                                        decision === 'approved'
-                                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                            : ''
-                                    }
+                                    variant={decision === 'approved' ? 'default' : 'outline'}
+                                    className={decision === 'approved' ? 'bg-emerald-600 text-white hover:bg-emerald-700' : ''}
                                     onClick={() => setDecision('approved')}
                                 >
                                     <CheckCircle2 className="mr-1.5 size-4" />
@@ -452,11 +454,7 @@ export default function EvaluatorIpcrTarget() {
                                 </Button>
                                 <Button
                                     type="button"
-                                    variant={
-                                        decision === 'rejected'
-                                            ? 'destructive'
-                                            : 'outline'
-                                    }
+                                    variant={decision === 'rejected' ? 'destructive' : 'outline'}
                                     onClick={() => setDecision('rejected')}
                                 >
                                     <XCircle className="mr-1.5 size-4" />
@@ -468,15 +466,11 @@ export default function EvaluatorIpcrTarget() {
                                 <div className="space-y-2">
                                     <Label>
                                         Remarks{' '}
-                                        <span className="text-destructive">
-                                            *
-                                        </span>
+                                        <span className="text-destructive">*</span>
                                     </Label>
                                     <Textarea
                                         value={remarks}
-                                        onChange={(e) =>
-                                            setRemarks(e.target.value)
-                                        }
+                                        onChange={(e) => setRemarks(e.target.value)}
                                         placeholder="Explain what the employee needs to revise."
                                         className="min-h-24"
                                     />
@@ -486,18 +480,14 @@ export default function EvaluatorIpcrTarget() {
                     )}
 
                     <DialogFooter>
-                        <Button
-                            variant="outline"
-                            onClick={() => setSelected(null)}
-                        >
+                        <Button variant="outline" onClick={() => setSelected(null)}>
                             Close
                         </Button>
                         {selected && canReview(selected) && (
                             <Button
                                 disabled={
                                     !decision ||
-                                    (decision === 'rejected' &&
-                                        !remarks.trim()) ||
+                                    (decision === 'rejected' && !remarks.trim()) ||
                                     processing
                                 }
                                 onClick={handleSubmit}

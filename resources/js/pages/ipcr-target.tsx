@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { FileSpreadsheet } from 'lucide-react';
 import IpcrTargetReadonly from '@/components/ipcr-target-readonly';
 import { Badge } from '@/components/ui/badge';
@@ -35,12 +35,32 @@ function semesterLabel(semester: 1 | 2, year: number): string {
         : `Second Semester (July–December) ${year}`;
 }
 
-function targetStatusLabel(target: IpcrTarget | null): string {
+function TargetStatusBadge({ target, isReturned }: { target: IpcrTarget | null; isReturned: boolean }) {
     if (!target) {
-        return 'Not Set';
+        return <Badge variant="outline">Not Set</Badge>;
     }
 
-    return target.status === 'submitted' ? 'Submitted' : 'Draft';
+    if (isReturned) {
+        return (
+            <Badge className="bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300">
+                Returned
+            </Badge>
+        );
+    }
+
+    if (target.status === 'submitted') {
+        return (
+            <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                Submitted
+            </Badge>
+        );
+    }
+
+    return (
+        <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            Draft
+        </Badge>
+    );
 }
 
 export default function IpcrTargetPage() {
@@ -83,7 +103,7 @@ export default function IpcrTargetPage() {
                                     cycle targets.
                                 </CardDescription>
                             </div>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <Badge variant="outline">
                                     Period:{' '}
                                     {semesterLabel(
@@ -91,14 +111,28 @@ export default function IpcrTargetPage() {
                                         targetPeriod.year,
                                     )}
                                 </Badge>
-                                <Badge variant="outline">
-                                    Latest Status:{' '}
-                                    {targetStatusLabel(existingTarget)}
-                                </Badge>
+                                <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                                    <span className="font-medium">Status:</span>
+                                    <TargetStatusBadge target={existingTarget} isReturned={isReturned} />
+                                </div>
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-5 pt-6">
+                        {isReturned && existingTarget?.evaluator_remarks ? (
+                            <div className="glass-card rounded-[26px] border border-red-300/70 bg-red-50/80 p-5 shadow-sm dark:border-red-500/30 dark:bg-red-500/10">
+                                <div className="mb-3 flex items-center gap-2">
+                                    <span className="size-2.5 rounded-full bg-red-500 shadow-[0_0_0_6px_rgba(239,68,68,0.14)]" />
+                                    <h3 className="text-sm font-semibold tracking-[0.18em] text-red-900 uppercase dark:text-red-100">
+                                        Target Returned for Revision
+                                    </h3>
+                                </div>
+                                <p className="text-sm leading-6 whitespace-pre-wrap text-foreground">
+                                    {existingTarget.evaluator_remarks}
+                                </p>
+                            </div>
+                        ) : null}
+
                         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                             {canOpenTargetForm ? (
                                 <Button asChild className="w-full sm:w-auto">

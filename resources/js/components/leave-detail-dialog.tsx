@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
-import { useAppearance } from '@/hooks/use-appearance';
 import WorkflowSignOff from '@/components/workflow-sign-off';
 
 export type LeaveRequestDetail = {
@@ -325,7 +324,6 @@ export function LeaveDetailDialog({
 }) {
     const [actionState, setActionState] = useState<ActionState>('idle');
     const [rejectionReason, setRejectionReason] = useState('');
-    const { resolvedAppearance } = useAppearance();
 
     const isOpen = leave !== null;
 
@@ -462,7 +460,6 @@ export function LeaveDetailDialog({
                                     <WorkflowSignOff
                                         title="Workflow Sign-Off"
                                         description="Names captured from the leave routing trail."
-                                        tone={resolvedAppearance === 'dark' ? 'dark' : 'light'}
                                         slots={[
                                             {
                                                 role: 'Evaluator',

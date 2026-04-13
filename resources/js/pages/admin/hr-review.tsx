@@ -23,6 +23,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import * as admin from '@/routes/admin';
@@ -166,76 +175,74 @@ export default function HrReview({
                         <CardTitle>Submissions Awaiting HR Review</CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
-                                    <th>Employee</th>
-                                    <th>Position</th>
-                                    <th>Rating</th>
-                                    <th>Evaluator</th>
-                                    <th>Cycle</th>
-                                    <th className="text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {submissions.data.map((submission, index) => (
-                                    <tr
-                                        key={submission.id}
-                                        className={
-                                            index % 2 === 0
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:border-r [&_th]:border-white/10 [&_th]:text-white">
+                                        <TableHead>Employee</TableHead>
+                                        <TableHead>Position</TableHead>
+                                        <TableHead>Rating</TableHead>
+                                        <TableHead>Evaluator</TableHead>
+                                        <TableHead>Cycle</TableHead>
+                                        <TableHead className="text-center">Action</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {submissions.data.map((submission, index) => (
+                                        <TableRow
+                                            key={submission.id}
+                                            className={index % 2 === 0
                                                 ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80'
-                                                : 'bg-[#BFDDB5] dark:bg-[#274827]/80'
-                                        }
-                                    >
-                                        <td className="px-4 py-3 font-medium">
-                                            {submission.employee?.name ??
-                                                submission.employee_id}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {submission.employee?.job_title ??
-                                                '—'}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {submission.performance_rating?.toFixed(
-                                                2,
-                                            ) ?? '—'}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {submission.evaluator?.name ?? '—'}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {submission.hr_cycle_count}
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => {
-                                                    setSelected(submission);
-                                                    setDecision(null);
-                                                    setRemarks(
-                                                        submission.hr_remarks ??
-                                                            '',
-                                                    );
-                                                }}
-                                            >
-                                                Review
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {submissions.data.length === 0 && (
-                                    <tr>
-                                        <td
-                                            colSpan={6}
-                                            className="bg-[#DDEFD7] px-4 py-8 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                                : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
                                         >
-                                            No submissions awaiting HR review.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                            <TableCell className="font-medium">
+                                                <div className="flex items-center gap-2">
+                                                    {submission.employee?.name ?? submission.employee_id}
+                                                    {submission.is_escalated && (
+                                                        <Badge className="bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300">
+                                                            Escalated
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>{submission.employee?.job_title ?? '—'}</TableCell>
+                                            <TableCell>{submission.performance_rating?.toFixed(2) ?? '—'}</TableCell>
+                                            <TableCell>{submission.evaluator?.name ?? '—'}</TableCell>
+                                            <TableCell>
+                                                {submission.hr_cycle_count > 0 ? (
+                                                    <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                                                        Return ×{submission.hr_cycle_count}
+                                                    </Badge>
+                                                ) : '—'}
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => {
+                                                        setSelected(submission);
+                                                        setDecision(null);
+                                                        setRemarks(submission.hr_remarks ?? '');
+                                                    }}
+                                                >
+                                                    Review
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {submissions.data.length === 0 && (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={6}
+                                                className="bg-[#DDEFD7] py-8 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                            >
+                                                No submissions awaiting HR review.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -286,8 +293,8 @@ export default function HrReview({
                             />
 
                             {selected.remarks && (
-                                <div className="glass-card rounded-[26px] border border-border bg-card p-4 shadow-sm">
-                                    <p className="text-[11px] tracking-[0.18em] text-muted-foreground uppercase">
+                                <div className="rounded-xl border border-l-4 border-l-[#4A7C3C] bg-[#DDEFD7]/40 p-4 dark:bg-[#274827]/30">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#2F5E2B] dark:text-[#9AC68E]">
                                         Evaluator Remarks
                                     </p>
                                     <p className="mt-2 text-sm leading-relaxed">
@@ -329,18 +336,23 @@ export default function HrReview({
                             </div>
 
                             {decision === 'incorrect' && (
-                                <Textarea
-                                    value={remarks}
-                                    onChange={(event) =>
-                                        setRemarks(event.target.value)
-                                    }
-                                    placeholder={
-                                        selected.hr_cycle_count > 0
-                                            ? 'Provide remarks. This submission will escalate if returned again.'
-                                            : 'Describe the computation or completeness issues found in the evaluation.'
-                                    }
-                                    className="min-h-24"
-                                />
+                                <div className="space-y-2">
+                                    <Label>
+                                        HR Remarks <span className="text-destructive">*</span>
+                                    </Label>
+                                    <Textarea
+                                        value={remarks}
+                                        onChange={(event) =>
+                                            setRemarks(event.target.value)
+                                        }
+                                        placeholder={
+                                            selected.hr_cycle_count > 0
+                                                ? 'Provide remarks. This submission will escalate if returned again.'
+                                                : 'Describe the computation or completeness issues found in the evaluation.'
+                                        }
+                                        className="min-h-24"
+                                    />
+                                </div>
                             )}
                         </div>
                     )}

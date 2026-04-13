@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
 import IpcrTargetReadonly from '@/components/ipcr-target-readonly';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,22 +28,49 @@ type PageProps = {
 };
 
 function roleLabel(role: PageProps['viewerRole']): string {
-    if (role === 'hr') {
-        return 'HR Personnel';
-    }
-
-    if (role === 'pmt') {
-        return 'PMT';
-    }
-
+    if (role === 'hr') return 'HR Personnel';
+    if (role === 'pmt') return 'PMT';
     return 'Evaluator';
 }
 
-function targetStatusLabel(target: IpcrTarget | null): string {
-    if (!target) {
-        return 'Not Set';
+function RoleBadge({ role }: { role: PageProps['viewerRole'] }) {
+    if (role === 'hr') {
+        return (
+            <Badge className="bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300">
+                Viewer: HR Personnel
+            </Badge>
+        );
     }
+    if (role === 'pmt') {
+        return (
+            <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300">
+                Viewer: PMT
+            </Badge>
+        );
+    }
+    return (
+        <Badge className="bg-[#DDEFD7] text-[#2F5E2B] dark:bg-[#274827]/80 dark:text-[#9AC68E]">
+            Viewer: Evaluator
+        </Badge>
+    );
+}
 
+function stageBadgeClass(stage: string | undefined): string {
+    if (!stage) return '';
+    if (['finalized', 'approved_by_pmt'].includes(stage)) {
+        return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300';
+    }
+    if (['sent_to_evaluator', 'sent_to_hr', 'sent_to_pmt'].includes(stage)) {
+        return 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300';
+    }
+    if (['returned_by_hr', 'returned_by_pmt'].includes(stage)) {
+        return 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300';
+    }
+    return '';
+}
+
+function targetStatusLabel(target: IpcrTarget | null): string {
+    if (!target) return 'Not Set';
     return target.status === 'submitted' ? 'Submitted' : 'Draft';
 }
 
@@ -57,6 +84,8 @@ export default function ReviewerIpcrTargetPage() {
         backUrl,
         backLabel,
     } = usePage<PageProps>().props;
+
+    const stageClass = stageBadgeClass(submission?.stage ?? undefined);
 
     return (
         <AppHeaderLayout>
@@ -86,9 +115,7 @@ export default function ReviewerIpcrTargetPage() {
                         </div>
 
                         <div className="flex flex-wrap gap-2">
-                            <Badge variant="outline">
-                                Viewer: {roleLabel(viewerRole)}
-                            </Badge>
+                            <RoleBadge role={viewerRole} />
                             <Badge variant="outline">
                                 Period: {targetPeriodLabel}
                             </Badge>
@@ -97,7 +124,7 @@ export default function ReviewerIpcrTargetPage() {
                                 {targetStatusLabel(currentTarget)}
                             </Badge>
                             {submission?.stage ? (
-                                <Badge variant="outline">
+                                <Badge className={stageClass || undefined} variant={stageClass ? undefined : 'outline'}>
                                     Submission Stage:{' '}
                                     {submission.stage.replaceAll('_', ' ')}
                                 </Badge>
@@ -144,6 +171,36 @@ export default function ReviewerIpcrTargetPage() {
                                 </p>
                             </div>
                         </div>
+
+                        {currentTarget?.evaluator_decision ? (
+                            <div className={`glass-card rounded-[26px] border p-5 shadow-sm ${
+                                currentTarget.evaluator_decision === 'approved'
+                                    ? 'border-emerald-300/70 bg-emerald-50/80 dark:border-emerald-500/30 dark:bg-emerald-500/10'
+                                    : 'border-red-300/70 bg-red-50/80 dark:border-red-500/30 dark:bg-red-500/10'
+                            }`}>
+                                <div className="mb-2 flex items-center gap-2">
+                                    {currentTarget.evaluator_decision === 'approved' ? (
+                                        <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
+                                    ) : (
+                                        <XCircle className="size-4 text-red-600 dark:text-red-400" />
+                                    )}
+                                    <h3 className={`text-sm font-semibold tracking-[0.18em] uppercase ${
+                                        currentTarget.evaluator_decision === 'approved'
+                                            ? 'text-emerald-900 dark:text-emerald-100'
+                                            : 'text-red-900 dark:text-red-100'
+                                    }`}>
+                                        {currentTarget.evaluator_decision === 'approved'
+                                            ? 'Targets Approved'
+                                            : 'Targets Returned for Revision'}
+                                    </h3>
+                                </div>
+                                {currentTarget.evaluator_remarks ? (
+                                    <p className="text-sm leading-6 whitespace-pre-wrap text-foreground">
+                                        {currentTarget.evaluator_remarks}
+                                    </p>
+                                ) : null}
+                            </div>
+                        ) : null}
 
                         {currentTarget ? (
                             <IpcrTargetReadonly

@@ -80,15 +80,15 @@ export default function IpcrTargetReadonly({
                 <h3 className="text-lg font-semibold text-foreground">
                     {currentSection.title}
                 </h3>
-                <div className="glass-card overflow-hidden rounded-[26px] border border-border bg-card shadow-sm">
+                <div className="glass-card overflow-x-auto rounded-[26px] border border-border bg-card shadow-sm">
                     <Table className="min-w-[52rem]">
                         <TableHeader>
                             <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:border-r [&_th]:border-white/10 [&_th]:text-white">
                                 <TableHead className="w-[16rem] min-w-[16rem]">
-                                    Administrative Services Criteria
+                                    IPCR Criterion / MFO
                                 </TableHead>
                                 <TableHead className="w-[13rem] min-w-[13rem]">
-                                    Success Measures
+                                    Success Measures / Targets
                                 </TableHead>
                                 <TableHead>Target</TableHead>
                             </TableRow>
