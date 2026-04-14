@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Employee;
 use App\Models\HistoricalDataRecord;
+use App\Models\User;
 use App\Services\PpeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +18,12 @@ class PredictionController extends Controller
         ]);
 
         $employeeName = $request->string('employee_name')->toString();
+        $user = $request->user();
+
+        if ($user->hasRole(User::ROLE_EMPLOYEE)) {
+            $employee = Employee::query()->find($user->employee_id);
+            abort_unless($employee && $employee->name === $employeeName, 403);
+        }
 
         $records = HistoricalDataRecord::query()
             ->where('employee_name', $employeeName)

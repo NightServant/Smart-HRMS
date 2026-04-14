@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\HistoricalDataRecord;
 use App\Models\IpcrSubmission;
 use App\Models\LeaveRequest;
+use App\Models\User;
 use App\Services\FlatFatService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -75,6 +76,12 @@ class FlatFatController extends Controller
      */
     public function employeeScore(Request $request, string $employeeId): JsonResponse
     {
+        $user = $request->user();
+
+        if ($user->hasRole(User::ROLE_EMPLOYEE)) {
+            abort_unless($user->employee_id === $employeeId, 403);
+        }
+
         try {
             $quarter = $request->query('quarter');
             $employee = Employee::find($employeeId);

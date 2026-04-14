@@ -17,7 +17,7 @@ class ImportAttendanceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'file' => ['required', 'file', 'max:10240'],
+            'file' => ['required', 'file', 'max:10240', 'mimes:csv,txt,xlsx,xls'],
         ];
     }
 

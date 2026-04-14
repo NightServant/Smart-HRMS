@@ -1,4 +1,5 @@
 import { Form } from '@inertiajs/react';
+import DOMPurify from 'dompurify';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
 import { Check, Copy, ScanLine } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -79,7 +80,7 @@ function TwoFactorSetupStep({
                                     <div
                                         className="aspect-square w-full rounded-lg bg-white p-2 [&_svg]:size-full"
                                         dangerouslySetInnerHTML={{
-                                            __html: qrCodeSvg,
+                                            __html: DOMPurify.sanitize(qrCodeSvg, { USE_PROFILES: { svg: true } }),
                                         }}
                                         style={{
                                             filter:

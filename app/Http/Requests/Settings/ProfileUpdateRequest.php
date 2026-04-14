@@ -15,6 +15,13 @@ class ProfileUpdateRequest extends FormRequest
         return $this->user()?->isAdministrator() ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'email' => strtolower(trim((string) $this->input('email', ''))),
+        ]);
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *

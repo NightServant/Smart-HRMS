@@ -165,12 +165,13 @@ test('printable leave blade mirrors the formal application layout', function () 
 
     expect($html)
         ->toContain('Application for Leave')
-        ->toContain('Leave Application Details')
-        ->toContain('Review Outcome')
-        ->toContain('Workflow Sign-Off')
-        ->toContain('Supporting Documents')
-        ->toContain('Medical Certificate')
-        ->toContain('Approved');
+        ->toContain('DETAILS OF APPLICATION')
+        ->toContain('DETAILS OF ACTION ON APPLICATION')
+        ->toContain('Printable Leave Employee')
+        ->toContain('Administrative Office')
+        ->toContain('Evaluator Person')
+        ->toContain('HR Person')
+        ->toContain('For approval');
 });
 
 test('employee leave records include workflow sign off names', function () {

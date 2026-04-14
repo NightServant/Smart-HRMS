@@ -49,7 +49,17 @@
       "mcp__Control_Chrome__get_current_tab",
       "mcp__Control_Chrome__list_tabs",
       "mcp__Control_Chrome__switch_to_tab",
-      "mcp__Control_Chrome__get_page_content"
+      "mcp__Control_Chrome__get_page_content",
+      "Bash(rm -f /Users/gabe/Herd/Smart-HRMS/.git/index.lock)",
+      "Bash(git stash:*)",
+      "Bash(grep -r \"findByEmail\\\\|getByEmail\\\\|whereEmail\\\\|email.*=.*\\\\$\" /Users/gabe/Herd/Smart-HRMS/app/Models --include=\"*.php\")",
+      "Bash(grep -r '$input\\\\['\\\\''email'\\\\''\\\\]\\\\|$request->email\\\\|$request->input\\\\\\('\\\\''email'\\\\''\\\\\\)' /Users/gabe/Herd/Smart-HRMS/app '--include=*.php')",
+      "Bash(php -r \"echo extension_loaded\\('openssl'\\) ? 'OpenSSL OK' : 'OpenSSL MISSING';\")",
+      "Bash(node -e \"console.log\\(require\\('./node_modules/@inertiajs/react/package.json'\\).version\\)\")",
+      "Bash(node -e ':*)",
+      "Bash(grep -r 'type:\"text\"' /Users/gabe/Herd/Smart-HRMS/public/build/assets/app-*.js)",
+      "Bash(ls -la /Users/gabe/Herd/Smart-HRMS/public/build/assets/app-*.js)",
+      "Bash(grep -o '.\\\\{0,30\\\\}email.\\\\{0,30\\\\}' /Users/gabe/Herd/Smart-HRMS/public/build/assets/app-CJz6x-sZ.js)"
     ]
   }
 }

@@ -22,6 +22,7 @@ class StoreAdminUserRequest extends FormRequest
         $employeeId = trim((string) $this->input('employee_id', ''));
 
         $this->merge([
+            'email' => strtolower(trim((string) $this->input('email', ''))),
             'employee_id' => $employeeId !== '' ? $employeeId : null,
             'is_active' => $this->boolean('is_active', true),
         ]);

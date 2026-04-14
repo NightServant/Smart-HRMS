@@ -9,18 +9,25 @@ beforeEach(function () {
     config(['services.biometric.enabled' => true]);
 });
 
-test('GET handshake creates device and returns options text', function () {
+test('GET handshake returns options text for pre-registered device', function () {
+    BiometricDevice::create([
+        'serial_number' => 'TEST001',
+        'is_active' => true,
+    ]);
+
     $response = $this->get('/api/iclock/cdata?SN=TEST001');
 
     $response->assertOk();
     $response->assertHeader('Content-Type', 'text/plain; charset=UTF-8');
     expect($response->getContent())->toContain('GET OPTION FROM: TEST001');
     expect($response->getContent())->toContain('TransFlag=TransData AttLog');
+});
 
-    $this->assertDatabaseHas('biometric_devices', [
-        'serial_number' => 'TEST001',
-        'is_active' => true,
-    ]);
+test('GET handshake rejects unknown devices', function () {
+    $response = $this->get('/api/iclock/cdata?SN=UNKNOWN999');
+
+    $response->assertStatus(403);
+    $this->assertDatabaseMissing('biometric_devices', ['serial_number' => 'UNKNOWN999']);
 });
 
 test('POST attendance data creates records with source biometric', function () {

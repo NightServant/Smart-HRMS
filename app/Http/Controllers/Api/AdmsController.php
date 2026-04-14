@@ -46,9 +46,14 @@ class AdmsController extends Controller
         $sn = $request->query('SN');
 
         if ($sn) {
-            BiometricDevice::query()
+            $updated = BiometricDevice::query()
                 ->where('serial_number', $sn)
+                ->where('is_active', true)
                 ->update(['last_activity_at' => now()]);
+
+            if (! $updated) {
+                return response('Device not registered', 403, ['Content-Type' => 'text/plain']);
+            }
         }
 
         return response('OK', 200, ['Content-Type' => 'text/plain']);
@@ -59,7 +64,7 @@ class AdmsController extends Controller
      */
     public function deviceCmd(Request $request): Response
     {
-        Log::info('ADMS devicecmd', ['body' => $request->getContent(), 'SN' => $request->query('SN')]);
+        Log::info('ADMS devicecmd', ['SN' => $request->query('SN'), 'body_length' => strlen($request->getContent())]);
 
         return response('OK', 200, ['Content-Type' => 'text/plain']);
     }
@@ -101,10 +106,14 @@ class AdmsController extends Controller
 
     private function handleHandshake(string $sn): Response
     {
-        $device = BiometricDevice::query()->firstOrCreate(
-            ['serial_number' => $sn],
-            ['name' => null, 'is_active' => true],
-        );
+        $device = BiometricDevice::query()
+            ->where('serial_number', $sn)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $device) {
+            return response('Device not registered', 403, ['Content-Type' => 'text/plain']);
+        }
 
         $device->update(['last_activity_at' => now()]);
 

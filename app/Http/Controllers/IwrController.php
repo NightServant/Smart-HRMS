@@ -348,10 +348,22 @@ class IwrController extends Controller
     public function evaluationPage(Request $request): Response
     {
         $employeeId = $request->query('employee_id');
-        $employee = $employeeId ? Employee::query()->find($employeeId) : null;
+        $employee = null;
         $submission = null;
 
         if ($employeeId) {
+            $evaluatorEmployeeId = $request->user()->employee_id;
+
+            $employee = Employee::query()
+                ->where('employee_id', $employeeId)
+                ->where(function ($q) use ($evaluatorEmployeeId): void {
+                    $q->where('supervisor_id', $evaluatorEmployeeId)
+                        ->orWhereHas('ipcrSubmissions', fn ($q2) => $q2->where('evaluator_id', $evaluatorEmployeeId));
+                })
+                ->first();
+
+            abort_unless($employee !== null, 403);
+
             $submission = IpcrSubmission::query()
                 ->where('employee_id', $employeeId)
                 ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
@@ -1971,10 +1983,21 @@ class IwrController extends Controller
 
     private function canViewAppealEvidence(User $user, IpcrAppeal $appeal): bool
     {
-        return $user->employee_id === $appeal->employee_id
-            || $user->hasRole(User::ROLE_EVALUATOR)
-            || $user->hasRole(User::ROLE_HR_PERSONNEL)
-            || $user->hasRole(User::ROLE_PMT);
+        if ($user->employee_id === $appeal->employee_id) {
+            return true;
+        }
+
+        if ($user->hasRole(User::ROLE_HR_PERSONNEL) || $user->hasRole(User::ROLE_PMT)) {
+            return true;
+        }
+
+        if ($user->hasRole(User::ROLE_EVALUATOR)) {
+            $submission = $appeal->submission;
+
+            return $submission !== null && $user->employee_id === $submission->evaluator_id;
+        }
+
+        return false;
     }
 
     private function notifyEvaluationPeriodOpened(string $periodLabel): void
