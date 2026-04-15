@@ -59,7 +59,14 @@
       "Bash(node -e ':*)",
       "Bash(grep -r 'type:\"text\"' /Users/gabe/Herd/Smart-HRMS/public/build/assets/app-*.js)",
       "Bash(ls -la /Users/gabe/Herd/Smart-HRMS/public/build/assets/app-*.js)",
-      "Bash(grep -o '.\\\\{0,30\\\\}email.\\\\{0,30\\\\}' /Users/gabe/Herd/Smart-HRMS/public/build/assets/app-CJz6x-sZ.js)"
+      "Bash(grep -o '.\\\\{0,30\\\\}email.\\\\{0,30\\\\}' /Users/gabe/Herd/Smart-HRMS/public/build/assets/app-CJz6x-sZ.js)",
+      "Bash(mysql -u root -h 127.0.0.1 --connect-timeout=3 -e \"SELECT 1\" smart_hrms)",
+      "Bash(open -a Herd)",
+      "Bash(npx eslint:*)",
+      "Bash(npm install:*)",
+      "Bash(lsof -i :8080 -sTCP:LISTEN)",
+      "Bash(lsof -i :8081 -sTCP:LISTEN)",
+      "Bash(lsof -i :8082 -sTCP:LISTEN)"
     ]
   }
 }

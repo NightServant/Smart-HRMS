@@ -467,6 +467,7 @@ class PaginationController extends Controller
                 'position' => $user->employee?->job_title ?? 'Employee',
                 'employment_status' => $user->employee?->employment_status ?? 'regular',
                 'date_hired' => $user->employee?->date_hired?->format('Y-m-d') ?? '',
+                'zkteco_pin' => $user->employee?->zkteco_pin,
 
                 'performance_rating' => $user->employee?->latestSubmission?->performance_rating,
                 'remarks' => $user->employee?->latestSubmission?->rejection_reason,

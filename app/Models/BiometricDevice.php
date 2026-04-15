@@ -8,6 +8,8 @@ class BiometricDevice extends Model
 {
     protected $fillable = [
         'serial_number',
+        'api_key',
+        'ip_address',
         'name',
         'last_activity_at',
         'last_sync_stamp',

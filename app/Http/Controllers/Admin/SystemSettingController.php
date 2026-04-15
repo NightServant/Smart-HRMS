@@ -29,9 +29,11 @@ class SystemSettingController extends Controller
             'id' => $device->id,
             'serialNumber' => $device->serial_number,
             'name' => $device->name,
+            'ipAddress' => $device->ip_address,
             'lastActivityAt' => $device->last_activity_at?->format('Y-m-d H:i:s'),
             'recordsSynced' => $device->records_synced ?? 0,
             'isActive' => (bool) $device->is_active,
+            'apiKeySet' => $device->api_key !== null,
         ])->all();
 
         $lastUpdated = $allSettings->max('updated_at')?->format('M d, Y h:i A') ?? 'Never';
@@ -79,6 +81,40 @@ class SystemSettingController extends Controller
         $status = $device->is_active ? 'activated' : 'deactivated';
 
         return back()->with('success', "Device {$device->name} {$status} successfully.");
+    }
+
+    public function storeDevice(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => 'required|string|max:100',
+            'serial_number' => 'required|string|max:50|unique:biometric_devices,serial_number',
+            'ip_address' => 'nullable|ip',
+        ]);
+
+        $apiKey = bin2hex(random_bytes(32));
+
+        BiometricDevice::create([
+            'name' => $data['name'],
+            'serial_number' => $data['serial_number'],
+            'ip_address' => $data['ip_address'] ?? null,
+            'api_key' => $apiKey,
+            'is_active' => true,
+        ]);
+
+        return back()->with('deviceApiKey', $apiKey)
+            ->with('success', "Device \"{$data['name']}\" registered. Copy the API key below — it will not be shown again.");
+    }
+
+    public function destroyDevice(BiometricDevice $device): RedirectResponse
+    {
+        if ($device->serial_number === 'SIMULATOR') {
+            return back()->withErrors(['device' => 'Cannot delete the simulator device.']);
+        }
+
+        $name = $device->name;
+        $device->delete();
+
+        return back()->with('success', "Device \"{$name}\" removed.");
     }
 
     private function validateSettingValue(string $key, string $value, string $type): void

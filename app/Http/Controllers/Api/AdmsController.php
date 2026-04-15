@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessAttendanceBatch;
 use App\Models\AttendanceRecord;
 use App\Models\BiometricDevice;
 use App\Models\Employee;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -31,8 +33,12 @@ class AdmsController extends Controller
             return response('Missing SN', 400, ['Content-Type' => 'text/plain']);
         }
 
+        if (! preg_match('/^[A-Za-z0-9\-_]{1,50}$/', (string) $sn)) {
+            return response('Invalid SN', 400, ['Content-Type' => 'text/plain']);
+        }
+
         if ($request->isMethod('get')) {
-            return $this->handleHandshake((string) $sn);
+            return $this->handleHandshake($request, (string) $sn);
         }
 
         return $this->handleAttendancePush($request, (string) $sn);
@@ -46,14 +52,17 @@ class AdmsController extends Controller
         $sn = $request->query('SN');
 
         if ($sn) {
-            $updated = BiometricDevice::query()
-                ->where('serial_number', $sn)
-                ->where('is_active', true)
-                ->update(['last_activity_at' => now()]);
+            if (! preg_match('/^[A-Za-z0-9\-_]{1,50}$/', (string) $sn)) {
+                return response('Invalid SN', 400, ['Content-Type' => 'text/plain']);
+            }
 
-            if (! $updated) {
+            $device = $this->resolveDevice((string) $sn, $request);
+
+            if (! $device) {
                 return response('Device not registered', 403, ['Content-Type' => 'text/plain']);
             }
+
+            $device->update(['last_activity_at' => now()]);
         }
 
         return response('OK', 200, ['Content-Type' => 'text/plain']);
@@ -104,12 +113,66 @@ class AdmsController extends Controller
         return back()->with('success', 'Biometric punch recorded at '.$now->format('h:i A').' — '.$record->status.'.');
     }
 
-    private function handleHandshake(string $sn): Response
+    /**
+     * Accept attendance logs from the local Node.js middleware bridge (Mode 2).
+     * Expects JSON: { serialNumber, records: [{ pin, datetime }] }
+     */
+    public function middlewarePush(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'serialNumber' => 'required|string|max:50',
+            'records' => 'required|array|min:1',
+            'records.*.pin' => 'required|integer|min:1',
+            'records.*.datetime' => 'required|string',
+        ]);
+
+        if (! preg_match('/^[A-Za-z0-9\-_]{1,50}$/', $data['serialNumber'])) {
+            return response()->json(['error' => 'Invalid serial number'], 400);
+        }
+
+        $device = $this->resolveDevice($data['serialNumber'], $request);
+
+        if (! $device) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        ProcessAttendanceBatch::dispatch($device->id, $data['records']);
+
+        return response()->json(['status' => 'queued', 'count' => count($data['records'])]);
+    }
+
+    /**
+     * Resolve and authenticate a device by serial number.
+     * If the device has an api_key set, the request must supply a matching Bearer token.
+     * Devices without an api_key are authenticated by serial number alone (backward-compatible).
+     */
+    private function resolveDevice(string $sn, Request $request): ?BiometricDevice
     {
         $device = BiometricDevice::query()
             ->where('serial_number', $sn)
             ->where('is_active', true)
             ->first();
+
+        if (! $device) {
+            return null;
+        }
+
+        if ($device->api_key) {
+            $provided = $request->bearerToken() ?? '';
+
+            if (! hash_equals($device->api_key, $provided)) {
+                Log::warning('ADMS: Invalid API key', ['SN' => $sn, 'ip' => $request->ip()]);
+
+                return null;
+            }
+        }
+
+        return $device;
+    }
+
+    private function handleHandshake(Request $request, string $sn): Response
+    {
+        $device = $this->resolveDevice($sn, $request);
 
         if (! $device) {
             return response('Device not registered', 403, ['Content-Type' => 'text/plain']);
@@ -136,9 +199,9 @@ class AdmsController extends Controller
 
     private function handleAttendancePush(Request $request, string $sn): Response
     {
-        $device = BiometricDevice::query()->where('serial_number', $sn)->first();
+        $device = $this->resolveDevice($sn, $request);
 
-        if (! $device || ! $device->is_active) {
+        if (! $device) {
             return response('Device not registered or inactive', 403, ['Content-Type' => 'text/plain']);
         }
 
@@ -147,7 +210,7 @@ class AdmsController extends Controller
         $body = $request->getContent();
         $lines = array_filter(explode("\n", $body), fn (string $line): bool => trim($line) !== '');
 
-        $synced = 0;
+        $records = [];
 
         foreach ($lines as $line) {
             $fields = explode("\t", trim($line));
@@ -158,36 +221,18 @@ class AdmsController extends Controller
                 continue;
             }
 
-            $pin = $fields[0];
-            $dateTimeStr = $fields[1];
-
-            try {
-                $punchDateTime = Carbon::parse($dateTimeStr);
-            } catch (\Exception $e) {
-                Log::warning('ADMS: Invalid datetime', ['datetime' => $dateTimeStr, 'SN' => $sn]);
-
-                continue;
-            }
-
-            $employee = Employee::find($pin);
-
-            if (! $employee) {
-                Log::warning('ADMS: Unknown PIN (employee_id)', ['pin' => $pin, 'SN' => $sn]);
-
-                continue;
-            }
-
-            $record = $this->createAttendanceRecord($employee->employee_id, $punchDateTime, $device);
-
-            if ($record) {
-                $synced++;
-            }
+            $records[] = [
+                'pin' => (int) $fields[0],
+                'datetime' => $fields[1],
+            ];
         }
 
-        $device->increment('records_synced', $synced);
-
-        if ($request->query('Stamp')) {
-            $device->update(['last_sync_stamp' => $request->query('Stamp')]);
+        if (! empty($records)) {
+            ProcessAttendanceBatch::dispatch(
+                $device->id,
+                $records,
+                $request->query('Stamp'),
+            );
         }
 
         return response('OK', 200, ['Content-Type' => 'text/plain']);

@@ -293,6 +293,8 @@ Route::prefix('admin')->middleware(['auth', 'role:administrator'])->name('admin.
     Route::get('system-settings', [SystemSettingController::class, 'index'])->name('system-settings');
     Route::put('system-settings', [SystemSettingController::class, 'update'])->name('system-settings.update');
     Route::put('system-settings/devices/{device}', [SystemSettingController::class, 'updateDevice'])->name('system-settings.update-device');
+    Route::post('system-settings/devices', [SystemSettingController::class, 'storeDevice'])->name('system-settings.devices.store');
+    Route::delete('system-settings/devices/{device}', [SystemSettingController::class, 'destroyDevice'])->name('system-settings.devices.destroy');
     Route::get('reports', [ReportsDashboardController::class, 'index'])->name('reports');
     Route::get('reports/export', [ReportsDashboardController::class, 'export'])->name('reports.export');
     Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs');

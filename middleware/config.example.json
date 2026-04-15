@@ -1,0 +1,24 @@
+{
+  "device": {
+    "ip": "192.168.1.100",
+    "port": 4370,
+    "serialNumber": "YOUR_DEVICE_SERIAL_NUMBER",
+    "timeout": 10000,
+    "inport": 4000
+  },
+  "cloud": {
+    "url": "https://your-app.up.railway.app",
+    "apiKey": "paste-64-char-hex-api-key-from-system-settings"
+  },
+  "sync": {
+    "intervalMs": 60000,
+    "retryAfterMs": 30000,
+    "clearDeviceAfterSync": false
+  },
+  "buffer": {
+    "path": "./data/buffer.sqlite"
+  },
+  "enroll": {
+    "port": 8080
+  }
+}

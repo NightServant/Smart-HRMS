@@ -61,6 +61,11 @@ class HandleInertiaRequests extends Middleware
             'unreadNotificationCount' => fn () => $user
                 ? Notification::where('user_id', $user->id)->unread()->count()
                 : 0,
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error' => fn () => $request->session()->get('error'),
+                'deviceApiKey' => fn () => $request->session()->get('deviceApiKey'),
+            ],
         ];
     }
 }

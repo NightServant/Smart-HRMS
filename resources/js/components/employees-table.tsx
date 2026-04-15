@@ -59,6 +59,7 @@ type Employee = {
     position: string;
     employment_status: string;
     date_hired: string;
+    zkteco_pin: number | null;
     performance_rating?: string | null;
     remarks?: string | null;
     notification?: string | null;
@@ -111,6 +112,7 @@ type UpdateForm = {
     job_title: string;
     employment_status: string;
     date_hired: string;
+    zkteco_pin: string;
 };
 
 function AddEmployeeDialog({
@@ -306,6 +308,7 @@ function EditEmployeeDialog({
             job_title: '',
             employment_status: 'regular',
             date_hired: '',
+            zkteco_pin: '',
         });
 
     useEffect(() => {
@@ -319,6 +322,7 @@ function EditEmployeeDialog({
             job_title: employee.position,
             employment_status: employee.employment_status,
             date_hired: employee.date_hired,
+            zkteco_pin: employee.zkteco_pin !== null ? String(employee.zkteco_pin) : '',
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, employee?.employee_id]);
@@ -450,6 +454,30 @@ function EditEmployeeDialog({
                             {errors.date_hired && (
                                 <p className="text-xs text-destructive">
                                     {errors.date_hired}
+                                </p>
+                            )}
+                        </div>
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="edit-zkteco-pin">
+                                ZKTeco PIN{' '}
+                                <span className="font-normal text-muted-foreground">
+                                    (biometric device slot, 1–9999999)
+                                </span>
+                            </Label>
+                            <Input
+                                id="edit-zkteco-pin"
+                                type="number"
+                                min={1}
+                                max={9999999}
+                                placeholder="Leave blank if not enrolled on device"
+                                value={data.zkteco_pin}
+                                onChange={(e) =>
+                                    setData('zkteco_pin', e.target.value)
+                                }
+                            />
+                            {errors.zkteco_pin && (
+                                <p className="text-xs text-destructive">
+                                    {errors.zkteco_pin}
                                 </p>
                             )}
                         </div>

@@ -48,6 +48,13 @@ class UpdateEmployeeRequest extends FormRequest
             'job_title' => ['required', 'string', 'max:255'],
             'employment_status' => ['required', 'string', Rule::in(['regular', 'casual', 'job_order'])],
             'date_hired' => ['required', 'date'],
+            'zkteco_pin' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:9999999',
+                Rule::unique('employees', 'zkteco_pin')->ignore($employee->employee_id, 'employee_id'),
+            ],
         ];
     }
 

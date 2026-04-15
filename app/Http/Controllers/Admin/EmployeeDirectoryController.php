@@ -68,6 +68,7 @@ class EmployeeDirectoryController extends Controller
                 'job_title' => $validated['job_title'],
                 'employment_status' => $validated['employment_status'],
                 'date_hired' => $validated['date_hired'],
+                'zkteco_pin' => $validated['zkteco_pin'] ?? null,
             ]);
 
             if ($employee->user !== null) {

@@ -1,5 +1,7 @@
 import { router, useForm } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
+import type { FormEvent} from 'react';
+import { useState } from 'react';
 import InputError from '@/components/input-error';
 import TextLink from '@/components/text-link';
 import { Button } from '@/components/ui/button';
@@ -11,7 +13,6 @@ import AuthLayout from '@/layouts/auth-layout';
 import { encryptRSA } from '@/lib/crypto';
 import { store } from '@/routes/login';
 import { request } from '@/routes/password';
-import { FormEvent, useState } from 'react';
 
 type Props = {
     status?: string;

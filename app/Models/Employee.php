@@ -23,6 +23,7 @@ class Employee extends Model
         'job_title',
         'employment_status',
         'supervisor_id',
+        'zkteco_pin',
         'manual_punch_enabled',
         'manual_punch_reason',
         'manual_punch_start_date',
@@ -36,6 +37,7 @@ class Employee extends Model
     protected function casts(): array
     {
         return [
+            'zkteco_pin' => 'integer',
             'manual_punch_enabled' => 'boolean',
             'date_hired' => 'date',
         ];

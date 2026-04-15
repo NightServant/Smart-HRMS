@@ -1,0 +1,23 @@
+[Unit]
+Description=ZKTeco HRMS Middleware Bridge
+Documentation=https://github.com/your-org/Smart-HRMS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=zkteco
+Group=zkteco
+WorkingDirectory=/opt/zkteco-bridge
+ExecStart=/usr/bin/node /opt/zkteco-bridge/dist/index.js
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zkteco-bridge
+
+# Resource limits
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

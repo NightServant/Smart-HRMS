@@ -32,3 +32,9 @@ yarn-error.log
 /python/iwr/data/
 /python/atre/__pycache__/
 /python/ppe/__pycache__/
+
+# ZKTeco middleware bridge
+/middleware/node_modules/
+/middleware/dist/
+/middleware/config.json
+/middleware/data/*.sqlite
