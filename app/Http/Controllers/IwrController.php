@@ -499,7 +499,6 @@ class IwrController extends Controller
     {
         $employeeId = $request->validated('employee_id');
         $remarks = $request->validated('remarks');
-        $passFail = $request->validated('evaluator_pass_fail');
         $user = $request->user();
 
         $submission = IpcrSubmission::query()
@@ -515,7 +514,6 @@ class IwrController extends Controller
             [
                 'workflow_notes' => [
                     'evaluator_remarks' => $remarks,
-                    'evaluator_pass_fail' => $passFail,
                 ],
                 'sign_off' => [
                     'ratee_name' => $employee?->name ?? $employeeId,
@@ -532,6 +530,9 @@ class IwrController extends Controller
                 'form_payload' => 'Please complete the evaluator ratings for every row before submitting.',
             ]);
         }
+
+        $passFail = $rating >= 3.0 ? 'passed' : 'failed';
+        $formPayload['workflow_notes']['evaluator_pass_fail'] = $passFail;
 
         $submission->update([
             'performance_rating' => $rating,

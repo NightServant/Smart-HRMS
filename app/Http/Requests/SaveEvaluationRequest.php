@@ -20,7 +20,6 @@ class SaveEvaluationRequest extends FormRequest
             'employee_id' => 'required|string|exists:employees,employee_id',
             'confirmed' => 'required|accepted',
             'remarks' => 'required|string|max:2000',
-            'evaluator_pass_fail' => 'required|in:passed,failed',
             'form_payload' => 'required|array',
             'form_payload.template_version' => 'required|string|max:50',
             'form_payload.metadata' => 'required|array',
@@ -51,8 +50,6 @@ class SaveEvaluationRequest extends FormRequest
         return [
             'confirmed.accepted' => 'Please confirm the evaluator submission before continuing.',
             'remarks.required' => 'Evaluator remarks are required before routing this IPCR.',
-            'evaluator_pass_fail.required' => 'Please select whether the employee passed or failed.',
-            'evaluator_pass_fail.in' => 'The pass/fail decision must be either "passed" or "failed".',
             'form_payload.required' => 'The digital IPCR form payload is required.',
         ];
     }
