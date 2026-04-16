@@ -76,7 +76,19 @@
       "Bash(railway up:*)",
       "Bash(kill %1)",
       "Bash(wait)",
-      "Bash(railway run --service sunny-reverence php artisan tinker '--execute=:*)"
+      "Bash(railway run --service sunny-reverence php artisan tinker '--execute=:*)",
+      "Bash(railway connect:*)",
+      "Bash(mysql --version)",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysqldump -u root --no-tablespaces --skip-lock-tables smart_hrms)",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysqldump -u root '--socket=/Users/gabe/Library/Application Support/Herd/herd.sock' --no-tablespaces --skip-lock-tables smart_hrms)",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -u root -h 127.0.0.1 -P 3306 -e 'SHOW DATABASES;')",
+      "Bash(lsof -iTCP -sTCP:LISTEN)",
+      "Bash(launchctl list:*)",
+      "Bash(sudo launchctl:*)",
+      "Bash(railway run:*)",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -h junction.proxy.rlwy.net -P 18757 -u root -pcwzUYUnyqxkofrZLVqNwbfOjFllnoMiI railway -e 'SHOW TABLES;')",
+      "Bash(grep -n \"primaryKey\\\\|protected \\\\$\" /Users/gabe/Herd/Smart-HRMS/app/Models/Employee.php)",
+      "Bash(echo \"EXIT CODE: $?\")"
     ]
   }
 }

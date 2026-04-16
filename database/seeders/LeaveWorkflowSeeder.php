@@ -25,7 +25,7 @@ class LeaveWorkflowSeeder extends Seeder
         $employeeUsers = User::query()
             ->where('role', User::ROLE_EMPLOYEE)
             ->whereNotNull('employee_id')
-            ->with('employee:id,employee_id,name,job_title')
+            ->with('employee:employee_id,name,job_title')
             ->orderBy('employee_id')
             ->get()
             ->values();
