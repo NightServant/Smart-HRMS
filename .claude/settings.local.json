@@ -66,7 +66,17 @@
       "Bash(npm install:*)",
       "Bash(lsof -i :8080 -sTCP:LISTEN)",
       "Bash(lsof -i :8081 -sTCP:LISTEN)",
-      "Bash(lsof -i :8082 -sTCP:LISTEN)"
+      "Bash(lsof -i :8082 -sTCP:LISTEN)",
+      "Bash(railway login:*)",
+      "Bash(railway whoami:*)",
+      "Bash(railway status:*)",
+      "Bash(railway service:*)",
+      "Bash(railway variables:*)",
+      "Bash(railway logs:*)",
+      "Bash(railway up:*)",
+      "Bash(kill %1)",
+      "Bash(wait)",
+      "Bash(railway run --service sunny-reverence php artisan tinker '--execute=:*)"
     ]
   }
 }
