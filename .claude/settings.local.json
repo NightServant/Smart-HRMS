@@ -88,7 +88,15 @@
       "Bash(railway run:*)",
       "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -h junction.proxy.rlwy.net -P 18757 -u root -pcwzUYUnyqxkofrZLVqNwbfOjFllnoMiI railway -e 'SHOW TABLES;')",
       "Bash(grep -n \"primaryKey\\\\|protected \\\\$\" /Users/gabe/Herd/Smart-HRMS/app/Models/Employee.php)",
-      "Bash(echo \"EXIT CODE: $?\")"
+      "Bash(echo \"EXIT CODE: $?\")",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -h junction.proxy.rlwy.net -P 18757 -u root -pcwzUYUnyqxkofrZLVqNwbfOjFllnoMiI railway -e ':*)",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -h junction.proxy.rlwy.net -P 18757 -u root -pcwzUYUnyqxkofrZLVqNwbfOjFllnoMiI railway -e 'SELECT \\(SELECT COUNT\\(*\\) FROM employees\\) AS employees, \\(SELECT COUNT\\(*\\) FROM users\\) AS users, \\(SELECT COUNT\\(*\\) FROM leave_requests\\) AS leave_requests, \\(SELECT COUNT\\(*\\) FROM ipcr_submissions\\) AS ipcr_submissions, \\(SELECT COUNT\\(*\\) FROM seminars\\) AS seminars;')",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -u root -h 127.0.0.1 -P 3306 -e 'SELECT VERSION\\(\\); SHOW DATABASES;')",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysqldump -u root -h 127.0.0.1 -P 3306 --no-tablespaces --skip-lock-tables --single-transaction smart_hrms)",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -u root -h 127.0.0.1 -P 3306 smart_hrms -e 'SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema='\\\\''smart_hrms'\\\\'' ORDER BY table_rows DESC;')",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -h junction.proxy.rlwy.net -P 18757 -u root -pcwzUYUnyqxkofrZLVqNwbfOjFllnoMiI railway -e 'SELECT \\(SELECT COUNT\\(*\\) FROM employees\\) AS employees, \\(SELECT COUNT\\(*\\) FROM users\\) AS users, \\(SELECT COUNT\\(*\\) FROM leave_requests\\) AS leave_requests, \\(SELECT COUNT\\(*\\) FROM ipcr_submissions\\) AS ipcr_submissions, \\(SELECT COUNT\\(*\\) FROM seminars\\) AS seminars, \\(SELECT COUNT\\(*\\) FROM activity_logs\\) AS activity_logs, \\(SELECT COUNT\\(*\\) FROM historical_data_records\\) AS historical_data_records;')",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -u root -h 127.0.0.1 -P 3306 smart_hrms -e 'SELECT \\(SELECT COUNT\\(*\\) FROM employees\\) AS employees, \\(SELECT COUNT\\(*\\) FROM users\\) AS users, \\(SELECT COUNT\\(*\\) FROM leave_requests\\) AS leave_requests, \\(SELECT COUNT\\(*\\) FROM ipcr_submissions\\) AS ipcr_submissions, \\(SELECT COUNT\\(*\\) FROM seminars\\) AS seminars, \\(SELECT COUNT\\(*\\) FROM activity_logs\\) AS activity_logs, \\(SELECT COUNT\\(*\\) FROM historical_data_records\\) AS historical_data_records;')",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -h junction.proxy.rlwy.net -P 18757 -u root -pcwzUYUnyqxkofrZLVqNwbfOjFllnoMiI railway -e 'SELECT u.id, u.name, u.email, u.role, e.employee_id, e.job_title FROM users u LEFT JOIN employees e ON u.employee_id = e.employee_id WHERE u.name LIKE '\\\\''%Mark%Reyes%'\\\\'' OR u.name LIKE '\\\\''%Reyes%Mark%'\\\\'';')"
     ]
   }
 }
