@@ -108,6 +108,10 @@ class AttendanceRecordController extends Controller
             $endDate = Carbon::parse($request->string('end_date')->toString());
             $today = Carbon::today();
 
+            if ($today->isAfter($endDate)) {
+                return back()->withErrors(['end_date' => 'End date has already passed.']);
+            }
+
             // Only set enabled to true if today falls within the scheduled range
             $withinRange = $today->greaterThanOrEqualTo($startDate) && $today->lessThanOrEqualTo($endDate);
 

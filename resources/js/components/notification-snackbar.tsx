@@ -1,6 +1,15 @@
 import { router } from '@inertiajs/react';
-import { BellRing, Clock3, Eye, ExternalLink, X } from 'lucide-react';
+import { BellRing, Clock3, ExternalLink, Eye, X } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
 type NotificationSnackbarProps = {
     id: number;
@@ -21,6 +30,8 @@ export default function NotificationSnackbar({
     type = 'info',
     isRead = false,
 }: NotificationSnackbarProps) {
+    const [modalOpen, setModalOpen] = useState(false);
+
     const typeStyles: Record<NonNullable<NotificationSnackbarProps['type']>, string> = {
         info: 'border-primary/40 bg-primary/10',
         warning: 'border-chart-3/45 bg-chart-3/12',
@@ -47,17 +58,18 @@ export default function NotificationSnackbar({
         }
 
         if (isRead) {
-            router.visit(targetUrl);
+            setModalOpen(true);
             return;
         }
 
         router.post(`/notifications/${id}/read`, {}, {
             preserveScroll: true,
-            onSuccess: () => router.visit(targetUrl),
+            onSuccess: () => setModalOpen(true),
         });
     }
 
     return (
+        <>
         <div
             role={targetUrl ? 'button' : undefined}
             tabIndex={targetUrl ? 0 : -1}
@@ -85,7 +97,7 @@ export default function NotificationSnackbar({
                     {targetUrl && (
                         <p className="inline-flex items-center gap-1 text-xs font-medium text-primary">
                             <ExternalLink className="size-3.5" />
-                            Open notification target
+                            Click to view details
                         </p>
                     )}
                 </div>
@@ -122,5 +134,30 @@ export default function NotificationSnackbar({
                 </div>
             </div>
         </div>
+
+        {targetUrl && (
+            <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{title}</DialogTitle>
+                        <DialogDescription>{message}</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setModalOpen(false)}>
+                            Dismiss
+                        </Button>
+                        <Button
+                            onClick={() => {
+                                setModalOpen(false);
+                                router.visit(targetUrl);
+                            }}
+                        >
+                            Go to page
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        )}
+    </>
     );
 }

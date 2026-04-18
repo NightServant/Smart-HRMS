@@ -1,14 +1,11 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import {
-    Bell,
     CheckCircle2,
     Clock3,
-    ChevronDown,
     FileCheck2,
     FileSpreadsheet,
     Megaphone,
     RotateCcw,
-    Send,
     XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -30,12 +27,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
     Select,
@@ -44,6 +36,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 import * as adminIpcr from '@/routes/admin/ipcr';
@@ -163,9 +156,8 @@ export default function IpcrTargetManagement() {
         usePage<PageProps>().props;
 
     const [view, setView] = useState<'submitted' | 'finalized'>('submitted');
-    const [selectedTarget, setSelectedTarget] = useState<IpcrTarget | null>(
-        null,
-    );
+    const [selectedTarget, setSelectedTarget] = useState<IpcrTarget | null>(null);
+    const [selectedPeriodKey, setSelectedPeriodKey] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
 
     // Opening control state
@@ -174,24 +166,26 @@ export default function IpcrTargetManagement() {
         String(currentTargetPeriod.year),
     );
     const [notifying, setNotifying] = useState(false);
-    const [targetFormAction, setTargetFormAction] = useState<'enable' | 'disable'>(
-        currentTargetPeriod.submissionOpen ? 'disable' : 'enable',
-    );
 
-    const currentYear = new Date().getFullYear();
-    const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - 1 + i);
-
-    const displayRows = view === 'submitted' ? submittedTargets : finalizedTargets;
-    const targetFormActionLabel = targetFormAction === 'enable'
-        ? 'Enable Target Form'
-        : 'Disable Target Form';
-    const targetFormActionDescription = targetFormAction === 'enable'
-        ? 'Enable the target form and notify employees to start their IPCR targets.'
-        : 'Disable the target form and stop employees from submitting new targets.';
-    const targetFormModeLabel = targetFormAction === 'enable'
-        ? 'Enable'
-        : 'Disable';
-
+    const allTargets = [...submittedTargets, ...finalizedTargets];
+    const uniquePeriods = Array.from(
+        new Map(
+            allTargets.map((t) => [
+                `${t.semester}-${t.target_year}`,
+                { semester: t.semester as 1 | 2, year: t.target_year },
+            ]),
+        ).values(),
+    ).sort((a, b) => b.year - a.year || b.semester - a.semester);
+    const selectedPeriod = selectedPeriodKey
+        ? uniquePeriods.find((p) => `${p.semester}-${p.year}` === selectedPeriodKey) ?? null
+        : null;
+    const filteredSubmitted = selectedPeriod
+        ? submittedTargets.filter((t) => t.semester === selectedPeriod.semester && t.target_year === selectedPeriod.year)
+        : submittedTargets;
+    const filteredFinalized = selectedPeriod
+        ? finalizedTargets.filter((t) => t.semester === selectedPeriod.semester && t.target_year === selectedPeriod.year)
+        : finalizedTargets;
+    const displayRows = view === 'submitted' ? filteredSubmitted : filteredFinalized;
     function handleFinalize(target: IpcrTarget): void {
         setProcessing(true);
         router.post(
@@ -231,14 +225,6 @@ export default function IpcrTargetManagement() {
         );
     }
 
-    function handleTargetFormAction(): void {
-        if (targetFormAction === 'enable') {
-            handleOpenAndNotify();
-            return;
-        }
-
-        handleCloseWindow();
-    }
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -334,7 +320,7 @@ export default function IpcrTargetManagement() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        <div className="grid gap-4 sm:grid-cols-3">
+                        <div className="grid gap-4 sm:grid-cols-3 sm:items-end">
                             <div className="space-y-2">
                                 <Label>Semester</Label>
                                 <Select
@@ -356,214 +342,95 @@ export default function IpcrTargetManagement() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label>Year</Label>
-                                <Select
+                                <Label htmlFor="target-year">Year</Label>
+                                <Input
+                                    id="target-year"
+                                    type="text"
                                     value={openYear}
-                                    onValueChange={setOpenYear}
-                                >
-                                    <SelectTrigger className="border-border bg-background">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {yearOptions.map((y) => (
-                                            <SelectItem
-                                                key={y}
-                                                value={String(y)}
-                                            >
-                                                {y}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                    onChange={(e) => setOpenYear(e.target.value)}
+                                    placeholder="e.g. 2026"
+                                    className="border-border bg-background"
+                                />
                             </div>
 
-                            <div className="flex items-end gap-2">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            className="w-full justify-between sm:w-48"
-                                            disabled={notifying || closing}
-                                            title={targetFormActionDescription}
-                                        >
-                                            <span className="flex items-center gap-2">
-                                                <Bell className="size-4" />
-                                                {targetFormModeLabel}
-                                            </span>
-                                            <ChevronDown className="size-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent
-                                        align="end"
-                                        className="w-64"
-                                    >
-                                        <DropdownMenuItem
-                                            onClick={() => setTargetFormAction('enable')}
-                                        >
-                                            <Bell className="size-4" />
-                                            Enable Target Form
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            onClick={() => setTargetFormAction('disable')}
-                                        >
-                                            <XCircle className="size-4" />
-                                            Disable Target Form
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                                <Button
-                                    type="button"
-                                    className="w-full sm:w-auto"
-                                    disabled={notifying || closing}
-                                    onClick={handleTargetFormAction}
-                                >
-                                    {targetFormAction === 'enable' ? (
-                                        <>
-                                            <Send className="size-4" />
-                                            {notifying
-                                                ? 'Enabling…'
-                                                : targetFormActionLabel}
-                                        </>
-                                    ) : (
-                                        <>
-                                            <RotateCcw className="size-4" />
-                                            {closing
-                                                ? 'Disabling…'
-                                                : targetFormActionLabel}
-                                        </>
-                                    )}
-                                </Button>
+                            <div className="flex items-center gap-3 pb-0.5">
+                                <Switch
+                                    id="target-form-toggle"
+                                    checked={currentTargetPeriod.submissionOpen}
+                                    onCheckedChange={(checked) =>
+                                        checked ? handleOpenAndNotify() : handleCloseWindow()
+                                    }
+                                    disabled={notifying || closing || !openYear.trim()}
+                                />
+                                <Label htmlFor="target-form-toggle" className="cursor-pointer select-none">
+                                    {(notifying || closing)
+                                        ? 'Saving…'
+                                        : currentTargetPeriod.submissionOpen
+                                          ? 'Enabled'
+                                          : 'Disabled'}
+                                </Label>
                             </div>
                         </div>
 
                     </CardContent>
                 </Card>
 
-                {/* Target List */}
+                {/* Period Table */}
                 <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
                     <CardHeader className="border-b border-border bg-card">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <CardTitle>
-                                    {view === 'submitted'
-                                        ? 'Submitted Targets'
-                                        : 'Finalized Targets'}
-                                </CardTitle>
-                                <CardDescription className="mt-1">
-                                    {view === 'submitted'
-                                        ? 'Review targets approved by supervisors and record them as finalized.'
-                                        : 'Targets that have been officially recorded by HR.'}
-                                </CardDescription>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button
-                                    type="button"
-                                    variant={
-                                        view === 'submitted'
-                                            ? 'default'
-                                            : 'outline'
-                                    }
-                                    size="sm"
-                                    onClick={() => setView('submitted')}
-                                >
-                                    <FileSpreadsheet className="size-4" />
-                                    Submitted
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant={
-                                        view === 'finalized'
-                                            ? 'default'
-                                            : 'outline'
-                                    }
-                                    size="sm"
-                                    onClick={() => setView('finalized')}
-                                >
-                                    <FileCheck2 className="size-4" />
-                                    Finalized
-                                </Button>
-                            </div>
-                        </div>
+                        <CardTitle>Target Periods</CardTitle>
+                        <CardDescription className="mt-1">
+                            Select a period to view submitted and finalized targets.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className={tableHeaderClass}>
-                                        <th>Employee</th>
-                                        <th>Period</th>
+                                        <th>Semester</th>
+                                        <th>Year</th>
                                         <th>Submitted</th>
-                                        <th>Evaluator Decision</th>
-                                        <th>HR Status</th>
-                                        <th className="text-center">Action</th>
+                                        <th>Finalized</th>
+                                        <th className="!text-center">View</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {displayRows.map((target, index) => (
-                                        <tr
-                                            key={target.id}
-                                            className={stripedRows[index % 2]}
-                                        >
-                                            <td className="px-4 py-3 font-medium">
-                                                {target.employee?.name ??
-                                                    target.employee_id}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {semesterLabel(
-                                                    target.semester,
-                                                    target.target_year,
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3 text-muted-foreground">
-                                                {target.submitted_at
-                                                    ? new Date(
-                                                          target.submitted_at,
-                                                      ).toLocaleDateString()
-                                                    : '—'}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {decisionBadge(
-                                                    target.evaluator_decision,
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {target.hr_finalized ? (
-                                                    <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
-                                                        Finalized
-                                                    </Badge>
-                                                ) : (
-                                                    <Badge variant="outline">
-                                                        Not Recorded
-                                                    </Badge>
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        setSelectedTarget(
-                                                            target,
-                                                        )
-                                                    }
-                                                >
-                                                    View
-                                                </Button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {displayRows.length === 0 && (
+                                    {uniquePeriods.map((period, index) => {
+                                        const key = `${period.semester}-${period.year}`;
+                                        const submittedCount = submittedTargets.filter(
+                                            (t) => t.semester === period.semester && t.target_year === period.year,
+                                        ).length;
+                                        const finalizedCount = finalizedTargets.filter(
+                                            (t) => t.semester === period.semester && t.target_year === period.year,
+                                        ).length;
+                                        return (
+                                            <tr key={key} className={stripedRows[index % 2]}>
+                                                <td className="px-4 py-3">
+                                                    {period.semester === 1 ? 'First Semester' : 'Second Semester'}
+                                                </td>
+                                                <td className="px-4 py-3">{period.year}</td>
+                                                <td className="px-4 py-3">{submittedCount}</td>
+                                                <td className="px-4 py-3">{finalizedCount}</td>
+                                                <td className="px-4 py-3 text-center">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => setSelectedPeriodKey(key)}
+                                                    >
+                                                        View
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {uniquePeriods.length === 0 && (
                                         <tr>
                                             <td
-                                                colSpan={6}
+                                                colSpan={5}
                                                 className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
                                             >
-                                                No{' '}
-                                                {view === 'submitted'
-                                                    ? 'submitted'
-                                                    : 'finalized'}{' '}
-                                                IPCR targets yet.
+                                                No target records found.
                                             </td>
                                         </tr>
                                     )}
@@ -573,6 +440,106 @@ export default function IpcrTargetManagement() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Period Detail Dialog */}
+            <Dialog
+                open={selectedPeriodKey !== null}
+                onOpenChange={(open) => !open && setSelectedPeriodKey(null)}
+            >
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {selectedPeriod
+                                ? semesterLabel(selectedPeriod.semester, selectedPeriod.year)
+                                : 'Targets'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Review submitted and finalized IPCR targets for this period.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex gap-2 py-1">
+                        <Button
+                            type="button"
+                            variant={view === 'submitted' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setView('submitted')}
+                        >
+                            <FileSpreadsheet className="size-4" />
+                            Submitted ({filteredSubmitted.length})
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={view === 'finalized' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setView('finalized')}
+                        >
+                            <FileCheck2 className="size-4" />
+                            Finalized ({filteredFinalized.length})
+                        </Button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className={tableHeaderClass}>
+                                    <th>Employee</th>
+                                    <th>Submitted</th>
+                                    <th>Evaluator Decision</th>
+                                    <th>HR Status</th>
+                                    <th className="!text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {displayRows.map((target, index) => (
+                                    <tr key={target.id} className={stripedRows[index % 2]}>
+                                        <td className="px-4 py-3 font-medium">
+                                            {target.employee?.name ?? target.employee_id}
+                                        </td>
+                                        <td className="px-4 py-3 text-muted-foreground">
+                                            {target.submitted_at
+                                                ? new Date(target.submitted_at).toLocaleDateString()
+                                                : '—'}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {decisionBadge(target.evaluator_decision)}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {target.hr_finalized ? (
+                                                <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
+                                                    Finalized
+                                                </Badge>
+                                            ) : (
+                                                <Badge variant="outline">Not Recorded</Badge>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => setSelectedTarget(target)}
+                                            >
+                                                View
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {displayRows.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={5}
+                                            className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                        >
+                                            No {view === 'submitted' ? 'submitted' : 'finalized'} IPCR targets for this period.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSelectedPeriodKey(null)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* View / Finalize Dialog */}
             <Dialog

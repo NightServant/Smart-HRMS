@@ -133,6 +133,11 @@ class IwrController extends Controller
         }
 
         $sourceSubmission = $selectedSubmission ?? $latestSubmission;
+
+        if (! $sourceSubmission || $sourceSubmission->stage !== 'finalized') {
+            abort(403, 'Print view is only available after the IPCR has been finalized.');
+        }
+
         $printableSubmission = $sourceSubmission
             ? $this->submissionResource($sourceSubmission)
             : null;
@@ -1178,6 +1183,7 @@ class IwrController extends Controller
         SystemSetting::set('ipcr_target_open', 'true', $request->user()->id);
         SystemSetting::set('ipcr_target_semester', (string) $semester, $request->user()->id);
         SystemSetting::set('ipcr_target_year', (string) $year, $request->user()->id);
+        SystemSetting::set('ipcr_target_opened_at', now()->toIso8601String(), $request->user()->id);
 
         $this->notifyTargetWindowOpened($periodLabel);
 
@@ -1234,7 +1240,7 @@ class IwrController extends Controller
         $evaluatorEmployee = $request->user()->employee;
         $targetPeriod = $this->currentTargetSubmissionPeriod();
 
-        // All employees supervised by this evaluator
+        // All employees supervised by this evaluator (current period targets for the table)
         $subordinates = $evaluatorEmployee
             ? Employee::query()
                 ->where('supervisor_id', $evaluatorEmployee->employee_id)
@@ -1256,29 +1262,28 @@ class IwrController extends Controller
                 'name' => $employee->name,
                 'job_title' => $employee->job_title,
                 'target' => $target ? $this->targetResource($target) : null,
-                'target_review_url' => "/ipcr/target-review?employee_id={$employee->employee_id}&source=evaluator",
             ];
         })->all();
+
+        // Aggregate stats across ALL periods for subordinates
+        $subordinateIds = $subordinates->pluck('employee_id');
+        $allTargets = IpcrTarget::query()
+            ->whereIn('employee_id', $subordinateIds)
+            ->get();
 
         return Inertia::render('evaluator-ipcr-target', [
             'targetPeriod' => $targetPeriod,
             'employees' => $employees,
             'stats' => [
                 'total' => $subordinates->count(),
-                'notSet' => $subordinates->filter(fn ($e) => $e->ipcrTargets->isEmpty())->count(),
-                'pending' => $subordinates->filter(
-                    fn ($e) => $e->ipcrTargets->isNotEmpty()
-                        && $e->ipcrTargets->first()->status === 'submitted'
-                        && $e->ipcrTargets->first()->evaluator_decision === null
+                'notSet' => $subordinates->filter(
+                    fn ($e) => $allTargets->where('employee_id', $e->employee_id)->isEmpty()
                 )->count(),
-                'approved' => $subordinates->filter(
-                    fn ($e) => $e->ipcrTargets->isNotEmpty()
-                        && $e->ipcrTargets->first()->evaluator_decision === 'approved'
+                'pending' => $allTargets->filter(
+                    fn ($t) => $t->status === 'submitted' && $t->evaluator_decision === null
                 )->count(),
-                'rejected' => $subordinates->filter(
-                    fn ($e) => $e->ipcrTargets->isNotEmpty()
-                        && $e->ipcrTargets->first()->evaluator_decision === 'rejected'
-                )->count(),
+                'approved' => $allTargets->where('evaluator_decision', 'approved')->count(),
+                'rejected' => $allTargets->where('evaluator_decision', 'rejected')->count(),
             ],
         ]);
     }
@@ -1551,7 +1556,7 @@ class IwrController extends Controller
      *        May      → Semester 2 for current year (window open)
      *        All other months                       (window closed)
      *
-     * @return array{semester: 1|2, year: int, label: string, submissionOpen: bool, submissionWindowLabel: string}
+     * @return array{semester: 1|2, year: int, label: string, submissionOpen: bool, submissionWindowLabel: string, deadlineAt: string|null}
      */
     private function currentTargetSubmissionPeriod(): array
     {
@@ -1570,39 +1575,51 @@ class IwrController extends Controller
             /** @var 1|2 $semester */
             $windowLabel = $semester === 1 ? 'November '.($targetYear - 1) : 'May '.$targetYear;
 
-            return $this->targetPeriodPayload($semester, $targetYear, true, $windowLabel);
+            $openedAt = SystemSetting::get('ipcr_target_opened_at', null);
+            if ($openedAt) {
+                $deadline = \Carbon\Carbon::parse((string) $openedAt)->addDays(15);
+                if (now()->isAfter($deadline)) {
+                    return $this->targetPeriodPayload($semester, $targetYear, false, $windowLabel, (string) $openedAt);
+                }
+            }
+
+            return $this->targetPeriodPayload($semester, $targetYear, true, $windowLabel, $openedAt ? (string) $openedAt : null);
         }
 
         if ($targetMode === 'closed') {
             $semester = in_array($configuredSemester, [1, 2], true) ? $configuredSemester : 1;
             $targetYear = $configuredYear;
             $windowLabel = $semester === 1 ? 'November '.($targetYear - 1) : 'May '.$targetYear;
+            $openedAt = SystemSetting::get('ipcr_target_opened_at', null);
 
-            return $this->targetPeriodPayload($semester, $targetYear, false, $windowLabel);
+            return $this->targetPeriodPayload($semester, $targetYear, false, $windowLabel, $openedAt ? (string) $openedAt : null);
         }
+
+        $openedAt = SystemSetting::get('ipcr_target_opened_at', null);
 
         // Calendar heuristic — November and May auto-open as per the yearly cycle.
         if ($month === 11) {
-            return $this->targetPeriodPayload(1, $year + 1, true, 'November '.$year);
+            return $this->targetPeriodPayload(1, $year + 1, true, 'November '.$year, $openedAt ? (string) $openedAt : null);
         }
 
         if ($month === 5) {
-            return $this->targetPeriodPayload(2, $year, true, 'May '.$year);
+            return $this->targetPeriodPayload(2, $year, true, 'May '.$year, $openedAt ? (string) $openedAt : null);
         }
 
         $semester = in_array($configuredSemester, [1, 2], true) ? $configuredSemester : 1;
         $targetYear = $configuredYear;
         $windowLabel = $semester === 1 ? 'November '.($targetYear - 1) : 'May '.$targetYear;
 
-        return $this->targetPeriodPayload($semester, $targetYear, false, $windowLabel);
+        return $this->targetPeriodPayload($semester, $targetYear, false, $windowLabel, $openedAt ? (string) $openedAt : null);
     }
 
     /**
-     * @return array{semester: 1|2, year: int, label: string, submissionOpen: bool, submissionWindowLabel: string}
+     * @return array{semester: 1|2, year: int, label: string, submissionOpen: bool, submissionWindowLabel: string, deadlineAt: string|null}
      */
-    private function targetPeriodPayload(int $semester, int $year, bool $submissionOpen, string $submissionWindowLabel): array
+    private function targetPeriodPayload(int $semester, int $year, bool $submissionOpen, string $submissionWindowLabel, ?string $openedAt = null): array
     {
         $semesterLabel = $semester === 1 ? 'First Semester' : 'Second Semester';
+        $deadlineAt = $openedAt ? \Carbon\Carbon::parse($openedAt)->addDays(15)->toIso8601String() : null;
 
         return [
             'semester' => $semester,
@@ -1610,6 +1627,7 @@ class IwrController extends Controller
             'label' => "{$semesterLabel} {$year}",
             'submissionOpen' => $submissionOpen,
             'submissionWindowLabel' => $submissionWindowLabel,
+            'deadlineAt' => $deadlineAt,
         ];
     }
 

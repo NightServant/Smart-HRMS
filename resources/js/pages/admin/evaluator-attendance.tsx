@@ -154,10 +154,39 @@ function ManualPunchPanel({
         ? parseISO(subordinate.manual_punch_end_date)
         : null;
 
+    const isExpired = endDate !== null && new Date() > endDate;
     const isScheduledFuture =
         hasSchedule && startDate !== null && startDate > today;
 
-    if (subordinate.manual_punch_enabled || (hasSchedule && !isScheduledFuture)) {
+    if (isExpired && !subordinate.manual_punch_enabled) {
+        return (
+            <div className="rounded-lg border border-red-200 bg-red-50/60 p-4 dark:border-red-800/40 dark:bg-red-950/20">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800 dark:bg-red-900/40 dark:text-red-300">
+                        <XCircle className="size-3.5" />
+                        Expired
+                    </span>
+                    {startDate && endDate && (
+                        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <CalendarRange className="size-3.5" />
+                            {format(startDate, 'MMM d, yyyy')}
+                            {' – '}
+                            {format(endDate, 'MMM d, yyyy')}
+                        </span>
+                    )}
+                </div>
+                {subordinate.manual_punch_reason && (
+                    <div className="mb-3 flex items-start gap-2 text-sm text-foreground/80">
+                        <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <span className="italic">{subordinate.manual_punch_reason}</span>
+                    </div>
+                )}
+                <p className="text-xs text-muted-foreground">This manual punch schedule has expired.</p>
+            </div>
+        );
+    }
+
+    if (subordinate.manual_punch_enabled) {
         return (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-800/40 dark:bg-emerald-950/20">
                 <div className="mb-3 flex flex-wrap items-center gap-2">

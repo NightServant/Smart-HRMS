@@ -3,7 +3,6 @@ import type {
     IpcrFormRow,
     IpcrFormSection,
     IpcrRatingSet,
-    IpcrSelfAssessmentQetaSet,
 } from '@/types/ipcr';
 
 export function cloneIpcrFormPayload(payload: IpcrFormPayload): IpcrFormPayload {
@@ -12,24 +11,6 @@ export function cloneIpcrFormPayload(payload: IpcrFormPayload): IpcrFormPayload 
 
 export function calculateIpcrRowAverage(ratings: IpcrRatingSet): number | null {
     const values = Object.values(ratings)
-        .map((value) => (value === null || value === undefined ? null : Number(value)))
-        .filter((value): value is number => value !== null && Number.isFinite(value));
-
-    if (values.length === 0) {
-        return null;
-    }
-
-    return Number((values.reduce((sum, value) => sum + value, 0) / values.length).toFixed(2));
-}
-
-export function calculateIpcrSelfAssessmentAverage(
-    scores: IpcrSelfAssessmentQetaSet | null | undefined,
-): number | null {
-    const values = [
-        scores?.quality,
-        scores?.efficiency,
-        scores?.timeliness,
-    ]
         .map((value) => (value === null || value === undefined ? null : Number(value)))
         .filter((value): value is number => value !== null && Number.isFinite(value));
 
@@ -80,10 +61,6 @@ export function recalculateIpcrFormPayload(payload: IpcrFormPayload): IpcrFormPa
             return {
                 ...row,
                 average,
-                self_assessment_qeta_average:
-                    calculateIpcrSelfAssessmentAverage(
-                        row.self_assessment_qeta_scores,
-                    ),
             };
         }),
     }));

@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('ipcr:expire-appeals')->hourly();
+Schedule::command('attendance:expire-manual-punches')->hourly();

@@ -611,6 +611,7 @@ class PaginationController extends Controller
     {
         $search = trim((string) $request->string('search'));
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
+        $year = $request->integer('year', 0);
         $allowedSorts = [
             'employee_name' => 'employee_name',
             'department_name' => 'department_name',
@@ -629,6 +630,7 @@ class PaginationController extends Controller
         }
 
         $historicalData = HistoricalDataRecord::query()
+            ->when($year > 0, fn ($q) => $q->where('year', $year))
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
                     $subQuery
@@ -699,6 +701,7 @@ class PaginationController extends Controller
             'search' => $search,
             'sort' => $sort,
             'direction' => $direction,
+            'year' => $year > 0 ? $year : null,
             'historicalData' => $historicalData->items(),
             'pagination' => [
                 'currentPage' => $historicalData->currentPage(),

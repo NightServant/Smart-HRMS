@@ -22,7 +22,6 @@ import { Textarea } from '@/components/ui/textarea';
 import WorkflowSignOff from '@/components/workflow-sign-off';
 import {
     cloneIpcrFormPayload,
-    calculateIpcrSelfAssessmentAverage,
     getAdjectivalRating,
     recalculateIpcrFormPayload,
 } from '@/lib/ipcr';
@@ -30,28 +29,10 @@ import { cn } from '@/lib/utils';
 import type {
     IpcrFormPayload,
     IpcrFormRow,
-    IpcrSelfAssessmentQetaSet,
     IpcrTarget,
 } from '@/types/ipcr';
 
 type Mode = 'employee' | 'evaluator' | 'review';
-type SelfAssessmentScoreKey = keyof IpcrSelfAssessmentQetaSet;
-
-const SELF_ASSESSMENT_METRICS: Array<{
-    key: SelfAssessmentScoreKey;
-    label: string;
-}> = [
-    { key: 'quality', label: 'Q' },
-    { key: 'efficiency', label: 'E' },
-    { key: 'timeliness', label: 'T' },
-];
-
-const DEFAULT_SELF_ASSESSMENT_SCORES: IpcrSelfAssessmentQetaSet = {
-    quality: null,
-    efficiency: null,
-    timeliness: null,
-    accountability: null,
-};
 
 type Props = {
     value: IpcrFormPayload;
@@ -225,29 +206,6 @@ export default function IpcrPaperForm({
         });
     }
 
-    function updateSelfAssessmentScore(
-        rowId: string,
-        key: SelfAssessmentScoreKey,
-        inputValue: string,
-    ): void {
-        const parsed = inputValue === '' ? null : Number(inputValue);
-
-        updateRow(rowId, (row) => ({
-            ...row,
-            self_assessment_qeta_scores: {
-                ...(row.self_assessment_qeta_scores ??
-                    DEFAULT_SELF_ASSESSMENT_SCORES),
-                [key]:
-                    parsed !== null &&
-                    Number.isInteger(parsed) &&
-                    parsed >= 1 &&
-                    parsed <= 5
-                        ? parsed
-                        : null,
-            },
-        }));
-    }
-
     const infoTileClasses =
         'rounded-2xl border border-border bg-card px-4 py-3 shadow-sm';
     const sectionPanelClasses =
@@ -283,8 +241,6 @@ export default function IpcrPaperForm({
           : 'w-[24rem] min-w-[24rem] xl:w-[30rem] xl:min-w-[30rem]';
     const remarksColumnClasses =
         'w-[14rem] min-w-[14rem] xl:w-[16rem] xl:min-w-[16rem]';
-    const selfAssessmentColumnClasses =
-        'rounded-xl border border-border/70 bg-background/50 p-2';
 
     return (
         <Card
@@ -589,141 +545,37 @@ export default function IpcrPaperForm({
                                                         'align-top',
                                                     )}
                                                 >
-                                                    <div
-                                                        className={cn(
-                                                            'grid gap-3',
-                                                            isPrintPresentation
-                                                                ? ''
-                                                                : 'xl:grid-cols-[minmax(0,1.15fr)_minmax(15rem,0.85fr)]',
-                                                        )}
-                                                    >
-                                                        {canEditActual ? (
-                                                            <Textarea
-                                                                value={
-                                                                    row.actual_accomplishment
-                                                                }
-                                                                onChange={(
-                                                                    event,
-                                                                ) =>
-                                                                    updateRow(
-                                                                        row.id,
-                                                                        (
-                                                                            current,
-                                                                        ) => ({
-                                                                            ...current,
-                                                                            actual_accomplishment:
-                                                                                event
-                                                                                    .target
-                                                                                    .value,
-                                                                        }),
-                                                                    )
-                                                                }
-                                                                placeholder="Describe the actual accomplishment for this criterion."
-                                                                className="[field-sizing:fixed] min-h-[11rem] w-full min-w-0 resize-y border-border bg-background text-sm leading-6 md:text-base md:leading-7"
-                                                            />
-                                                        ) : (
-                                                            <div className="min-h-[11rem] w-full min-w-0 rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-6 whitespace-pre-wrap text-foreground shadow-sm md:text-base md:leading-7">
-                                                                {readOnlyValue(
-                                                                    row.actual_accomplishment,
-                                                                )}
-                                                            </div>
-                                                        )}
-
-                                                        {!isPrintPresentation && (
-                                                            <div
-                                                                className={cn(
-                                                                    selfAssessmentColumnClasses,
-                                                                    'space-y-1.5',
-                                                                )}
-                                                            >
-                                                                <div className="flex items-center justify-between gap-2">
-                                                                    <div>
-                                                                        <p className="text-[10px] tracking-[0.16em] text-muted-foreground uppercase">
-                                                                            Self Assessment
-                                                                        </p>
-                                                                        <h4 className="text-sm font-medium text-foreground">
-                                                                            QETA
-                                                                        </h4>
-                                                                    </div>
-                                                                    <Badge variant="outline" className="shrink-0 rounded-full px-2 py-0.5 text-[10px]">
-                                                                        AVG{' '}
-                                                                        {calculateIpcrSelfAssessmentAverage(
-                                                                            row.self_assessment_qeta_scores,
-                                                                        ) !== null
-                                                                            ? calculateIpcrSelfAssessmentAverage(
-                                                                                  row.self_assessment_qeta_scores,
-                                                                              )?.toFixed(2)
-                                                                            : 'Pending'}
-                                                                    </Badge>
-                                                                </div>
-                                                                <div className="grid grid-cols-4 gap-2">
-                                                                    {SELF_ASSESSMENT_METRICS.map(
-                                                                        (metric) => (
-                                                                            <div
-                                                                                key={`${row.id}-${metric.key}`}
-                                                                                className="space-y-1"
-                                                                            >
-                                                                                <Label className="text-[9px] tracking-[0.14em] text-muted-foreground uppercase">
-                                                                                    {metric.label}
-                                                                                </Label>
-                                                                                {mode ===
-                                                                                'employee' ? (
-                                                                                    <Input
-                                                                                        type="number"
-                                                                                        min="1"
-                                                                                        max="5"
-                                                                                        step="1"
-                                                                                        value={
-                                                                                            row
-                                                                                                .self_assessment_qeta_scores?.[
-                                                                                                metric.key
-                                                                                            ] ??
-                                                                                            ''
-                                                                                        }
-                                                                                        onChange={(
-                                                                                            event,
-                                                                                        ) =>
-                                                                                            updateSelfAssessmentScore(
-                                                                                                row.id,
-                                                                                                metric.key,
-                                                                                                event
-                                                                                                    .target
-                                                                                                    .value,
-                                                                                            )
-                                                                                        }
-                                                                                        inputMode="numeric"
-                                                                                        className="h-8 w-full border-border bg-background px-1.5 text-center text-sm shadow-none"
-                                                                                    />
-                                                                                ) : (
-                                                                                    <div className="flex h-8 items-center justify-center rounded-md border border-border bg-background px-1.5 text-center text-sm font-semibold text-foreground shadow-none">
-                                                                                        {readOnlyValue(
-                                                                                            row
-                                                                                                .self_assessment_qeta_scores?.[
-                                                                                                metric.key
-                                                                                            ],
-                                                                                        )}
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                            ),
-                                                                        )}
-                                                                    <div className="space-y-1">
-                                                                        <Label className="text-[9px] tracking-[0.14em] text-muted-foreground uppercase">
-                                                                            AVG
-                                                                        </Label>
-                                                                        <div className="flex h-8 items-center justify-center rounded-md border border-border bg-background px-1.5 text-center text-sm font-semibold text-foreground shadow-none">
-                                                                            {readOnlyValue(
-                                                                                row.self_assessment_qeta_average ??
-                                                                                    calculateIpcrSelfAssessmentAverage(
-                                                                                        row.self_assessment_qeta_scores,
-                                                                                    ),
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                    {canEditActual ? (
+                                                        <Textarea
+                                                            value={
+                                                                row.actual_accomplishment
+                                                            }
+                                                            onChange={(
+                                                                event,
+                                                            ) =>
+                                                                updateRow(
+                                                                    row.id,
+                                                                    (
+                                                                        current,
+                                                                    ) => ({
+                                                                        ...current,
+                                                                        actual_accomplishment:
+                                                                            event
+                                                                                .target
+                                                                                .value,
+                                                                    }),
+                                                                )
+                                                            }
+                                                            placeholder="Describe the actual accomplishment for this criterion."
+                                                            className="[field-sizing:fixed] min-h-[11rem] w-full min-w-0 resize-y border-border bg-background text-sm leading-6 md:text-base md:leading-7"
+                                                        />
+                                                    ) : (
+                                                        <div className="min-h-[11rem] w-full min-w-0 rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-6 whitespace-pre-wrap text-foreground shadow-sm md:text-base md:leading-7">
+                                                            {readOnlyValue(
+                                                                row.actual_accomplishment,
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </TableCell>
                                                 {showRatings && (
                                                     <>

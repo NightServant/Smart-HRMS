@@ -1,5 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
+import { Eye, EyeOff } from 'lucide-react';
 import type { FormEvent} from 'react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
@@ -27,6 +28,7 @@ export default function Login({ status, canResetPassword, publicKey }: Props) {
         remember: false as boolean,
     });
     const [processing, setProcessing] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -94,17 +96,29 @@ export default function Login({ status, canResetPassword, publicKey }: Props) {
                                 </TextLink>
                             )}
                         </div>
-                        <Input
-                            id="password"
-                            type="password"
-                            name="password"
-                            required
-                            tabIndex={2}
-                            autoComplete="current-password"
-                            placeholder="Password"
-                            value={form.data.password}
-                            onChange={(e) => form.setData('password', e.target.value)}
-                        />
+                        <div className="relative">
+                            <Input
+                                id="password"
+                                type={showPassword ? 'text' : 'password'}
+                                name="password"
+                                required
+                                tabIndex={2}
+                                autoComplete="current-password"
+                                placeholder="Password"
+                                value={form.data.password}
+                                onChange={(e) => form.setData('password', e.target.value)}
+                                className="pr-10"
+                            />
+                            <button
+                                type="button"
+                                tabIndex={-1}
+                                onClick={() => setShowPassword((s) => !s)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            >
+                                {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                            </button>
+                        </div>
                         <InputError message={form.errors.password} />
                     </div>
 

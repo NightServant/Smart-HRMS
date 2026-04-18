@@ -135,7 +135,7 @@ export default function DailyAttendanceLogs() {
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                             <div>
                                 <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-                                    {format(selectedDate, 'MMMM yyyy')} Attendance
+                                    {format(selectedDate, 'MMMM d, yyyy')} Attendance
                                 </p>
                                 <p className="mt-2 text-2xl font-bold text-foreground">
                                     {metrics?.attendance_pct || 0}%
@@ -246,7 +246,7 @@ export default function DailyAttendanceLogs() {
                         <p>
                             Viewing attendance summary for{' '}
                             <span className="font-semibold text-foreground">
-                                {format(selectedDate, 'MMMM yyyy')}
+                                {format(selectedDate, 'MMMM d, yyyy')}
                             </span>
                             .
                         </p>

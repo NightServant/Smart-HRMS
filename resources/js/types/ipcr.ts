@@ -4,13 +4,6 @@ export type IpcrRatingSet = {
     timeliness: number | null;
 };
 
-export type IpcrSelfAssessmentQetaSet = {
-    quality: number | null;
-    efficiency: number | null;
-    timeliness: number | null;
-    accountability: number | null;
-};
-
 export type IpcrFormRow = {
     id: string;
     target: string;
@@ -19,8 +12,6 @@ export type IpcrFormRow = {
     accountable: string;
     actual_accomplishment: string;
     ratings: IpcrRatingSet;
-    self_assessment_qeta_scores?: IpcrSelfAssessmentQetaSet;
-    self_assessment_qeta_average?: number | null;
     average: number | null;
     remarks: string;
 };
@@ -46,8 +37,6 @@ export type IpcrFormPayload = {
     sections: IpcrFormSection[];
     workflow_notes: {
         employee_notes?: string;
-        self_assessment_qeta?: string;
-        self_assessment_qeta_scores?: IpcrSelfAssessmentQetaSet;
         evaluator_remarks?: string;
         hr_remarks?: string;
         pmt_remarks?: string;
@@ -99,6 +88,7 @@ export type IpcrTargetPeriod = {
     label: string;
     submissionOpen: boolean;
     submissionWindowLabel: string;
+    deadlineAt: string | null;
 };
 
 export type IpcrAppeal = {

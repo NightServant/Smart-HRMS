@@ -590,9 +590,6 @@ export function EmployeesTable({
     const [currentPositionFilter, setCurrentPositionFilter] =
         useState(positionFilter);
     const [isPredictiveModalOpen, setIsPredictiveModalOpen] = useState(false);
-    const [updatingEmployeeId, setUpdatingEmployeeId] = useState<string | null>(
-        null,
-    );
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
         null,
     );
@@ -603,7 +600,6 @@ export function EmployeesTable({
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [crudEmployee, setCrudEmployee] = useState<Employee | null>(null);
 
-    const canManageEmploymentStatus = auth.user.role === 'hr-personnel';
     const canManageEmployees = auth.user.role === 'hr-personnel';
 
     const visitEmployeesTable = (params: {
@@ -702,28 +698,6 @@ export function EmployeesTable({
         setIsPredictiveModalOpen(true);
     };
 
-    const handleEmploymentStatusChange = (
-        employee: Employee,
-        employmentStatus: string,
-    ): void => {
-        if (employee.employment_status === employmentStatus) {
-            return;
-        }
-
-        setUpdatingEmployeeId(employee.employee_id);
-        router.patch(
-            employeeDirectoryRoutes.employmentStatus({
-                employee: employee.employee_id,
-            }).url,
-            { employment_status: employmentStatus },
-            {
-                preserveScroll: true,
-                preserveState: true,
-                onFinish: () => setUpdatingEmployeeId(null),
-            },
-        );
-    };
-
     const openEditDialog = (employee: Employee): void => {
         setCrudEmployee(employee);
         setIsEditOpen(true);
@@ -735,7 +709,7 @@ export function EmployeesTable({
     };
 
     // Determine column count for empty state colspan
-    const colSpan = canManageEmployees ? 7 : 6;
+    const colSpan = canManageEmployees ? 8 : 7;
 
     return (
         <>
@@ -880,6 +854,7 @@ export function EmployeesTable({
                                 </Button>
                             </TableHead>
                             <TableHead>Status</TableHead>
+                            <TableHead>Date Hired</TableHead>
                             <TableHead className="text-right">
                                 Predictive Performance Evaluation
                             </TableHead>
@@ -904,43 +879,11 @@ export function EmployeesTable({
                                 <TableCell>{employee.email}</TableCell>
                                 <TableCell>{employee.position}</TableCell>
                                 <TableCell>
-                                    {canManageEmploymentStatus ? (
-                                        <Select
-                                            value={employee.employment_status}
-                                            onValueChange={(value) =>
-                                                handleEmploymentStatusChange(
-                                                    employee,
-                                                    value,
-                                                )
-                                            }
-                                            disabled={
-                                                updatingEmployeeId ===
-                                                employee.employee_id
-                                            }
-                                        >
-                                            <SelectTrigger className="h-8 w-36 border-[#4A7C3C]/30 bg-white/70 text-xs dark:border-[#4A7C3C] dark:bg-[#274827]">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectGroup>
-                                                    <SelectItem value="regular">
-                                                        Regular
-                                                    </SelectItem>
-                                                    <SelectItem value="casual">
-                                                        Casual
-                                                    </SelectItem>
-                                                    <SelectItem value="job_order">
-                                                        Job Order
-                                                    </SelectItem>
-                                                </SelectGroup>
-                                            </SelectContent>
-                                        </Select>
-                                    ) : (
-                                        <StatusBadge
-                                            status={employee.employment_status}
-                                        />
-                                    )}
+                                    <StatusBadge
+                                        status={employee.employment_status}
+                                    />
                                 </TableCell>
+                                <TableCell>{employee.date_hired || '—'}</TableCell>
                                 <TableCell className="text-right">
                                     <Button
                                         type="button"

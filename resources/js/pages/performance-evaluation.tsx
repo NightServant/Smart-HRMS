@@ -9,7 +9,6 @@ import {
     Megaphone,
     RotateCcw,
     Search,
-    Send,
     ShieldAlert,
 } from 'lucide-react';
 import { startTransition, useEffect, useState } from 'react';
@@ -36,6 +35,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
     Pagination,
     PaginationContent,
@@ -482,6 +482,16 @@ function EmployeeOverview({
     );
 }
 
+function semesterFromPeriodLabel(label: string | undefined): string {
+    if (!label) return '—';
+    return label.includes('July to December') ? 'Second Semester' : 'First Semester';
+}
+
+function yearFromPeriodLabel(label: string | undefined): string {
+    if (!label) return '—';
+    return label.replace('January to June ', '').replace('July to December ', '').trim();
+}
+
 function EvaluatorOverview({
     currentPeriod,
     evaluatorPanel,
@@ -489,6 +499,7 @@ function EvaluatorOverview({
     currentPeriod: CurrentPeriod | undefined;
     evaluatorPanel: EvaluatorPanel | null | undefined;
 }) {
+    const [showList, setShowList] = useState(false);
     const [search, setSearch] = useState(evaluatorPanel?.search ?? '');
     const [statusFilter, setStatusFilter] = useState(
         evaluatorPanel?.statusFilter ?? '',
@@ -616,274 +627,350 @@ function EvaluatorOverview({
                         </div>
                     )}
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
-                        <div className="relative">
-                            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                value={search}
-                                onChange={(event) =>
-                                    setSearch(event.target.value)
-                                }
-                                placeholder="Search employee ID, name, or position"
-                                className="border-border bg-background pl-9"
-                            />
-                        </div>
-                        <Select
-                            value={statusFilter || 'all'}
-                            onValueChange={(value) =>
-                                setStatusFilter(value === 'all' ? '' : value)
-                            }
-                        >
-                            <SelectTrigger className="border-border bg-background">
-                                <SelectValue placeholder="Filter by status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">
-                                    All Statuses
-                                </SelectItem>
-                                <SelectItem value="pending">Pending</SelectItem>
-                                <SelectItem value="routed">Routed</SelectItem>
-                                <SelectItem value="completed">
-                                    Completed
-                                </SelectItem>
-                                <SelectItem value="escalated">
-                                    Escalated
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Select
-                            value={stageFilter || 'all'}
-                            onValueChange={(value) =>
-                                setStageFilter(value === 'all' ? '' : value)
-                            }
-                        >
-                            <SelectTrigger className="border-border bg-background">
-                                <SelectValue placeholder="Filter by stage" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Stages</SelectItem>
-                                <SelectItem value="sent_to_evaluator">
-                                    Ready For Evaluator
-                                </SelectItem>
-                                <SelectItem value="sent_to_hr">
-                                    Sent To HR
-                                </SelectItem>
-                                <SelectItem value="sent_to_pmt">
-                                    Sent To PMT
-                                </SelectItem>
-                                <SelectItem value="sent_to_hr_finalize">
-                                    For Finalization
-                                </SelectItem>
-                                <SelectItem value="finalized">
-                                    Finalized
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+            </Card>
 
-                    <div className="flex flex-wrap gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => reload(filters)}
-                        >
-                            <Filter className="size-4" />
-                            Apply Filters
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => {
-                                setSearch('');
-                                setStatusFilter('');
-                                setStageFilter('');
-                                reload({
-                                    ...filters,
-                                    search: '',
-                                    statusFilter: '',
-                                    stageFilter: '',
-                                });
-                            }}
-                        >
-                            Clear
-                        </Button>
-                    </div>
-
-                    <div className="glass-card w-full min-w-0 overflow-hidden rounded-md border border-border bg-card shadow-sm">
-                        <Table className="w-full min-w-[1280px] xl:min-w-[1400px]">
-                            <TableHeader>
-                                <TableRow className={tableHeaderClasses}>
-                                    <TableHead className="w-[11rem] min-w-[11rem]">
-                                        Employee ID
-                                    </TableHead>
-                                    <TableHead className="w-[22rem] min-w-[22rem]">
-                                        Name
-                                    </TableHead>
-                                    <TableHead className="w-[18rem] min-w-[18rem]">
-                                        Position
-                                    </TableHead>
-                                    <TableHead className="w-[12rem] min-w-[12rem]">
-                                        Status
-                                    </TableHead>
-                                    <TableHead className="w-[18rem] min-w-[18rem]">
-                                        Stage
-                                    </TableHead>
-                                    <TableHead className="w-[14rem] min-w-[14rem] text-right">
-                                        Action
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {(evaluatorPanel?.employees ?? []).map(
-                                    (employee, index) => {
-                                        const actionState =
-                                            evaluatorActionState(
-                                                employee,
-                                                evaluatorPanel?.periodOpen ??
-                                                    false,
-                                            );
-
-                                        return (
-                                            <TableRow
-                                                key={employee.employeeId}
-                                                className={cn(
-                                                    'text-sm font-semibold text-foreground',
-                                                    stripedTableRows[index % 2],
-                                                )}
-                                            >
-                                                <TableCell>
-                                                    {employee.employeeId}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div>
-                                                        <p className="font-medium">
-                                                            {employee.name}
-                                                        </p>
-                                                        <p className="text-xs text-muted-foreground">
-                                                            {employee.email}
-                                                        </p>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    {employee.position}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {statusLabel(
-                                                        employee.submissionStatus,
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    {stageLabel(
-                                                        employee.submissionStage,
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {actionState.disabled ? (
-                                                        <Button
-                                                            type="button"
-                                                            size="sm"
-                                                            disabled
-                                                        >
-                                                            {actionState.label}
-                                                        </Button>
-                                                    ) : (
-                                                        <Button
-                                                            asChild
-                                                            size="sm"
-                                                        >
-                                                            <Link
-                                                                href={
-                                                                    actionState.href ??
-                                                                    '#'
-                                                                }
-                                                            >
-                                                                {
-                                                                    actionState.label
-                                                                }
-                                                            </Link>
-                                                        </Button>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    },
+            <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
+                <CardHeader className="border-b border-border bg-card">
+                    <CardTitle>Submission Periods</CardTitle>
+                    <CardDescription className="mt-1">
+                        Select a period to view and evaluate employee IPCR submissions.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                    <th>Semester</th>
+                                    <th>Year</th>
+                                    <th>Pending Evaluation</th>
+                                    <th>Submitted</th>
+                                    <th className="!text-center">View</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {currentPeriod ? (
+                                    <tr className="bg-[#DDEFD7] text-sm font-semibold text-foreground dark:bg-[#345A34]/80">
+                                        <td className="px-4 py-3">
+                                            {semesterFromPeriodLabel(currentPeriod.label)}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {yearFromPeriodLabel(currentPeriod.label)}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                                                {evaluatorPanel?.stats.pendingEvaluation ?? 0} pending
+                                            </Badge>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {evaluatorPanel?.stats.submitted ?? 0}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <Button size="sm" onClick={() => setShowList(true)}>
+                                                View Employees
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    <tr>
+                                        <td
+                                            colSpan={5}
+                                            className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                        >
+                                            No active evaluation period.
+                                        </td>
+                                    </tr>
                                 )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                    <div className="app-table-pagination-bar">
-                        <div className="app-table-pagination-shell">
-                            <div className="app-table-pagination-page-size">
-                                <span>Rows per page</span>
-                                <Select
-                                    value={String(
-                                        evaluatorPanel?.pagination.perPage ??
-                                            10,
-                                    )}
-                                    onValueChange={handleRowsPerPageChange}
-                                >
-                                    <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent align="start">
-                                        <SelectItem value="5">5</SelectItem>
-                                        <SelectItem value="10">10</SelectItem>
-                                        <SelectItem value="25">25</SelectItem>
-                                        <SelectItem value="50">50</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="app-table-pagination-controls">
-                                <span className="app-table-pagination-status">
-                                    Page{' '}
-                                    {evaluatorPanel?.pagination.currentPage ??
-                                        1}{' '}
-                                    of{' '}
-                                    {evaluatorPanel?.pagination.lastPage ?? 1}
-                                </span>
-                                <Pagination className="app-table-pagination-nav">
-                                    <PaginationContent>
-                                        <PaginationItem>
-                                            <PaginationPrevious
-                                                href="#"
-                                                onClick={(event) => {
-                                                    event.preventDefault();
-                                                    goToPreviousPage();
-                                                }}
-                                                className={
-                                                    (evaluatorPanel?.pagination
-                                                        .currentPage ?? 1) === 1
-                                                        ? 'pointer-events-none opacity-50'
-                                                        : ''
-                                                }
-                                            />
-                                        </PaginationItem>
-                                        <PaginationItem>
-                                            <PaginationNext
-                                                href="#"
-                                                onClick={(event) => {
-                                                    event.preventDefault();
-                                                    goToNextPage();
-                                                }}
-                                                className={
-                                                    (evaluatorPanel?.pagination
-                                                        .currentPage ?? 1) ===
-                                                    (evaluatorPanel?.pagination
-                                                        .lastPage ?? 1)
-                                                        ? 'pointer-events-none opacity-50'
-                                                        : ''
-                                                }
-                                            />
-                                        </PaginationItem>
-                                    </PaginationContent>
-                                </Pagination>
-                            </div>
-                        </div>
+                            </tbody>
+                        </table>
                     </div>
                 </CardContent>
             </Card>
+
+            <Dialog open={showList} onOpenChange={setShowList}>
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
+                    <DialogHeader>
+                        <DialogTitle>Employee IPCR Submissions</DialogTitle>
+                        <DialogDescription>
+                            {semesterFromPeriodLabel(currentPeriod?.label)}{' '}
+                            {yearFromPeriodLabel(currentPeriod?.label)} — review and evaluate employee submissions.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4">
+                        <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
+                            <div className="relative">
+                                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    value={search}
+                                    onChange={(event) =>
+                                        setSearch(event.target.value)
+                                    }
+                                    placeholder="Search employee ID, name, or position"
+                                    className="border-border bg-background pl-9"
+                                />
+                            </div>
+                            <Select
+                                value={statusFilter || 'all'}
+                                onValueChange={(value) =>
+                                    setStatusFilter(value === 'all' ? '' : value)
+                                }
+                            >
+                                <SelectTrigger className="border-border bg-background">
+                                    <SelectValue placeholder="Filter by status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">
+                                        All Statuses
+                                    </SelectItem>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                    <SelectItem value="routed">Routed</SelectItem>
+                                    <SelectItem value="completed">
+                                        Completed
+                                    </SelectItem>
+                                    <SelectItem value="escalated">
+                                        Escalated
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Select
+                                value={stageFilter || 'all'}
+                                onValueChange={(value) =>
+                                    setStageFilter(value === 'all' ? '' : value)
+                                }
+                            >
+                                <SelectTrigger className="border-border bg-background">
+                                    <SelectValue placeholder="Filter by stage" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Stages</SelectItem>
+                                    <SelectItem value="sent_to_evaluator">
+                                        Ready For Evaluator
+                                    </SelectItem>
+                                    <SelectItem value="sent_to_hr">
+                                        Sent To HR
+                                    </SelectItem>
+                                    <SelectItem value="sent_to_pmt">
+                                        Sent To PMT
+                                    </SelectItem>
+                                    <SelectItem value="sent_to_hr_finalize">
+                                        For Finalization
+                                    </SelectItem>
+                                    <SelectItem value="finalized">
+                                        Finalized
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => reload(filters)}
+                            >
+                                <Filter className="size-4" />
+                                Apply Filters
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => {
+                                    setSearch('');
+                                    setStatusFilter('');
+                                    setStageFilter('');
+                                    reload({
+                                        ...filters,
+                                        search: '',
+                                        statusFilter: '',
+                                        stageFilter: '',
+                                    });
+                                }}
+                            >
+                                Clear
+                            </Button>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                        <th>Employee ID</th>
+                                        <th>Name</th>
+                                        <th>Position</th>
+                                        <th>Status</th>
+                                        <th>Stage</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <TableBody>
+                                    {(evaluatorPanel?.employees ?? []).map(
+                                        (employee, index) => {
+                                            const actionState =
+                                                evaluatorActionState(
+                                                    employee,
+                                                    evaluatorPanel?.periodOpen ??
+                                                        false,
+                                                );
+
+                                            return (
+                                                <tr
+                                                    key={employee.employeeId}
+                                                    className={cn(
+                                                        'text-sm font-semibold text-foreground',
+                                                        stripedTableRows[index % 2],
+                                                    )}
+                                                >
+                                                    <td className="px-4 py-3">
+                                                        {employee.employeeId}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <div>
+                                                            <p className="font-medium">
+                                                                {employee.name}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {employee.email}
+                                                            </p>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {employee.position}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {statusLabel(
+                                                            employee.submissionStatus,
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {stageLabel(
+                                                            employee.submissionStage,
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        {actionState.disabled ? (
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                disabled
+                                                            >
+                                                                {actionState.label}
+                                                            </Button>
+                                                        ) : (
+                                                            <Button
+                                                                asChild
+                                                                size="sm"
+                                                            >
+                                                                <Link
+                                                                    href={
+                                                                        actionState.href ??
+                                                                        '#'
+                                                                    }
+                                                                >
+                                                                    {
+                                                                        actionState.label
+                                                                    }
+                                                                </Link>
+                                                            </Button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        },
+                                    )}
+                                    {(evaluatorPanel?.employees ?? []).length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={6}
+                                                className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                            >
+                                                No employees match the selected filters.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </TableBody>
+                            </table>
+                        </div>
+
+                        <div className="app-table-pagination-bar">
+                            <div className="app-table-pagination-shell">
+                                <div className="app-table-pagination-page-size">
+                                    <span>Rows per page</span>
+                                    <Select
+                                        value={String(
+                                            evaluatorPanel?.pagination.perPage ??
+                                                10,
+                                        )}
+                                        onValueChange={handleRowsPerPageChange}
+                                    >
+                                        <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent align="start">
+                                            <SelectItem value="5">5</SelectItem>
+                                            <SelectItem value="10">10</SelectItem>
+                                            <SelectItem value="25">25</SelectItem>
+                                            <SelectItem value="50">50</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="app-table-pagination-controls">
+                                    <span className="app-table-pagination-status">
+                                        Page{' '}
+                                        {evaluatorPanel?.pagination.currentPage ??
+                                            1}{' '}
+                                        of{' '}
+                                        {evaluatorPanel?.pagination.lastPage ?? 1}
+                                    </span>
+                                    <Pagination className="app-table-pagination-nav">
+                                        <PaginationContent>
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        goToPreviousPage();
+                                                    }}
+                                                    className={
+                                                        (evaluatorPanel?.pagination
+                                                            .currentPage ?? 1) === 1
+                                                            ? 'pointer-events-none opacity-50'
+                                                            : ''
+                                                    }
+                                                />
+                                            </PaginationItem>
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        goToNextPage();
+                                                    }}
+                                                    className={
+                                                        (evaluatorPanel?.pagination
+                                                            .currentPage ?? 1) ===
+                                                        (evaluatorPanel?.pagination
+                                                            .lastPage ?? 1)
+                                                            ? 'pointer-events-none opacity-50'
+                                                            : ''
+                                                    }
+                                                />
+                                            </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowList(false)}>
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
@@ -908,6 +995,7 @@ function HrOverview({
     const [view, setView] = useState<'review' | 'finalization'>(
         hrPanel?.defaultView ?? 'review',
     );
+    const [selectedPeriodKey, setSelectedPeriodKey] = useState<string | null>(null);
     const [selectedReview, setSelectedReview] = useState<IpcrSubmission | null>(
         null,
     );
@@ -926,6 +1014,7 @@ function HrOverview({
     const [periodOpen, setPeriodOpen] = useState(
         currentPeriod?.isOpen ?? false,
     );
+    const [savingPeriod, setSavingPeriod] = useState(false);
     const [finalRating, setFinalRating] = useState('');
     const [notifyingTrainingSubmissionId, setNotifyingTrainingSubmissionId] =
         useState<number | null>(null);
@@ -991,30 +1080,38 @@ function HrOverview({
         }
     }, [selectedFinalize]);
 
-    const reviewRows =
-        view === 'review'
-            ? (hrPanel?.reviewQueue ?? [])
-            : (hrPanel?.finalizationQueue ?? []);
     const isReviewView = view === 'review';
-    const queueTitle = isReviewView
-        ? 'Submissions Awaiting HR Review'
-        : 'Submissions Awaiting HR Finalization';
-    const queueDescription = isReviewView
-        ? 'Check computation and completeness of evaluator submissions. Correct submissions return to the employee for review and possible appeal; incorrect ones return to the evaluator for correction.'
-        : 'Finalize submissions that have already moved past PMT review and keep the record aligned with the saved IPCR snapshot.';
     const queueButtonLabel = isReviewView ? 'Review' : 'Finalize';
     const queueEmptyMessage = isReviewView
         ? 'No submissions awaiting HR review.'
         : 'No submissions awaiting finalization.';
 
-    const currentYear = new Date().getFullYear();
-    const yearOptions = Array.from(
-        { length: 6 },
-        (_, index) => currentYear - 1 + index,
+    const allQueueSubmissions = [
+        ...(hrPanel?.reviewQueue ?? []),
+        ...(hrPanel?.finalizationQueue ?? []),
+    ];
+
+    const uniquePeriods = Array.from(
+        new Map(
+            allQueueSubmissions.map((s) => {
+                const period = s.form_payload.metadata.period ?? '';
+                const isS2 = period.includes('July to December');
+                const year = period.replace('January to June ', '').replace('July to December ', '').trim();
+                return [period, { key: period, semester: isS2 ? '2' : '1', year }] as const;
+            }),
+        ).values(),
+    ).sort((a, b) => Number(b.year) - Number(a.year) || Number(b.semester) - Number(a.semester));
+
+    const selectedPeriod = uniquePeriods.find((p) => p.key === selectedPeriodKey) ?? null;
+
+    const reviewRows = (
+        view === 'review'
+            ? (hrPanel?.reviewQueue ?? [])
+            : (hrPanel?.finalizationQueue ?? [])
+    ).filter((s) =>
+        selectedPeriod ? (s.form_payload.metadata.period ?? '') === selectedPeriod.key : true,
     );
-    const periodActionLabel = periodOpen
-        ? 'Open & Notify Employees'
-        : 'Close Evaluation Period';
+
 
     return (
         <div className="space-y-6">
@@ -1110,7 +1207,7 @@ function HrOverview({
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-5">
-                    <div className="grid gap-4 md:grid-cols-4 md:items-end">
+                    <div className="grid gap-4 md:grid-cols-3 md:items-end">
                         <div className="space-y-2">
                             <Label>Semester</Label>
                             <Select
@@ -1135,70 +1232,38 @@ function HrOverview({
                             </Select>
                         </div>
                         <div className="space-y-2">
-                            <Label>Year</Label>
-                            <Select
+                            <Label htmlFor="period-year">Year</Label>
+                            <Input
+                                id="period-year"
+                                type="text"
                                 value={periodYear}
-                                onValueChange={setPeriodYear}
-                            >
-                                <SelectTrigger className="border-border bg-background">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {yearOptions.map((year) => (
-                                        <SelectItem
-                                            key={year}
-                                            value={String(year)}
-                                        >
-                                            {year}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                onChange={(e) => setPeriodYear(e.target.value)}
+                                placeholder="e.g. 2026"
+                                className="border-border bg-background"
+                            />
                         </div>
-                        <div className="space-y-2">
-                            <Label>Period Status</Label>
-                            <Select
-                                value={periodOpen ? 'open' : 'closed'}
-                                onValueChange={(value) =>
-                                    setPeriodOpen(value === 'open')
-                                }
-                            >
-                                <SelectTrigger className="border-border bg-background">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="open">Open</SelectItem>
-                                    <SelectItem value="closed">
-                                        Closed
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                        <div className="flex md:justify-end">
-                            <Button
-                                type="button"
-                                variant={periodOpen ? 'default' : 'outline'}
-                                className={cn(
-                                    'w-full gap-2 md:w-auto',
-                                    periodOpen
-                                        ? 'bg-[#8CC37C] text-[#10241b] hover:bg-[#7fb76e] dark:bg-[#9ac68e] dark:text-[#10241b] dark:hover:bg-[#8cbf7c]'
-                                        : 'border-border bg-background text-foreground hover:bg-muted',
-                                )}
-                                disabled={!periodYear.trim()}
-                                onClick={() => {
-                                    router.post('/admin/ipcr/period', {
-                                        label: submissionPeriodLabel(
-                                            periodSemester,
-                                            periodYear,
-                                        ),
-                                        year: Number(periodYear),
-                                        is_open: periodOpen,
-                                });
-                            }}
-                        >
-                            <Send className="size-4" />
-                            {periodActionLabel}
-                        </Button>
+                        <div className="flex items-center gap-3 pb-0.5">
+                            <Switch
+                                id="period-status"
+                                checked={currentPeriod?.isOpen ?? false}
+                                onCheckedChange={(checked) => {
+                                    setSavingPeriod(true);
+                                    setPeriodOpen(checked);
+                                    router.post(
+                                        '/admin/ipcr/period',
+                                        {
+                                            label: submissionPeriodLabel(periodSemester, periodYear),
+                                            year: Number(periodYear),
+                                            is_open: checked,
+                                        },
+                                        { preserveScroll: true, onFinish: () => setSavingPeriod(false) },
+                                    );
+                                }}
+                                disabled={savingPeriod || !periodYear.trim()}
+                            />
+                            <Label htmlFor="period-status" className="cursor-pointer select-none">
+                                {savingPeriod ? 'Saving…' : (currentPeriod?.isOpen ? 'Open' : 'Closed')}
+                            </Label>
                         </div>
                     </div>
                 </CardContent>
@@ -1206,54 +1271,129 @@ function HrOverview({
 
             <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
                 <CardHeader className="border-b border-border bg-card">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <CardTitle className="text-lg">{queueTitle}</CardTitle>
-                            <CardDescription className="mt-1">
-                                {queueDescription}
-                            </CardDescription>
-                        </div>
-                        <div className="flex gap-2">
-                            <Button
-                                type="button"
-                                variant={isReviewView ? 'default' : 'outline'}
-                                size="sm"
-                                className={cn(
-                                    isReviewView &&
-                                        'bg-[#8CC37C] text-[#10241b] hover:bg-[#7fb76e] dark:bg-[#9ac68e] dark:text-[#10241b] dark:hover:bg-[#8cbf7c]',
-                                )}
-                                onClick={() => setView('review')}
-                            >
-                                <FileSpreadsheet className="size-4" />
-                                Review
-                            </Button>
-                            <Button
-                                type="button"
-                                variant={isReviewView ? 'outline' : 'default'}
-                                size="sm"
-                                className={cn(
-                                    !isReviewView &&
-                                        'bg-[#8CC37C] text-[#10241b] hover:bg-[#7fb76e] dark:bg-[#9ac68e] dark:text-[#10241b] dark:hover:bg-[#8cbf7c]',
-                                )}
-                                onClick={() => setView('finalization')}
-                            >
-                                <FileCheck2 className="size-4" />
-                                Finalized
-                            </Button>
-                        </div>
-                    </div>
+                    <CardTitle className="text-lg">IPCR Submission Periods</CardTitle>
+                    <CardDescription className="mt-1">
+                        Select a period to review or finalize employee IPCR submissions.
+                    </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className={tableHeaderClasses}>
+                                <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                    <th>Semester</th>
+                                    <th>Year</th>
+                                    <th>In Review</th>
+                                    <th>Finalized</th>
+                                    <th className="!text-center">View</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {uniquePeriods.map((period, index) => {
+                                    const inReview = (hrPanel?.reviewQueue ?? []).filter(
+                                        (s) => (s.form_payload.metadata.period ?? '') === period.key,
+                                    ).length;
+                                    const finalized = (hrPanel?.finalizationQueue ?? []).filter(
+                                        (s) => (s.form_payload.metadata.period ?? '') === period.key,
+                                    ).length;
+                                    return (
+                                        <tr
+                                            key={period.key}
+                                            className={cn(
+                                                'text-sm font-semibold text-foreground',
+                                                stripedTableRows[index % 2],
+                                            )}
+                                        >
+                                            <td className="px-4 py-3">
+                                                {period.semester === '1'
+                                                    ? 'First Semester (Jan–Jun)'
+                                                    : 'Second Semester (Jul–Dec)'}
+                                            </td>
+                                            <td className="px-4 py-3">{period.year}</td>
+                                            <td className="px-4 py-3">{inReview}</td>
+                                            <td className="px-4 py-3">{finalized}</td>
+                                            <td className="px-4 py-3 text-center">
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => setSelectedPeriodKey(period.key)}
+                                                >
+                                                    View
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {uniquePeriods.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={5}
+                                            className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                        >
+                                            No IPCR submissions found.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Dialog
+                open={selectedPeriodKey !== null}
+                onOpenChange={(open) => !open && setSelectedPeriodKey(null)}
+            >
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {selectedPeriod?.semester === '1'
+                                ? 'First Semester (Jan–Jun)'
+                                : 'Second Semester (Jul–Dec)'}{' '}
+                            {selectedPeriod?.year}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Review or finalize employee IPCR submissions for this period.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex gap-2">
+                        <Button
+                            type="button"
+                            variant={isReviewView ? 'default' : 'outline'}
+                            size="sm"
+                            className={cn(
+                                isReviewView &&
+                                    'bg-[#8CC37C] text-[#10241b] hover:bg-[#7fb76e] dark:bg-[#9ac68e] dark:text-[#10241b] dark:hover:bg-[#8cbf7c]',
+                            )}
+                            onClick={() => setView('review')}
+                        >
+                            <FileSpreadsheet className="size-4" />
+                            Review
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={isReviewView ? 'outline' : 'default'}
+                            size="sm"
+                            className={cn(
+                                !isReviewView &&
+                                    'bg-[#8CC37C] text-[#10241b] hover:bg-[#7fb76e] dark:bg-[#9ac68e] dark:text-[#10241b] dark:hover:bg-[#8cbf7c]',
+                            )}
+                            onClick={() => setView('finalization')}
+                        >
+                            <FileCheck2 className="size-4" />
+                            Finalized
+                        </Button>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
                                     <th>Employee</th>
                                     <th>Status</th>
                                     <th>Stage</th>
                                     <th>Rating</th>
-                                    <th className="text-right">Target</th>
-                                    <th className="text-right">Action</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1272,8 +1412,7 @@ function HrOverview({
                                                         submission.employee_id}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {submission.employee
-                                                        ?.job_title ??
+                                                    {submission.employee?.job_title ??
                                                         'Administrative Office'}
                                                 </p>
                                             </div>
@@ -1285,54 +1424,26 @@ function HrOverview({
                                             {stageLabel(submission.stage)}
                                         </td>
                                         <td className="px-4 py-3">
-                                            {finalDisplayRating(
-                                                submission,
-                                            )?.toFixed(2) ?? 'Pending'}
+                                            {finalDisplayRating(submission)?.toFixed(2) ?? 'Pending'}
                                         </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <Button
-                                                asChild
-                                                type="button"
-                                                size="sm"
-                                                variant="outline"
-                                            >
-                                                <Link
-                                                    href={reviewerTargetUrl(
-                                                        submission.employee_id,
-                                                        isReviewView
-                                                            ? 'hr-review'
-                                                            : 'hr-finalize',
-                                                        submission.id,
-                                                    )}
-                                                >
-                                                    Open Target
-                                                </Link>
-                                            </Button>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <div className="flex flex-wrap justify-end gap-2">
+                                        <td className="px-4 py-3">
+                                            <div className="flex flex-wrap gap-2">
                                                 <Button
                                                     type="button"
                                                     size="sm"
                                                     onClick={() => {
                                                         if (isReviewView) {
-                                                            setSelectedReview(
-                                                                submission,
-                                                            );
+                                                            setSelectedReview(submission);
                                                         } else {
-                                                            setSelectedFinalize(
-                                                                submission,
-                                                            );
+                                                            setSelectedFinalize(submission);
                                                         }
                                                     }}
                                                 >
                                                     {isReviewView
-                                                        ? submission.stage ===
-                                                          'sent_to_hr'
+                                                        ? submission.stage === 'sent_to_hr'
                                                             ? queueButtonLabel
                                                             : 'View Review'
-                                                        : submission.stage ===
-                                                            'sent_to_hr_finalize'
+                                                        : submission.stage === 'sent_to_hr_finalize'
                                                           ? queueButtonLabel
                                                           : 'View Finalization'}
                                                 </Button>
@@ -1343,18 +1454,14 @@ function HrOverview({
                                                         size="sm"
                                                         className="gap-2"
                                                         disabled={
-                                                            notifyingTrainingSubmissionId ===
-                                                            submission.id
+                                                            notifyingTrainingSubmissionId === submission.id
                                                         }
                                                         onClick={() =>
-                                                            notifyTrainingSuggestions(
-                                                                submission.id,
-                                                            )
+                                                            notifyTrainingSuggestions(submission.id)
                                                         }
                                                     >
                                                         <Megaphone className="size-4" />
-                                                        {notifyingTrainingSubmissionId ===
-                                                        submission.id
+                                                        {notifyingTrainingSubmissionId === submission.id
                                                             ? 'Sending...'
                                                             : 'Notify Training'}
                                                     </Button>
@@ -1366,7 +1473,7 @@ function HrOverview({
                                 {reviewRows.length === 0 && (
                                     <tr>
                                         <td
-                                            colSpan={6}
+                                            colSpan={5}
                                             className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
                                         >
                                             {queueEmptyMessage}
@@ -1376,8 +1483,13 @@ function HrOverview({
                             </tbody>
                         </table>
                     </div>
-                </CardContent>
-            </Card>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSelectedPeriodKey(null)}>
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog
                 open={selectedReview !== null}
@@ -1598,6 +1710,7 @@ function HrOverview({
 }
 
 function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
+    const [selectedPeriodKey, setSelectedPeriodKey] = useState<string | null>(null);
     const [selectedSubmission, setSelectedSubmission] =
         useState<IpcrSubmission | null>(null);
     const [decision, setDecision] = useState<'approved' | 'rejected' | ''>('');
@@ -1611,6 +1724,25 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
             });
         }
     }, [selectedSubmission]);
+
+    const allSubmissions = pmtPanel?.submissions ?? [];
+
+    const uniquePeriods = Array.from(
+        new Map(
+            allSubmissions.map((s) => {
+                const period = s.form_payload.metadata.period ?? '';
+                const isS2 = period.includes('July to December');
+                const year = period.replace('January to June ', '').replace('July to December ', '').trim();
+                return [period, { key: period, semester: isS2 ? '2' : '1', year }] as const;
+            }),
+        ).values(),
+    ).sort((a, b) => Number(b.year) - Number(a.year) || Number(b.semester) - Number(a.semester));
+
+    const selectedPeriod = uniquePeriods.find((p) => p.key === selectedPeriodKey) ?? null;
+
+    const periodRows = allSubmissions.filter((s) =>
+        selectedPeriod ? (s.form_payload.metadata.period ?? '') === selectedPeriod.key : true,
+    );
 
     return (
         <div className="space-y-6">
@@ -1647,90 +1779,161 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                         />
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="glass-card overflow-x-auto rounded-md border border-border bg-card shadow-sm">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className={tableHeaderClasses}>
-                                    <TableHead>Employee</TableHead>
-                                    <TableHead>Appeal</TableHead>
-                                    <TableHead>Stage</TableHead>
-                                    <TableHead>Rating</TableHead>
-                                    <TableHead className="text-right">
-                                        Target
-                                    </TableHead>
-                                    <TableHead className="text-right">
-                                        Action
-                                    </TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {(pmtPanel?.submissions ?? []).map(
-                                    (submission, index) => (
-                                        <TableRow
-                                            key={submission.id}
+            </Card>
+
+            <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
+                <CardHeader className="border-b border-border bg-card">
+                    <CardTitle>Submission Periods</CardTitle>
+                    <CardDescription className="mt-1">
+                        Select a period to review employee IPCR submissions.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                    <th>Semester</th>
+                                    <th>Year</th>
+                                    <th>Pending Review</th>
+                                    <th className="!text-center">View</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {uniquePeriods.map((period, index) => {
+                                    const pending = allSubmissions.filter(
+                                        (s) => (s.form_payload.metadata.period ?? '') === period.key,
+                                    ).length;
+                                    return (
+                                        <tr
+                                            key={period.key}
                                             className={cn(
                                                 'text-sm font-semibold text-foreground',
                                                 stripedTableRows[index % 2],
                                             )}
                                         >
-                                            <TableCell>
-                                                {submission.employee?.name ??
-                                                    submission.employee_id}
-                                            </TableCell>
-                                            <TableCell>
-                                                {submission.appeal_status ===
-                                                'appealed'
-                                                    ? 'Appealed'
-                                                    : 'No Appeal'}
-                                            </TableCell>
-                                            <TableCell>
-                                                {stageLabel(submission.stage)}
-                                            </TableCell>
-                                            <TableCell>
-                                                {submission.performance_rating?.toFixed(
-                                                    2,
-                                                ) ?? 'Pending'}
-                                            </TableCell>
-                                            <TableCell className="text-right">
+                                            <td className="px-4 py-3">
+                                                {period.semester === '1'
+                                                    ? 'First Semester (Jan–Jun)'
+                                                    : 'Second Semester (Jul–Dec)'}
+                                            </td>
+                                            <td className="px-4 py-3">{period.year}</td>
+                                            <td className="px-4 py-3">
+                                                <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                                                    {pending} pending
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
                                                 <Button
-                                                    asChild
                                                     type="button"
                                                     size="sm"
                                                     variant="outline"
+                                                    onClick={() => setSelectedPeriodKey(period.key)}
                                                 >
-                                                    <Link
-                                                        href={reviewerTargetUrl(
-                                                            submission.employee_id,
-                                                            'pmt',
-                                                            submission.id,
-                                                        )}
-                                                    >
-                                                        Open Target
-                                                    </Link>
+                                                    View
                                                 </Button>
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={() =>
-                                                        setSelectedSubmission(
-                                                            submission,
-                                                        )
-                                                    }
-                                                >
-                                                    Open Review
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ),
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {uniquePeriods.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={4}
+                                            className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                        >
+                                            No IPCR submissions pending PMT review.
+                                        </td>
+                                    </tr>
                                 )}
-                            </TableBody>
-                        </Table>
+                            </tbody>
+                        </table>
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Period submissions dialog */}
+            <Dialog
+                open={selectedPeriodKey !== null}
+                onOpenChange={(open) => !open && setSelectedPeriodKey(null)}
+            >
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
+                    <DialogHeader>
+                        <DialogTitle>
+                            {selectedPeriod?.semester === '1'
+                                ? 'First Semester (Jan–Jun)'
+                                : 'Second Semester (Jul–Dec)'}{' '}
+                            {selectedPeriod?.year}
+                        </DialogTitle>
+                        <DialogDescription>
+                            Review employee IPCR submissions for this period.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                    <th>Employee</th>
+                                    <th>Appeal</th>
+                                    <th>Stage</th>
+                                    <th>Rating</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {periodRows.map((submission, index) => (
+                                    <tr
+                                        key={submission.id}
+                                        className={cn(
+                                            'text-sm font-semibold text-foreground',
+                                            stripedTableRows[index % 2],
+                                        )}
+                                    >
+                                        <td className="px-4 py-3">
+                                            {submission.employee?.name ?? submission.employee_id}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {submission.appeal_status === 'appealed'
+                                                ? 'Appealed'
+                                                : 'No Appeal'}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {stageLabel(submission.stage)}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            {submission.performance_rating?.toFixed(2) ?? 'Pending'}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                onClick={() => setSelectedSubmission(submission)}
+                                            >
+                                                Open Review
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                ))}
+                                {periodRows.length === 0 && (
+                                    <tr>
+                                        <td
+                                            colSpan={5}
+                                            className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                        >
+                                            No submissions for this period.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSelectedPeriodKey(null)}>
+                            Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog
                 open={selectedSubmission !== null}

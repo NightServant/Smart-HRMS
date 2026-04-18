@@ -39,6 +39,9 @@ export default function IpcrFormPage() {
         : latestSubmission
           ? `/ipcr/print?submission_id=${latestSubmission.id}`
           : '/ipcr/print';
+    const canPrint =
+        (selectedSubmission?.stage === 'finalized') ||
+        (latestSubmission?.stage === 'finalized');
 
     return (
         <AppHeaderLayout>
@@ -57,20 +60,22 @@ export default function IpcrFormPage() {
                                 <ArrowLeft className="size-4" />
                                 Back to Performance Evaluation
                             </Link>
-                            <Button
-                                asChild
-                                variant="outline"
-                                className="rounded-full"
-                            >
-                                <a
-                                    href={printableUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
+                            {canPrint && (
+                                <Button
+                                    asChild
+                                    variant="outline"
+                                    className="rounded-full"
                                 >
-                                    <Printer className="size-4" />
-                                    Open Printable PDF View
-                                </a>
-                            </Button>
+                                    <a
+                                        href={printableUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                    >
+                                        <Printer className="size-4" />
+                                        Open Printable PDF View
+                                    </a>
+                                </Button>
+                            )}
                         </>
                     }
                 />

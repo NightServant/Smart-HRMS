@@ -299,7 +299,10 @@ export default function IpcrTargetFormPage() {
 
     const isSubmitted = existingTarget?.status === 'submitted' && !isReturned;
     const hasDraft = existingTarget?.status === 'draft';
-    const canEditTargetForm = hasDraft || isReturned || targetPeriod.submissionOpen;
+    const deadlinePassed =
+        targetPeriod.deadlineAt !== null &&
+        new Date() > new Date(targetPeriod.deadlineAt);
+    const canEditTargetForm = !deadlinePassed && (hasDraft || isReturned || targetPeriod.submissionOpen);
     const targetStatusLabel = isSubmitted
         ? 'Submitted'
         : isReturned
@@ -651,13 +654,11 @@ export default function IpcrTargetFormPage() {
                                             </p>
                                         </div>
                                     </div>
-                                    {!canEditTargetForm && !hasDraft ? (
-                                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
-                                            The target form is closed right now.
-                                            You can preview the workspace below,
-                                            but saving and submitting stay
-                                            disabled until HR opens the target
-                                            window.
+                                    {(!canEditTargetForm && !hasDraft) || deadlinePassed ? (
+                                        <div className={`rounded-2xl border px-4 py-3 text-sm ${deadlinePassed ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200' : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200'}`}>
+                                            {deadlinePassed
+                                                ? `The 15-day submission window has closed. Saving and submitting are disabled.`
+                                                : 'The target form is closed right now. You can preview the workspace below, but saving and submitting stay disabled until HR opens the target window.'}
                                         </div>
                                     ) : null}
                                 </div>

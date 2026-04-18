@@ -99,12 +99,23 @@ export default function HrReview({
 }: {
     submissions: PaginatedSubmissions;
 }) {
+    const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
     const [selected, setSelected] = useState<IpcrSubmission | null>(null);
-    const [decision, setDecision] = useState<'correct' | 'incorrect' | null>(
-        null,
-    );
+    const [decision, setDecision] = useState<'correct' | 'incorrect' | null>(null);
     const [remarks, setRemarks] = useState('');
     const [processing, setProcessing] = useState(false);
+
+    const periodGroups = submissions.data.reduce<Record<string, IpcrSubmission[]>>(
+        (acc, sub) => {
+            const key = sub.form_payload.metadata.period ?? 'Unknown Period';
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(sub);
+            return acc;
+        },
+        {},
+    );
+    const periods = Object.keys(periodGroups);
+    const periodRows = selectedPeriod ? (periodGroups[selectedPeriod] ?? []) : [];
 
     function handleSubmit(): void {
         if (!selected || !decision) {
@@ -172,70 +183,40 @@ export default function HrReview({
 
                 <Card className="glass-card overflow-hidden border border-border bg-card shadow-sm">
                     <CardHeader className="border-b border-border bg-card">
-                        <CardTitle>Submissions Awaiting HR Review</CardTitle>
+                        <CardTitle>Review Periods</CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:border-r [&_th]:border-white/10 [&_th]:text-white">
-                                        <TableHead>Employee</TableHead>
-                                        <TableHead>Position</TableHead>
-                                        <TableHead>Rating</TableHead>
-                                        <TableHead>Evaluator</TableHead>
-                                        <TableHead>Cycle</TableHead>
-                                        <TableHead className="text-center">Action</TableHead>
+                                        <TableHead>Period</TableHead>
+                                        <TableHead>Review Queue</TableHead>
+                                        <TableHead className="text-center">View</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {submissions.data.map((submission, index) => (
+                                    {periods.map((period, index) => (
                                         <TableRow
-                                            key={submission.id}
-                                            className={index % 2 === 0
-                                                ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80'
-                                                : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
+                                            key={period}
+                                            className={index % 2 === 0 ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80' : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
                                         >
-                                            <TableCell className="font-medium">
-                                                <div className="flex items-center gap-2">
-                                                    {submission.employee?.name ?? submission.employee_id}
-                                                    {submission.is_escalated && (
-                                                        <Badge className="bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300">
-                                                            Escalated
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>{submission.employee?.job_title ?? '—'}</TableCell>
-                                            <TableCell>{submission.performance_rating?.toFixed(2) ?? '—'}</TableCell>
-                                            <TableCell>{submission.evaluator?.name ?? '—'}</TableCell>
-                                            <TableCell>
-                                                {submission.hr_cycle_count > 0 ? (
-                                                    <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                                                        Return ×{submission.hr_cycle_count}
-                                                    </Badge>
-                                                ) : '—'}
-                                            </TableCell>
+                                            <TableCell className="font-medium">{period}</TableCell>
+                                            <TableCell>{periodGroups[period].length}</TableCell>
                                             <TableCell className="text-center">
                                                 <Button
                                                     size="sm"
                                                     variant="outline"
-                                                    onClick={() => {
-                                                        setSelected(submission);
-                                                        setDecision(null);
-                                                        setRemarks(submission.hr_remarks ?? '');
-                                                    }}
+                                                    onClick={() => setSelectedPeriod(period)}
                                                 >
-                                                    Review
+                                                    View
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
-                                    {submissions.data.length === 0 && (
+                                    {periods.length === 0 && (
                                         <TableRow>
-                                            <TableCell
-                                                colSpan={6}
-                                                className="bg-[#DDEFD7] py-8 text-center text-muted-foreground dark:bg-[#345A34]/80"
-                                            >
+                                            <TableCell colSpan={3} className="bg-[#DDEFD7] py-8 text-center text-muted-foreground dark:bg-[#345A34]/80">
                                                 No submissions awaiting HR review.
                                             </TableCell>
                                         </TableRow>
@@ -246,6 +227,87 @@ export default function HrReview({
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Period Submissions Dialog */}
+            <Dialog
+                open={selectedPeriod !== null}
+                onOpenChange={(open) => !open && setSelectedPeriod(null)}
+            >
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
+                    <DialogHeader>
+                        <DialogTitle>HR Review — {selectedPeriod}</DialogTitle>
+                        <DialogDescription>
+                            {periodRows.length} submission{periodRows.length === 1 ? '' : 's'} awaiting HR review for this period.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:border-r [&_th]:border-white/10 [&_th]:text-white">
+                                    <TableHead>Employee</TableHead>
+                                    <TableHead>Position</TableHead>
+                                    <TableHead>Rating</TableHead>
+                                    <TableHead>Evaluator</TableHead>
+                                    <TableHead>Cycle</TableHead>
+                                    <TableHead className="text-center">Action</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {periodRows.map((submission, index) => (
+                                    <TableRow
+                                        key={submission.id}
+                                        className={index % 2 === 0 ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80' : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
+                                    >
+                                        <TableCell className="font-medium">
+                                            <div className="flex items-center gap-2">
+                                                {submission.employee?.name ?? submission.employee_id}
+                                                {submission.is_escalated && (
+                                                    <Badge className="bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300">
+                                                        Escalated
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>{submission.employee?.job_title ?? '—'}</TableCell>
+                                        <TableCell>{submission.performance_rating?.toFixed(2) ?? '—'}</TableCell>
+                                        <TableCell>{submission.evaluator?.name ?? '—'}</TableCell>
+                                        <TableCell>
+                                            {submission.hr_cycle_count > 0 ? (
+                                                <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                                                    Return ×{submission.hr_cycle_count}
+                                                </Badge>
+                                            ) : '—'}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setSelected(submission);
+                                                    setDecision(null);
+                                                    setRemarks(submission.hr_remarks ?? '');
+                                                }}
+                                            >
+                                                Review
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {periodRows.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="bg-[#DDEFD7] py-8 text-center text-muted-foreground dark:bg-[#345A34]/80">
+                                            No submissions for this period.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSelectedPeriod(null)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog
                 open={selected !== null}

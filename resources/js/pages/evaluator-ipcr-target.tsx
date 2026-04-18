@@ -1,4 +1,4 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import {
     CheckCircle2,
     Clock3,
@@ -53,7 +53,6 @@ type EmployeeRow = {
     name: string;
     job_title: string;
     target: IpcrTarget | null;
-    target_review_url: string;
 };
 
 type Stats = {
@@ -174,6 +173,7 @@ function StatCard({
 export default function EvaluatorIpcrTarget() {
     const { targetPeriod, employees, stats } = usePage<PageProps>().props;
 
+    const [showList, setShowList] = useState(false);
     const [selected, setSelected] = useState<EmployeeRow | null>(null);
     const [decision, setDecision] = useState<'approved' | 'rejected' | ''>('');
     const [remarks, setRemarks] = useState('');
@@ -286,112 +286,140 @@ export default function EvaluatorIpcrTarget() {
 
                 <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
                     <CardHeader className="border-b border-border bg-card">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <CardTitle>Employee IPCR Targets</CardTitle>
-                                <CardDescription className="mt-1">
-                                    Open the target snapshot or complete your
-                                    evaluator review for the selected employee.
-                                </CardDescription>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Select
-                                    value={statusFilter}
-                                    onValueChange={(v) => setStatusFilter(v as StatusFilter)}
-                                >
-                                    <SelectTrigger className="w-44">
-                                        <SelectValue placeholder="Filter by status" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All</SelectItem>
-                                        <SelectItem value="not_set">Not Set</SelectItem>
-                                        <SelectItem value="pending">Pending Review</SelectItem>
-                                        <SelectItem value="approved">Approved</SelectItem>
-                                        <SelectItem value="returned">Returned</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <Badge variant="outline" className="shrink-0">
-                                    {filteredEmployees.length} Employee
-                                    {filteredEmployees.length === 1 ? '' : 's'}
-                                </Badge>
-                            </div>
-                        </div>
+                        <CardTitle>Target Periods</CardTitle>
+                        <CardDescription className="mt-1">
+                            Select a period to view employee targets and submit your evaluator review.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:border-r [&_th]:border-white/10 [&_th]:text-white">
-                                        <TableHead>Employee ID</TableHead>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Position</TableHead>
-                                        <TableHead>Target Status</TableHead>
-                                        <TableHead>Submitted</TableHead>
-                                        <TableHead className="text-center">Open Target</TableHead>
-                                        <TableHead className="text-center">Action</TableHead>
+                                        <TableHead>Semester</TableHead>
+                                        <TableHead>Year</TableHead>
+                                        <TableHead>Pending</TableHead>
+                                        <TableHead className="text-center">View</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredEmployees.map((row, index) => (
-                                        <TableRow
-                                            key={row.employee_id}
-                                            className={index % 2 === 0
-                                                ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80'
-                                                : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
-                                        >
-                                            <TableCell>{row.employee_id}</TableCell>
-                                            <TableCell className="font-medium">{row.name}</TableCell>
-                                            <TableCell className="text-muted-foreground">{row.job_title}</TableCell>
-                                            <TableCell>{targetStatusBadge(row.target)}</TableCell>
-                                            <TableCell className="text-muted-foreground">
-                                                {row.target?.submitted_at
-                                                    ? new Date(row.target.submitted_at).toLocaleDateString()
-                                                    : '—'}
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                {row.target ? (
-                                                    <Button asChild size="sm" variant="outline">
-                                                        <Link href={row.target_review_url}>
-                                                            Open Target
-                                                        </Link>
-                                                    </Button>
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground">—</span>
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                {canReview(row) ? (
-                                                    <Button size="sm" onClick={() => openReview(row)}>
-                                                        Review
-                                                    </Button>
-                                                ) : row.target ? (
-                                                    <Button size="sm" variant="outline" onClick={() => openReview(row)}>
-                                                        View
-                                                    </Button>
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground">—</span>
-                                                )}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {filteredEmployees.length === 0 && (
-                                        <TableRow>
-                                            <TableCell
-                                                colSpan={7}
-                                                className="bg-[#DDEFD7] py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
-                                            >
-                                                {employees.length === 0
-                                                    ? 'No employees are assigned to you as supervisor.'
-                                                    : 'No employees match the selected filter.'}
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
+                                    <TableRow className="bg-[#DDEFD7] dark:bg-[#345A34]/80">
+                                        <TableCell>
+                                            {targetPeriod.semester === 1 ? 'First Semester' : 'Second Semester'}
+                                        </TableCell>
+                                        <TableCell>{targetPeriod.year}</TableCell>
+                                        <TableCell>
+                                            <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                                                {stats.pending} pending
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <Button size="sm" onClick={() => setShowList(true)}>
+                                                View Employees
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
                                 </TableBody>
                             </Table>
                         </div>
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Employee List Dialog */}
+            <Dialog open={showList} onOpenChange={setShowList}>
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
+                    <DialogHeader>
+                        <DialogTitle>Employee IPCR Targets</DialogTitle>
+                        <DialogDescription>
+                            {semesterLabel(targetPeriod.semester, targetPeriod.year)} — review and approve or return employee targets.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex items-center gap-2 py-1">
+                        <Select
+                            value={statusFilter}
+                            onValueChange={(v) => setStatusFilter(v as StatusFilter)}
+                        >
+                            <SelectTrigger className="w-44">
+                                <SelectValue placeholder="Filter by status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All</SelectItem>
+                                <SelectItem value="not_set">Not Set</SelectItem>
+                                <SelectItem value="pending">Pending Review</SelectItem>
+                                <SelectItem value="approved">Approved</SelectItem>
+                                <SelectItem value="returned">Returned</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Badge variant="outline" className="shrink-0">
+                            {filteredEmployees.length} Employee
+                            {filteredEmployees.length === 1 ? '' : 's'}
+                        </Badge>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:border-r [&_th]:border-white/10 [&_th]:text-white">
+                                    <TableHead>Employee ID</TableHead>
+                                    <TableHead>Name</TableHead>
+                                    <TableHead>Position</TableHead>
+                                    <TableHead>Target Status</TableHead>
+                                    <TableHead>Submitted</TableHead>
+                                    <TableHead className="text-center">View</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredEmployees.map((row, index) => (
+                                    <TableRow
+                                        key={row.employee_id}
+                                        className={index % 2 === 0
+                                            ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80'
+                                            : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
+                                    >
+                                        <TableCell>{row.employee_id}</TableCell>
+                                        <TableCell className="font-medium">{row.name}</TableCell>
+                                        <TableCell className="text-muted-foreground">{row.job_title}</TableCell>
+                                        <TableCell>{targetStatusBadge(row.target)}</TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            {row.target?.submitted_at
+                                                ? new Date(row.target.submitted_at).toLocaleDateString()
+                                                : '—'}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            {canReview(row) ? (
+                                                <Button size="sm" onClick={() => openReview(row)}>
+                                                    Review
+                                                </Button>
+                                            ) : row.target ? (
+                                                <Button size="sm" variant="outline" onClick={() => openReview(row)}>
+                                                    View
+                                                </Button>
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground">—</span>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {filteredEmployees.length === 0 && (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={6}
+                                            className="bg-[#DDEFD7] py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                        >
+                                            {employees.length === 0
+                                                ? 'No employees are assigned to you as supervisor.'
+                                                : 'No employees match the selected filter.'}
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowList(false)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Review / View Dialog */}
             <Dialog

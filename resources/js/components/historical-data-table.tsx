@@ -96,17 +96,23 @@ export function HistoricalDataTable({
     sort,
     direction,
     pagination,
+    year,
 }: {
     historicalData: HistoricalData[];
     search: string;
     sort: HistoricalSortKey;
     direction: SortDirection;
     pagination: PaginationMeta;
+    year?: number | null;
 }) {
     const [searchTerm, setSearchTerm] = useState(search);
+    const [selectedYear, setSelectedYear] = useState(year ? String(year) : 'all');
     const [isImporting, setIsImporting] = useState(false);
     const [isClearing, setIsClearing] = useState(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    const currentYear = new Date().getFullYear();
+    const yearOptions = Array.from({ length: 8 }, (_, i) => currentYear - i);
 
     const visitHistoricalDataTable = (params: {
         search?: string;
@@ -114,7 +120,9 @@ export function HistoricalDataTable({
         perPage?: number;
         sort?: HistoricalSortKey;
         direction?: SortDirection;
+        year?: string;
     }): void => {
+        const yearParam = params.year ?? selectedYear;
         router.get(
             admin.historicalData().url,
             {
@@ -123,14 +131,20 @@ export function HistoricalDataTable({
                 perPage: params.perPage ?? pagination.perPage,
                 sort: params.sort ?? sort,
                 direction: params.direction ?? direction,
+                ...(yearParam !== 'all' ? { year: yearParam } : {}),
             },
             {
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ["historicalData", "search", "sort", "direction", "pagination"],
+                only: ["historicalData", "search", "sort", "direction", "pagination", "year"],
             }
         );
+    };
+
+    const handleYearChange = (value: string): void => {
+        setSelectedYear(value);
+        visitHistoricalDataTable({ year: value, page: 1 });
     };
 
     const renderSortIcon = (column: HistoricalSortKey) => {
@@ -306,18 +320,33 @@ export function HistoricalDataTable({
             </div>
             <div className="glass-card animate-zoom-in-soft mx-auto w-full rounded-md border border-border bg-card p-4 shadow-sm">
                 <div className="flex w-full items-center justify-between gap-4 py-6">
-                    <div className="animate-fade-in-left relative w-full max-w-sm">
-                        <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-                        <Input
-                            type="text"
-                            placeholder="Search historical data..."
-                            name="search"
-                            value={searchTerm}
-                            onChange={(event) => {
-                                handleSearchChange(event.target.value);
-                            }}
-                            className="bg-card px-4 py-2 pl-9"
-                        />
+                    <div className="flex items-center gap-2">
+                        <div className="animate-fade-in-left relative w-full max-w-sm">
+                            <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+                            <Input
+                                type="text"
+                                placeholder="Search historical data..."
+                                name="search"
+                                value={searchTerm}
+                                onChange={(event) => {
+                                    handleSearchChange(event.target.value);
+                                }}
+                                className="bg-card px-4 py-2 pl-9"
+                            />
+                        </div>
+                        <Select value={selectedYear} onValueChange={handleYearChange}>
+                            <SelectTrigger className="w-64 bg-card">
+                                <SelectValue placeholder="All years" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    <SelectItem value="all">All years</SelectItem>
+                                    {yearOptions.map((y) => (
+                                        <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                                    ))}
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="flex flex-row animate-fade-in-right items-center gap-2">
                         <input

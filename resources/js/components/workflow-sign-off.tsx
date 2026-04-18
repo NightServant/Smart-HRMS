@@ -59,9 +59,6 @@ export default function WorkflowSignOff({
                         </div>
                         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                             <p className="text-xs text-slate-600 dark:text-slate-300">
-                                Signature line
-                            </p>
-                            <p className="text-xs text-slate-600 dark:text-slate-300">
                                 {readOnlyValue(slot.date)}
                             </p>
                         </div>

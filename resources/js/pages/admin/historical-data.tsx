@@ -50,18 +50,20 @@ export default function HistoricalData({
     sort,
     direction,
     pagination,
+    year,
 }: {
     historicalData: HistoricalDataRecord[];
     search: string;
     sort: HistoricalSortKey;
     direction: "asc" | "desc";
     pagination: PaginationMeta;
+    year: number | null;
 }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Historical Data" />
             <div className="flex w-full flex-col gap-6 p-4 md:p-6 xl:p-8 lg:items-stretch">
-                <HistoricalDataTable historicalData={historicalData} search={search} sort={sort} direction={direction} pagination={pagination} />
+                <HistoricalDataTable historicalData={historicalData} search={search} sort={sort} direction={direction} pagination={pagination} year={year} />
             </div>
         </AppLayout>
     );

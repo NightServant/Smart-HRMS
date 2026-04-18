@@ -90,12 +90,23 @@ export default function PmtReview({
 }: {
     submissions: PaginatedSubmissions;
 }) {
+    const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
     const [selected, setSelected] = useState<IpcrSubmission | null>(null);
-    const [decision, setDecision] = useState<'approved' | 'rejected' | null>(
-        null,
-    );
+    const [decision, setDecision] = useState<'approved' | 'rejected' | null>(null);
     const [remarks, setRemarks] = useState('');
     const [processing, setProcessing] = useState(false);
+
+    const periodGroups = submissions.data.reduce<Record<string, IpcrSubmission[]>>(
+        (acc, sub) => {
+            const key = sub.form_payload.metadata.period ?? 'Unknown Period';
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(sub);
+            return acc;
+        },
+        {},
+    );
+    const periods = Object.keys(periodGroups);
+    const periodRows = selectedPeriod ? (periodGroups[selectedPeriod] ?? []) : [];
 
     function handleSubmit(): void {
         if (!selected || !decision) {
@@ -168,68 +179,39 @@ export default function PmtReview({
 
                 <Card className="glass-card overflow-hidden border border-border bg-card shadow-sm">
                     <CardHeader className="border-b border-border bg-card">
-                        <CardTitle>Submissions Awaiting PMT Review</CardTitle>
+                        <CardTitle>Review Periods</CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
-                                    <th>Employee</th>
-                                    <th>Rating</th>
-                                    <th>Appeal Status</th>
-                                    <th>Cycle</th>
-                                    <th className="text-center">Action</th>
+                                    <th>Period</th>
+                                    <th>Submissions</th>
+                                    <th className="!text-center">View</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {submissions.data.map((submission, index) => (
+                                {periods.map((period, index) => (
                                     <tr
-                                        key={submission.id}
-                                        className={
-                                            index % 2 === 0
-                                                ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80'
-                                                : 'bg-[#BFDDB5] dark:bg-[#274827]/80'
-                                        }
+                                        key={period}
+                                        className={index % 2 === 0 ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80' : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
                                     >
-                                        <td className="px-4 py-3 font-medium">
-                                            {submission.employee?.name ??
-                                                submission.employee_id}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {submission.performance_rating?.toFixed(
-                                                2,
-                                            ) ?? '—'}
-                                        </td>
-                                        <td className="px-4 py-3 capitalize">
-                                            {submission.appeal_status ?? '—'}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {submission.pmt_cycle_count}
-                                        </td>
+                                        <td className="px-4 py-3 font-medium">{period}</td>
+                                        <td className="px-4 py-3">{periodGroups[period].length}</td>
                                         <td className="px-4 py-3 text-center">
                                             <Button
                                                 size="sm"
                                                 variant="outline"
-                                                onClick={() => {
-                                                    setSelected(submission);
-                                                    setDecision(null);
-                                                    setRemarks(
-                                                        submission.pmt_remarks ??
-                                                            '',
-                                                    );
-                                                }}
+                                                onClick={() => setSelectedPeriod(period)}
                                             >
-                                                Review
+                                                View
                                             </Button>
                                         </td>
                                     </tr>
                                 ))}
-                                {submissions.data.length === 0 && (
+                                {periods.length === 0 && (
                                     <tr>
-                                        <td
-                                            colSpan={5}
-                                            className="bg-[#DDEFD7] px-4 py-8 text-center text-muted-foreground dark:bg-[#345A34]/80"
-                                        >
+                                        <td colSpan={3} className="bg-[#DDEFD7] px-4 py-8 text-center text-muted-foreground dark:bg-[#345A34]/80">
                                             No submissions awaiting PMT review.
                                         </td>
                                     </tr>
@@ -239,6 +221,74 @@ export default function PmtReview({
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Period Submissions Dialog */}
+            <Dialog
+                open={selectedPeriod !== null}
+                onOpenChange={(open) => !open && setSelectedPeriod(null)}
+            >
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
+                    <DialogHeader>
+                        <DialogTitle>PMT Review — {selectedPeriod}</DialogTitle>
+                        <DialogDescription>
+                            {periodRows.length} submission{periodRows.length === 1 ? '' : 's'} awaiting PMT review for this period.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                <th>Employee</th>
+                                <th>Rating</th>
+                                <th>Appeal Status</th>
+                                <th>Cycle</th>
+                                <th className="!text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {periodRows.map((submission, index) => (
+                                <tr
+                                    key={submission.id}
+                                    className={index % 2 === 0 ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80' : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
+                                >
+                                    <td className="px-4 py-3 font-medium">
+                                        {submission.employee?.name ?? submission.employee_id}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {submission.performance_rating?.toFixed(2) ?? '—'}
+                                    </td>
+                                    <td className="px-4 py-3 capitalize">
+                                        {submission.appeal_status ?? '—'}
+                                    </td>
+                                    <td className="px-4 py-3">{submission.pmt_cycle_count}</td>
+                                    <td className="px-4 py-3 text-center">
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                setSelected(submission);
+                                                setDecision(null);
+                                                setRemarks(submission.pmt_remarks ?? '');
+                                            }}
+                                        >
+                                            Review
+                                        </Button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {periodRows.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="bg-[#DDEFD7] px-4 py-8 text-center text-muted-foreground dark:bg-[#345A34]/80">
+                                        No submissions for this period.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSelectedPeriod(null)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog
                 open={selected !== null}

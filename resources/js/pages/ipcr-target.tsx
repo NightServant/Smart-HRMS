@@ -70,8 +70,12 @@ export default function IpcrTargetPage() {
     const isReturned = existingTarget?.evaluator_decision === 'rejected';
     const isSubmitted =
         existingTarget?.status === 'submitted' && !isReturned;
+    const deadlinePassed =
+        targetPeriod.deadlineAt !== null &&
+        new Date() > new Date(targetPeriod.deadlineAt);
     const canOpenTargetForm =
         !isSubmitted &&
+        !deadlinePassed &&
         (targetPeriod.submissionOpen ||
             existingTarget?.status === 'draft' ||
             isReturned);
@@ -119,6 +123,21 @@ export default function IpcrTargetPage() {
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-5 pt-6">
+                        {targetPeriod.deadlineAt && !isSubmitted && (
+                            <div className={`glass-card rounded-[26px] border p-5 shadow-sm ${deadlinePassed ? 'border-red-300/70 bg-red-50/80 dark:border-red-500/30 dark:bg-red-500/10' : 'border-amber-300/70 bg-amber-50/80 dark:border-amber-500/30 dark:bg-amber-500/10'}`}>
+                                <div className="mb-1 flex items-center gap-2">
+                                    <span className={`size-2.5 rounded-full shadow-[0_0_0_6px_rgba(0,0,0,0.08)] ${deadlinePassed ? 'bg-red-500' : 'bg-amber-500'}`} />
+                                    <h3 className={`text-sm font-semibold tracking-[0.18em] uppercase ${deadlinePassed ? 'text-red-900 dark:text-red-100' : 'text-amber-900 dark:text-amber-100'}`}>
+                                        {deadlinePassed ? 'Target Window Closed — 15-Day Deadline Passed' : 'Target Submission Deadline'}
+                                    </h3>
+                                </div>
+                                <p className="text-sm leading-6 text-foreground">
+                                    {deadlinePassed
+                                        ? `The 15-day submission window expired on ${new Date(targetPeriod.deadlineAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}.`
+                                        : `Submit your targets before ${new Date(targetPeriod.deadlineAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} (${Math.ceil((new Date(targetPeriod.deadlineAt).getTime() - Date.now()) / 86400000)} day(s) remaining).`}
+                                </p>
+                            </div>
+                        )}
                         {isReturned && existingTarget?.evaluator_remarks ? (
                             <div className="glass-card rounded-[26px] border border-red-300/70 bg-red-50/80 p-5 shadow-sm dark:border-red-500/30 dark:bg-red-500/10">
                                 <div className="mb-3 flex items-center gap-2">
@@ -148,7 +167,9 @@ export default function IpcrTargetPage() {
                                 >
                                     {isSubmitted
                                         ? 'Target Already Submitted'
-                                        : 'Target Window Closed'}
+                                        : deadlinePassed
+                                          ? 'Deadline Passed'
+                                          : 'Target Window Closed'}
                                 </Button>
                             )}
                             <p className="flex items-center text-sm text-slate-500 dark:text-slate-400">

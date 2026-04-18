@@ -71,11 +71,24 @@ export default function HrFinalize({
 }: {
     submissions: PaginatedSubmissions;
 }) {
+    const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
     const [selected, setSelected] = useState<IpcrSubmission | null>(null);
     const [finalRating, setFinalRating] = useState('');
     const [processing, setProcessing] = useState(false);
     const [notifyingTrainingSubmissionId, setNotifyingTrainingSubmissionId] =
         useState<number | null>(null);
+
+    const periodGroups = submissions.data.reduce<Record<string, IpcrSubmission[]>>(
+        (acc, sub) => {
+            const key = sub.form_payload.metadata.period ?? 'Unknown Period';
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(sub);
+            return acc;
+        },
+        {},
+    );
+    const periods = Object.keys(periodGroups);
+    const periodRows = selectedPeriod ? (periodGroups[selectedPeriod] ?? []) : [];
 
     function notifyTrainingSuggestions(submissionId: number): void {
         setNotifyingTrainingSubmissionId(submissionId);
@@ -164,84 +177,36 @@ export default function HrFinalize({
 
                 <Card className="glass-card overflow-hidden border border-border bg-card shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between border-b border-border bg-card">
-                        <CardTitle>Submissions Awaiting Finalization</CardTitle>
+                        <CardTitle>Finalization Periods</CardTitle>
                     </CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
-                                    <th>Employee</th>
-                                    <th>Computed Rating</th>
-                                    <th>PMT Reviewer</th>
-                                    <th className="text-center">Action</th>
+                                    <th>Period</th>
+                                    <th>Pending</th>
+                                    <th className="!text-center">View</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {submissions.data.map((submission, index) => (
+                                {periods.map((period, index) => (
                                     <tr
-                                        key={submission.id}
-                                        className={
-                                            index % 2 === 0
-                                                ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80'
-                                                : 'bg-[#BFDDB5] dark:bg-[#274827]/80'
-                                        }
+                                        key={period}
+                                        className={index % 2 === 0 ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80' : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
                                     >
-                                        <td className="px-4 py-3 font-medium">
-                                            {submission.employee?.name ??
-                                                submission.employee_id}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {computedRating(submission)?.toFixed(
-                                                2,
-                                            ) ?? '—'}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            {submission.pmt_reviewer?.name ??
-                                                '—'}
-                                        </td>
+                                        <td className="px-4 py-3 font-medium">{period}</td>
+                                        <td className="px-4 py-3">{periodGroups[period].length}</td>
                                         <td className="px-4 py-3 text-center">
-                                            <div className="flex flex-wrap justify-center gap-2">
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() =>
-                                                        setSelected(submission)
-                                                    }
-                                                >
-                                                    Finalize
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="gap-2"
-                                                    disabled={
-                                                        notifyingTrainingSubmissionId ===
-                                                        submission.id
-                                                    }
-                                                    onClick={() =>
-                                                        notifyTrainingSuggestions(
-                                                            submission.id,
-                                                        )
-                                                    }
-                                                >
-                                                    <Megaphone className="size-4" />
-                                                    {notifyingTrainingSubmissionId ===
-                                                    submission.id
-                                                        ? 'Sending...'
-                                                        : 'Notify Training'}
-                                                </Button>
-                                            </div>
+                                            <Button size="sm" variant="outline" onClick={() => setSelectedPeriod(period)}>
+                                                View
+                                            </Button>
                                         </td>
                                     </tr>
                                 ))}
-                                {submissions.data.length === 0 && (
+                                {periods.length === 0 && (
                                     <tr>
-                                        <td
-                                            colSpan={4}
-                                            className="bg-[#DDEFD7] px-4 py-8 text-center text-muted-foreground dark:bg-[#345A34]/80"
-                                        >
-                                            No submissions awaiting
-                                            finalization.
+                                        <td colSpan={3} className="bg-[#DDEFD7] px-4 py-8 text-center text-muted-foreground dark:bg-[#345A34]/80">
+                                            No submissions awaiting finalization.
                                         </td>
                                     </tr>
                                 )}
@@ -250,6 +215,76 @@ export default function HrFinalize({
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Period Detail Dialog */}
+            <Dialog
+                open={selectedPeriod !== null}
+                onOpenChange={(open) => !open && setSelectedPeriod(null)}
+            >
+                <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[min(96vw,80rem)] xl:max-w-[min(96vw,90rem)]">
+                    <DialogHeader>
+                        <DialogTitle>Finalization — {selectedPeriod}</DialogTitle>
+                        <DialogDescription>
+                            {periodRows.length} submission{periodRows.length === 1 ? '' : 's'} awaiting finalization for this period.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <table className="w-full text-sm">
+                        <thead>
+                            <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                <th>Employee</th>
+                                <th>Computed Rating</th>
+                                <th>PMT Reviewer</th>
+                                <th className="!text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {periodRows.map((submission, index) => (
+                                <tr
+                                    key={submission.id}
+                                    className={index % 2 === 0 ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80' : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
+                                >
+                                    <td className="px-4 py-3 font-medium">
+                                        {submission.employee?.name ?? submission.employee_id}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {computedRating(submission)?.toFixed(2) ?? '—'}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        {submission.pmt_reviewer?.name ?? '—'}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                        <div className="flex flex-wrap justify-center gap-2">
+                                            <Button size="sm" variant="outline" onClick={() => setSelected(submission)}>
+                                                Finalize
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="gap-2"
+                                                disabled={notifyingTrainingSubmissionId === submission.id}
+                                                onClick={() => notifyTrainingSuggestions(submission.id)}
+                                            >
+                                                <Megaphone className="size-4" />
+                                                {notifyingTrainingSubmissionId === submission.id ? 'Sending...' : 'Notify Training'}
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            {periodRows.length === 0 && (
+                                <tr>
+                                    <td colSpan={4} className="bg-[#DDEFD7] px-4 py-8 text-center text-muted-foreground dark:bg-[#345A34]/80">
+                                        No submissions for this period.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSelectedPeriod(null)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog
                 open={selected !== null}

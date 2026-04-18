@@ -1040,13 +1040,6 @@ test('printable ipcr blade uses compact criterion blocks', function () {
     $payload = employeeFormPayload($employee);
     $targetPayload = app(IpcrFormTemplateService::class)->targetDraft($employee, 'January to June 2026');
     $payload['workflow_notes']['employee_notes'] = 'Employee notes for the printable copy.';
-    $payload['workflow_notes']['self_assessment_qeta'] = 'This should stay out of the PDF.';
-    $payload['workflow_notes']['self_assessment_qeta_scores'] = [
-        'quality' => 4,
-        'efficiency' => 3,
-        'timeliness' => 5,
-        'accountability' => 4,
-    ];
     $payload['sections'][0]['rows'][0]['actual_accomplishment'] = "  Completed and documented.\n    Followed through with the office.";
     $payload['sections'][0]['rows'][0]['remarks'] = "  Excellent execution.\n    No missing references.";
     $payload['sections'][0]['rows'][0]['accountable'] = 'This is the submission template placeholder and should not win.';
@@ -1067,72 +1060,7 @@ test('printable ipcr blade uses compact criterion blocks', function () {
         ->not->toContain('Measures:')
         ->not->toContain('  Completed and documented.')
         ->not->toContain('  Excellent execution.')
-        ->not->toContain('Self Assessment')
-        ->not->toContain('self_assessment_qeta');
-});
-
-test('ipcr submission draft includes employee self assessment qeta', function () {
-    ['employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
-
-    $this->actingAs($employeeUser)
-        ->get(route('ipcr.form'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('ipcr-form')
-            ->where('draftFormPayload.workflow_notes.self_assessment_qeta', '')
-            ->where('draftFormPayload.workflow_notes.self_assessment_qeta_scores.quality', null)
-            ->where('draftFormPayload.workflow_notes.self_assessment_qeta_scores.efficiency', null)
-            ->where('draftFormPayload.workflow_notes.self_assessment_qeta_scores.timeliness', null)
-            ->where('draftFormPayload.workflow_notes.self_assessment_qeta_scores.accountability', null)
-            ->where('draftFormPayload.sections.0.rows.0.self_assessment_qeta_average', null)
-            ->where('draftFormPayload.sections.0.rows.0.self_assessment_qeta_scores.quality', null)
-            ->where('draftFormPayload.sections.0.rows.0.self_assessment_qeta_scores.efficiency', null)
-            ->where('draftFormPayload.sections.0.rows.0.self_assessment_qeta_scores.timeliness', null)
-            ->where('draftFormPayload.sections.0.rows.0.self_assessment_qeta_scores.accountability', null));
-});
-
-test('employee self assessment qeta scores are preserved for evaluator review', function () {
-    ['employee' => $employee, 'employeeUser' => $employeeUser] = seedIpcrUsersAndEmployees();
-
-    SystemSetting::set('ipcr_period_open', 'true', $employeeUser->id);
-    SystemSetting::set('ipcr_period_label', 'January to June 2026', $employeeUser->id);
-
-    mockIwrService(['routeIpcr' => [
-        'status' => 'routed',
-        'stage' => 'sent_to_evaluator',
-        'routing_action' => 'route_to_evaluator',
-        'evaluator_id' => 'EMP-001',
-        'evaluator_name' => 'John Reyes',
-        'confidence_pct' => 100.0,
-        'notification' => 'IPCR form sent to John Reyes for evaluation.',
-    ]]);
-
-    $payload = employeeFormPayload($employee);
-    $payload['sections'][0]['rows'][0]['self_assessment_qeta_scores'] = [
-        'quality' => 4,
-        'efficiency' => 3,
-        'timeliness' => 5,
-        'accountability' => 4,
-    ];
-
-    $this->actingAs($employeeUser)
-        ->post(route('ipcr.submit'), [
-            'employee_id' => $employee->employee_id,
-            'period' => 'January to June 2026',
-            'form_payload' => $payload,
-        ])
-        ->assertRedirect(route('submit-evaluation'));
-
-    $this->actingAs($employeeUser)
-        ->get(route('submit-evaluation'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('performance-evaluation')
-            ->where('latestSubmission.form_payload.sections.0.rows.0.self_assessment_qeta_scores.quality', 4)
-            ->where('latestSubmission.form_payload.sections.0.rows.0.self_assessment_qeta_scores.efficiency', 3)
-            ->where('latestSubmission.form_payload.sections.0.rows.0.self_assessment_qeta_scores.timeliness', 5)
-            ->where('latestSubmission.form_payload.sections.0.rows.0.self_assessment_qeta_scores.accountability', 4)
-            ->where('latestSubmission.form_payload.sections.0.rows.0.self_assessment_qeta_average', 4));
+        ->not->toContain('Self Assessment');
 });
 
 test('submit evaluation page surfaces training recommendations for notified employees', function () {

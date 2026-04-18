@@ -236,12 +236,6 @@ class IpcrWorkflowSeeder extends Seeder
                     'efficiency' => $score,
                     'timeliness' => $score,
                 ];
-                $payload['sections'][$sectionIndex]['rows'][$rowIndex]['self_assessment_qeta_scores'] = [
-                    'quality' => $score,
-                    'efficiency' => $score,
-                    'timeliness' => $score,
-                    'accountability' => $score,
-                ];
                 $payload['sections'][$sectionIndex]['rows'][$rowIndex]['remarks'] = $this->evaluatorRemarkForRow(
                     (string) $row['id'],
                     (string) $row['target'],

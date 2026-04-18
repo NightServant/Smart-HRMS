@@ -87,13 +87,6 @@ class IpcrFormTemplateService
                     'efficiency' => $this->normalizeRating($incomingRow['ratings']['efficiency'] ?? $row['ratings']['efficiency']),
                     'timeliness' => $this->normalizeRating($incomingRow['ratings']['timeliness'] ?? $row['ratings']['timeliness']),
                 ];
-                $row['self_assessment_qeta_scores'] = [
-                    'quality' => $this->normalizeRating($incomingRow['self_assessment_qeta_scores']['quality'] ?? $row['self_assessment_qeta_scores']['quality']),
-                    'efficiency' => $this->normalizeRating($incomingRow['self_assessment_qeta_scores']['efficiency'] ?? $row['self_assessment_qeta_scores']['efficiency']),
-                    'timeliness' => $this->normalizeRating($incomingRow['self_assessment_qeta_scores']['timeliness'] ?? $row['self_assessment_qeta_scores']['timeliness']),
-                    'accountability' => $this->normalizeRating($incomingRow['self_assessment_qeta_scores']['accountability'] ?? $row['self_assessment_qeta_scores']['accountability']),
-                ];
-                $row['self_assessment_qeta_average'] = $this->calculateAverage($row['self_assessment_qeta_scores']);
                 $row['average'] = $this->calculateAverage($row['ratings']);
                 $row['remarks'] = (string) ($incomingRow['remarks'] ?? $row['remarks']);
 
@@ -311,13 +304,6 @@ class IpcrFormTemplateService
             ],
             'workflow_notes' => [
                 'employee_notes' => '',
-                'self_assessment_qeta' => '',
-                'self_assessment_qeta_scores' => [
-                    'quality' => null,
-                    'efficiency' => null,
-                    'timeliness' => null,
-                    'accountability' => null,
-                ],
                 'evaluator_remarks' => '',
                 'hr_remarks' => '',
                 'pmt_remarks' => '',
@@ -377,13 +363,6 @@ class IpcrFormTemplateService
                 'efficiency' => null,
                 'timeliness' => null,
             ],
-            'self_assessment_qeta_scores' => [
-                'quality' => null,
-                'efficiency' => null,
-                'timeliness' => null,
-                'accountability' => null,
-            ],
-            'self_assessment_qeta_average' => null,
             'average' => null,
             'remarks' => '',
         ];

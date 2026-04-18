@@ -47,11 +47,31 @@ function SubmissionCycleStepper({
     periodOpen: boolean;
 }) {
     const steps = [
-        { key: 'planning', label: 'Planning' },
-        { key: 'draft', label: 'Draft' },
-        { key: 'submitted', label: 'Submitted' },
-        { key: 'workflow', label: 'Under Review' },
-        { key: 'finalized', label: 'Finalized' },
+        {
+            key: 'planning',
+            label: 'Planning',
+            desc: { completed: 'Planning phase complete', current: 'Period is open for submission', pending: 'Period not yet open' },
+        },
+        {
+            key: 'draft',
+            label: 'Draft',
+            desc: { completed: 'Draft completed', current: 'Draft in progress', pending: 'Not yet started' },
+        },
+        {
+            key: 'submitted',
+            label: 'Submitted',
+            desc: { completed: 'IPCR submitted', current: 'IPCR submitted for review', pending: 'Pending submission' },
+        },
+        {
+            key: 'workflow',
+            label: 'Under Review',
+            desc: { completed: 'Workflow complete', current: 'Moving through review workflow', pending: 'Pending workflow' },
+        },
+        {
+            key: 'finalized',
+            label: 'Finalized',
+            desc: { completed: 'IPCR finalized', current: 'Ready for finalization', pending: 'Awaiting finalization' },
+        },
     ] as const;
 
     const currentStep = hasSubmission
@@ -62,52 +82,68 @@ function SubmissionCycleStepper({
             ? 0
             : -1;
 
-    const styles: Record<SubmissionStepStatus, { panel: string; icon: string }> =
-        {
-            completed: {
-                panel: 'border-emerald-300 bg-emerald-50/90 dark:border-emerald-800 dark:bg-emerald-950/30',
-                icon: 'text-emerald-600 dark:text-emerald-400',
-            },
-            current: {
-                panel: 'border-blue-300 bg-blue-50/90 dark:border-blue-800 dark:bg-blue-950/30',
-                icon: 'text-blue-600 dark:text-blue-400 animate-pulse',
-            },
-            pending: {
-                panel: 'border-border bg-muted/20',
-                icon: 'text-muted-foreground',
-            },
-        };
+    const stepStyles: Record<SubmissionStepStatus, { panel: string; line: string; title: string; icon: string }> = {
+        completed: {
+            panel: 'border-emerald-300 bg-emerald-50/90 dark:border-emerald-800 dark:bg-emerald-950/30',
+            line: 'bg-emerald-400 dark:bg-emerald-700',
+            title: 'text-emerald-800 dark:text-emerald-300',
+            icon: 'text-emerald-600 dark:text-emerald-400',
+        },
+        current: {
+            panel: 'border-blue-300 bg-blue-50/90 dark:border-blue-800 dark:bg-blue-950/30',
+            line: 'bg-blue-300 dark:bg-blue-800',
+            title: 'text-blue-800 dark:text-blue-300',
+            icon: 'text-blue-600 dark:text-blue-400',
+        },
+        pending: {
+            panel: 'border-border bg-muted/20',
+            line: 'bg-border',
+            title: 'text-foreground',
+            icon: 'text-muted-foreground',
+        },
+    };
 
     function resolveStatus(stepIndex: number): SubmissionStepStatus {
         if (currentStep < 0) {
             return stepIndex === 0 ? 'current' : 'pending';
         }
-
         if (stepIndex < currentStep) return 'completed';
         if (stepIndex === currentStep) return 'current';
         return 'pending';
     }
 
-    return (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {steps.map((step, index) => {
-                const status = resolveStatus(index);
-                const style = styles[status];
-                const Icon = status === 'completed' ? FileCheck2 : Clock3;
-
-                return (
-                    <div
-                        key={step.key}
-                        className={`flex items-center gap-2 rounded-xl border p-3 ${style.panel}`}
-                    >
-                        <Icon className={`size-4 shrink-0 ${style.icon}`} />
-                        <span className="text-xs font-semibold">
-                            {step.label}
-                        </span>
+    const renderStep = (step: (typeof steps)[number], index: number) => {
+        const status = resolveStatus(index);
+        const s = stepStyles[status];
+        const isLast = index === steps.length - 1;
+        const Icon = status === 'completed' ? FileCheck2 : Clock3;
+        return (
+            <div key={step.key} className="flex min-w-0 flex-1 flex-col">
+                <div className="flex items-center">
+                    <div className={`flex size-9 shrink-0 items-center justify-center rounded-full border ${s.panel}`}>
+                        <Icon className={`size-4 ${s.icon} ${status === 'current' ? 'animate-pulse' : ''}`} />
                     </div>
-                );
-            })}
-        </div>
+                    {!isLast && (
+                        <div className={`ml-2 hidden h-0.5 flex-1 rounded-full sm:block ${s.line}`} />
+                    )}
+                </div>
+                <div className={`mt-3 h-full rounded-2xl border p-3 ${s.panel}`}>
+                    <p className={`text-sm font-semibold ${s.title}`}>{step.label}</p>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{step.desc[status]}</p>
+                </div>
+            </div>
+        );
+    };
+
+    return (
+        <>
+            <div className="grid grid-cols-2 gap-3 sm:hidden">
+                {steps.map((step, index) => renderStep(step, index))}
+            </div>
+            <div className="hidden sm:flex sm:items-start sm:gap-2">
+                {steps.map((step, index) => renderStep(step, index))}
+            </div>
+        </>
     );
 }
 
