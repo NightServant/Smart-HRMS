@@ -113,7 +113,23 @@
       "Bash(php -r ' *)",
       "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"government HRMS dashboard table enterprise data\" --design-system -p \"Smart HRMS IPCR Tables\" -f markdown)",
       "Bash(sed -i '' 's/className=\"px-4 py-3/className=\"px-5 py-3.5/g' resources/js/pages/admin/pmt-review.tsx)",
-      "Bash(sed -i '' 's/className=\"bg-\\\\[#DDEFD7\\\\] px-4 py-8 text-center text-muted-foreground dark:bg-\\\\[#345A34\\\\]\\\\/80\"/className=\"bg-white px-5 py-8 text-center text-muted-foreground dark:bg-[#18291A]\\\\/40\"/g' resources/js/pages/admin/pmt-review.tsx)"
+      "Bash(sed -i '' 's/className=\"bg-\\\\[#DDEFD7\\\\] px-4 py-8 text-center text-muted-foreground dark:bg-\\\\[#345A34\\\\]\\\\/80\"/className=\"bg-white px-5 py-8 text-center text-muted-foreground dark:bg-[#18291A]\\\\/40\"/g' resources/js/pages/admin/pmt-review.tsx)",
+      "Bash(mysql -u root -e \"SELECT COUNT\\(*\\) as tables FROM information_schema.tables WHERE table_schema = 'smart_hrms';\")",
+      "Bash(mysql -u root smart_hrms -e \"SHOW TABLES;\")",
+      "Bash(/usr/local/bin/mysql --version)",
+      "Bash(/opt/homebrew/bin/mysql --version)",
+      "Bash(herd mysql *)",
+      "Bash(php /Users/gabe/Herd/Smart-HRMS/artisan db:show)",
+      "Bash(php /Users/gabe/Herd/Smart-HRMS/artisan migrate:status)",
+      "Bash(python3 -c \"import sys,json; v=json.load\\(sys.stdin\\); [print\\(k,'=',v[k]\\) for k in v if 'MYSQL' in k or 'DATABASE_URL' in k or 'RAILWAY_TCP' in k]\")",
+      "Bash(python3 -c ' *)",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysqldump -u root --add-drop-table --routines --triggers --single-transaction smart_hrms)",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysqldump -u root -h 127.0.0.1 -P 3306 --add-drop-table --routines --triggers --single-transaction smart_hrms)",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysqldump -u root -h 127.0.0.1 -P 3306 smart_hrms)",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysqldump -u root -h 127.0.0.1 -P 3306 --add-drop-table --single-transaction --no-tablespaces smart_hrms)",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -h junction.proxy.rlwy.net -P 18757 -u root -pcwzUYUnyqxkofrZLVqNwbfOjFllnoMiI railway)",
+      "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -h junction.proxy.rlwy.net -P 18757 -u root -pcwzUYUnyqxkofrZLVqNwbfOjFllnoMiI railway -e 'SELECT table_name, table_rows FROM information_schema.tables WHERE table_schema = '\\\\''railway'\\\\'' ORDER BY table_name;')"
     ]
   }
 }
