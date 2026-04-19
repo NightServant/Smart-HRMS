@@ -307,17 +307,6 @@ export function HistoricalDataTable({
 
     return (
         <>
-            <div className="animate-fade-in-down">
-                <div className="flex justify-between">
-                    <div>
-                        <h1 className="flex items-center gap-2 text-3xl font-bold">
-                            <UserSearch className="h-8 w-8" />
-                            Historical Data Records
-                        </h1>
-                        <p className="mt-1 text-muted-foreground">Historical employee performance and attendance metrics.</p>
-                    </div>
-                </div>
-            </div>
             <div className="glass-card animate-zoom-in-soft mx-auto w-full rounded-md border border-border bg-card p-4 shadow-sm">
                 <div className="flex w-full items-center justify-between gap-4 py-6">
                     <div className="flex items-center gap-2">

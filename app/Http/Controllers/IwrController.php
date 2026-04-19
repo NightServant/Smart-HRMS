@@ -108,6 +108,20 @@ class IwrController extends Controller
                 ? $this->submissionResource($selectedSubmission)
                 : null,
             'currentTarget' => $currentTarget ? $this->targetResource($currentTarget) : null,
+            'pastSubmissions' => $employee
+                ? IpcrSubmission::query()
+                    ->where('employee_id', $employee->employee_id)
+                    ->orderByDesc('created_at')
+                    ->get()
+                    ->map(fn ($s) => [
+                        'id' => $s->id,
+                        'semester' => data_get($s->form_payload, 'metadata.period', '—'),
+                        'year' => data_get($s->form_payload, 'metadata.year', '—'),
+                        'status' => $s->status ?? 'In Progress',
+                        'stage' => $s->stage,
+                        'finalized_at' => $s->finalized_at,
+                    ])
+                : [],
         ]);
     }
 

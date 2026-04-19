@@ -73,8 +73,8 @@ function TargetFormEditor({
     const sections = formPayload.sections;
     const currentSection = sections[currentStep] ?? sections[0];
     const stripedRowClasses = [
-        'bg-[#DDEFD7] dark:bg-[#345A34]/80',
-        'bg-[#BFDDB5] dark:bg-[#274827]/80',
+        'border-b border-[#D4EBC8] bg-white transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#18291A]/40 dark:hover:bg-[#243C24]/70',
+        'border-b border-[#D4EBC8] bg-[#F2FAF0] transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#1D2E1D]/60 dark:hover:bg-[#243C24]/70',
     ];
 
     const filledRows = useMemo(
@@ -211,16 +211,16 @@ function TargetFormEditor({
                     <div className="glass-card overflow-hidden rounded-[26px] border border-border bg-card shadow-sm">
                         <Table className="min-w-[56rem]">
                             <TableHeader>
-                                <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:border-r [&_th]:border-white/10 [&_th]:text-white">
-                                    <TableHead className="w-[16rem] min-w-[16rem]">
+                                <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1A3D1A] dark:hover:bg-[#1A3D1A] border-0">
+                                    <TableHead className="w-[16rem] min-w-[16rem] px-5 py-3.5 text-xs font-semibold tracking-wider uppercase text-white border-r border-white/10">
                                         Administrative Services Criteria
                                     </TableHead>
-                                    <TableHead className="w-[13rem] min-w-[13rem]">
+                                    <TableHead className="w-[13rem] min-w-[13rem] px-5 py-3.5 text-xs font-semibold tracking-wider uppercase text-white border-r border-white/10">
                                         Success Measures
                                     </TableHead>
-                                    <TableHead>
+                                    <TableHead className="px-5 py-3.5 text-xs font-semibold tracking-wider uppercase text-white">
                                         Target{' '}
-                                        <span className="text-xs font-normal opacity-80">
+                                        <span className="text-xs font-normal opacity-80 normal-case tracking-normal">
                                             (describe your planned
                                             accomplishment)
                                         </span>
@@ -235,7 +235,7 @@ function TargetFormEditor({
                                                 stripedRowClasses[rowIndex % 2]
                                             }
                                         >
-                                            <TableCell className="align-top">
+                                            <TableCell className="px-5 py-3.5 align-top">
                                                 <div className="space-y-1">
                                                     <p className="leading-snug font-semibold text-foreground">
                                                         {row.target}
@@ -247,12 +247,12 @@ function TargetFormEditor({
                                                     )}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="align-top">
+                                            <TableCell className="px-5 py-3.5 align-top">
                                                 <p className="text-sm leading-relaxed whitespace-pre-line text-foreground">
                                                     {row.measures}
                                                 </p>
                                             </TableCell>
-                                            <TableCell className="align-top">
+                                            <TableCell className="px-5 py-3.5 align-top">
                                                 <Textarea
                                                     value={row.accountable}
                                                     disabled={disabled}

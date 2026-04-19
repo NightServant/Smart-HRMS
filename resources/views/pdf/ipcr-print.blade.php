@@ -467,30 +467,6 @@
         </tbody>
     </table>
 
-    <!-- Evaluator Assessment Box -->
-    @if ($evaluatorGaveRemarks || $evaluatorPassFail || $evaluatorRemarks)
-    <div class="assessment-box">
-        <div class="assessment-title">Evaluator&rsquo;s Assessment</div>
-        <table class="assessment-grid">
-            <tr>
-                <td style="width: 140px;">
-                    <div style="font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: #64748b; margin-bottom: 4px;">Overall Result</div>
-                    @if ($evaluatorPassFail === 'passed')
-                        <span class="pass-badge pass-badge-passed">&#10003; Passed</span>
-                    @elseif ($evaluatorPassFail === 'failed')
-                        <span class="pass-badge pass-badge-failed">&#10007; Failed</span>
-                    @else
-                        <span class="pass-badge pass-badge-pending">Pending</span>
-                    @endif
-                </td>
-                <td>
-                    <div style="font-size: 7.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: #64748b; margin-bottom: 3px;">Evaluator Remarks</div>
-                    <div class="assessment-remarks">{{ $normalizePrintableText($evaluatorRemarks ?? '') ?: '—' }}</div>
-                </td>
-            </tr>
-        </table>
-    </div>
-    @endif
 
     <!-- Final Signatory Block -->
     <table class="sign-table">

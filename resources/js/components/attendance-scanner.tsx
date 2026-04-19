@@ -83,12 +83,14 @@ export default function AttendanceScanner({
         minute: '2-digit',
         second: '2-digit',
     });
-    const currentDate = now.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-    });
+    const currentDate =
+        now.toLocaleDateString('en-US', { weekday: 'long' }) +
+        ', ' +
+        now.toLocaleDateString('en-US', {
+            month: '2-digit',
+            day: '2-digit',
+            year: 'numeric',
+        });
 
     return (
         <>
@@ -212,17 +214,10 @@ export default function AttendanceScanner({
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <Label htmlFor="employee_id">Employee ID</Label>
-                            <Input
-                                id="employee_id"
-                                type="text"
-                                value={data.employee_id}
-                                readOnly
-                                className="bg-muted font-mono tracking-wider"
-                            />
+                            <Label htmlFor="employee_id">Employee ID: {data.employee_id}</Label>
                         </div>
 
-                        <div className="rounded-xl border border-border/60 bg-background/60 px-3 py-2 text-xs text-muted-foreground">
+                        <div className="py-2 text-xs text-muted-foreground">
                             <b>{currentDate}</b>
                         </div>
 

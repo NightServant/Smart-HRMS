@@ -1,5 +1,5 @@
 import { Head, Link, usePage } from '@inertiajs/react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet } from 'lucide-react';
 import EvaluationCard from '@/components/evaluation-card';
 import EvaluationResults from '@/components/evaluation-results';
 import PageIntro from '@/components/page-intro';
@@ -45,6 +45,10 @@ export default function EvaluationPage() {
                     description="Review the employee's IPCR form, enter Q/E/T ratings, and route to HR when complete."
                     actions={
                         <div className="flex flex-wrap gap-2">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-[#2F5E2B]/20 bg-[#DDEFD7] px-3 py-1 text-xs font-semibold tracking-[0.22em] text-[#2F5E2B] uppercase shadow-sm dark:border-[#4A7C3C]/40 dark:bg-[#274827]/80 dark:text-[#EAF7E6]">
+                                <FileSpreadsheet className="size-3.5" />
+                                Performance Evaluation
+                            </div>
                             {employee ? (
                                 <Link
                                     href={reviewerTargetUrl(

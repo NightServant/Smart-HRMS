@@ -72,11 +72,11 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 const stripedRows = [
-    'bg-[#DDEFD7] dark:bg-[#345A34]/80',
-    'bg-[#BFDDB5] dark:bg-[#274827]/80',
+    'border-b border-[#D4EBC8] bg-white transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#18291A]/40 dark:hover:bg-[#243C24]/70',
+    'border-b border-[#D4EBC8] bg-[#F2FAF0] transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#1D2E1D]/60 dark:hover:bg-[#243C24]/70',
 ];
 const tableHeaderClass =
-    'bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold';
+    'bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10';
 
 function semesterLabel(semester: 1 | 2, year: number): string {
     return semester === 1
@@ -234,6 +234,10 @@ export default function IpcrTargetManagement() {
                     <CardHeader className="space-y-5">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                             <div className="space-y-2">
+                                <div className="inline-flex items-center gap-2 rounded-full border border-[#2F5E2B]/20 bg-[#DDEFD7] px-3 py-1 text-xs font-semibold tracking-[0.22em] text-[#2F5E2B] uppercase shadow-sm dark:border-[#4A7C3C]/40 dark:bg-[#274827]/80 dark:text-[#EAF7E6]">
+                                    <FileSpreadsheet className="size-3.5" />
+                                    Performance Evaluation
+                                </div>
                                 <CardTitle className="text-2xl">
                                     HR IPCR Targets
                                 </CardTitle>
@@ -406,13 +410,13 @@ export default function IpcrTargetManagement() {
                                         ).length;
                                         return (
                                             <tr key={key} className={stripedRows[index % 2]}>
-                                                <td className="px-4 py-3">
+                                                <td className="px-5 py-3.5">
                                                     {period.semester === 1 ? 'First Semester' : 'Second Semester'}
                                                 </td>
-                                                <td className="px-4 py-3">{period.year}</td>
-                                                <td className="px-4 py-3">{submittedCount}</td>
-                                                <td className="px-4 py-3">{finalizedCount}</td>
-                                                <td className="px-4 py-3 text-center">
+                                                <td className="px-5 py-3.5">{period.year}</td>
+                                                <td className="px-5 py-3.5">{submittedCount}</td>
+                                                <td className="px-5 py-3.5">{finalizedCount}</td>
+                                                <td className="px-5 py-3.5 text-center">
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
@@ -428,7 +432,7 @@ export default function IpcrTargetManagement() {
                                         <tr>
                                             <td
                                                 colSpan={5}
-                                                className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                                className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
                                             >
                                                 No target records found.
                                             </td>
@@ -491,18 +495,18 @@ export default function IpcrTargetManagement() {
                             <tbody>
                                 {displayRows.map((target, index) => (
                                     <tr key={target.id} className={stripedRows[index % 2]}>
-                                        <td className="px-4 py-3 font-medium">
+                                        <td className="px-5 py-3.5 font-medium">
                                             {target.employee?.name ?? target.employee_id}
                                         </td>
-                                        <td className="px-4 py-3 text-muted-foreground">
+                                        <td className="px-5 py-3.5 text-muted-foreground">
                                             {target.submitted_at
                                                 ? new Date(target.submitted_at).toLocaleDateString()
                                                 : '—'}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             {decisionBadge(target.evaluator_decision)}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             {target.hr_finalized ? (
                                                 <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
                                                     Finalized
@@ -511,7 +515,7 @@ export default function IpcrTargetManagement() {
                                                 <Badge variant="outline">Not Recorded</Badge>
                                             )}
                                         </td>
-                                        <td className="px-4 py-3 text-center">
+                                        <td className="px-5 py-3.5 text-center">
                                             <Button
                                                 size="sm"
                                                 variant="outline"
@@ -526,7 +530,7 @@ export default function IpcrTargetManagement() {
                                     <tr>
                                         <td
                                             colSpan={5}
-                                            className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                            className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
                                         >
                                             No {view === 'submitted' ? 'submitted' : 'finalized'} IPCR targets for this period.
                                         </td>

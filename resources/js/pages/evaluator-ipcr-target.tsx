@@ -2,6 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import {
     CheckCircle2,
     Clock3,
+    FileSpreadsheet,
     Target,
     Users,
     XCircle,
@@ -219,6 +220,10 @@ export default function EvaluatorIpcrTarget() {
                     <CardHeader className="gap-5">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                             <div className="space-y-2">
+                                <div className="inline-flex items-center gap-2 rounded-full border border-[#2F5E2B]/20 bg-[#DDEFD7] px-3 py-1 text-xs font-semibold tracking-[0.22em] text-[#2F5E2B] uppercase shadow-sm dark:border-[#4A7C3C]/40 dark:bg-[#274827]/80 dark:text-[#EAF7E6]">
+                                    <FileSpreadsheet className="size-3.5" />
+                                    Performance Evaluation
+                                </div>
                                 <CardTitle className="text-2xl">
                                     Evaluator IPCR Targets
                                 </CardTitle>
@@ -295,7 +300,7 @@ export default function EvaluatorIpcrTarget() {
                         <div className="overflow-x-auto">
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:border-r [&_th]:border-white/10 [&_th]:text-white">
+                                    <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1A3D1A] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
                                         <TableHead>Semester</TableHead>
                                         <TableHead>Year</TableHead>
                                         <TableHead>Pending</TableHead>
@@ -303,17 +308,17 @@ export default function EvaluatorIpcrTarget() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    <TableRow className="bg-[#DDEFD7] dark:bg-[#345A34]/80">
-                                        <TableCell>
+                                    <TableRow className="border-b border-[#D4EBC8] bg-[#F2FAF0] transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#1D2E1D]/60 dark:hover:bg-[#243C24]/70">
+                                        <TableCell className="px-5 py-3.5">
                                             {targetPeriod.semester === 1 ? 'First Semester' : 'Second Semester'}
                                         </TableCell>
-                                        <TableCell>{targetPeriod.year}</TableCell>
-                                        <TableCell>
+                                        <TableCell className="px-5 py-3.5">{targetPeriod.year}</TableCell>
+                                        <TableCell className="px-5 py-3.5">
                                             <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                                                 {stats.pending} pending
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-center">
+                                        <TableCell className="px-5 py-3.5 text-center">
                                             <Button size="sm" onClick={() => setShowList(true)}>
                                                 View Employees
                                             </Button>
@@ -359,7 +364,7 @@ export default function EvaluatorIpcrTarget() {
                     <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
-                                <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:border-r [&_th]:border-white/10 [&_th]:text-white">
+                                <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1A3D1A] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
                                     <TableHead>Employee ID</TableHead>
                                     <TableHead>Name</TableHead>
                                     <TableHead>Position</TableHead>
@@ -373,19 +378,19 @@ export default function EvaluatorIpcrTarget() {
                                     <TableRow
                                         key={row.employee_id}
                                         className={index % 2 === 0
-                                            ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80'
-                                            : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
+                                            ? 'border-b border-[#D4EBC8] bg-white transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#18291A]/40 dark:hover:bg-[#243C24]/70'
+                                            : 'border-b border-[#D4EBC8] bg-[#F2FAF0] transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#1D2E1D]/60 dark:hover:bg-[#243C24]/70'}
                                     >
-                                        <TableCell>{row.employee_id}</TableCell>
-                                        <TableCell className="font-medium">{row.name}</TableCell>
-                                        <TableCell className="text-muted-foreground">{row.job_title}</TableCell>
-                                        <TableCell>{targetStatusBadge(row.target)}</TableCell>
-                                        <TableCell className="text-muted-foreground">
+                                        <TableCell className="px-5 py-3.5">{row.employee_id}</TableCell>
+                                        <TableCell className="px-5 py-3.5 font-medium">{row.name}</TableCell>
+                                        <TableCell className="px-5 py-3.5 text-muted-foreground">{row.job_title}</TableCell>
+                                        <TableCell className="px-5 py-3.5">{targetStatusBadge(row.target)}</TableCell>
+                                        <TableCell className="px-5 py-3.5 text-muted-foreground">
                                             {row.target?.submitted_at
                                                 ? new Date(row.target.submitted_at).toLocaleDateString()
                                                 : '—'}
                                         </TableCell>
-                                        <TableCell className="text-center">
+                                        <TableCell className="px-5 py-3.5 text-center">
                                             {canReview(row) ? (
                                                 <Button size="sm" onClick={() => openReview(row)}>
                                                     Review
@@ -404,7 +409,7 @@ export default function EvaluatorIpcrTarget() {
                                     <TableRow>
                                         <TableCell
                                             colSpan={6}
-                                            className="bg-[#DDEFD7] py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                            className="bg-white py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
                                         >
                                             {employees.length === 0
                                                 ? 'No employees are assigned to you as supervisor.'

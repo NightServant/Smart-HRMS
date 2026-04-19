@@ -323,6 +323,57 @@ export default function HrFinalize({
                                 </Badge>
                             </div>
 
+                            {(() => {
+                                const selectedDept = selected.form_payload?.metadata?.department;
+                                const selectedPeriod = selected.form_payload?.metadata?.period;
+                                const deptPeers = submissions.data
+                                    .filter(
+                                        (s) =>
+                                            s.form_payload?.metadata?.department === selectedDept &&
+                                            s.form_payload?.metadata?.period === selectedPeriod,
+                                    )
+                                    .sort((a, b) => (b.performance_rating ?? 0) - (a.performance_rating ?? 0));
+
+                                if (deptPeers.length <= 1) return null;
+
+                                const topPeers = deptPeers.slice(0, 3);
+                                const atRiskPeers = [...deptPeers].reverse().slice(0, 3);
+
+                                return (
+                                    <div className="glass-card space-y-3 rounded-[26px] border border-border bg-card p-4">
+                                        <p className="text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                                            Department Context{selectedDept ? ` — ${selectedDept}` : ''}
+                                        </p>
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                            <div>
+                                                <p className="mb-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">Top Performers</p>
+                                                {topPeers.map((s) => (
+                                                    <div
+                                                        key={s.id}
+                                                        className={`flex justify-between py-0.5 text-xs ${s.id === selected.id ? 'font-bold text-brand-700 dark:text-brand-300' : 'text-foreground'}`}
+                                                    >
+                                                        <span className="truncate">{s.employee?.name ?? '—'}</span>
+                                                        <span className="font-mono">{s.performance_rating?.toFixed(2) ?? '—'}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div>
+                                                <p className="mb-1 text-xs font-semibold text-red-600 dark:text-red-400">At Risk</p>
+                                                {atRiskPeers.map((s) => (
+                                                    <div
+                                                        key={s.id}
+                                                        className={`flex justify-between py-0.5 text-xs ${s.id === selected.id ? 'font-bold text-brand-700 dark:text-brand-300' : 'text-foreground'}`}
+                                                    >
+                                                        <span className="truncate">{s.employee?.name ?? '—'}</span>
+                                                        <span className="font-mono">{s.performance_rating?.toFixed(2) ?? '—'}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+
                             <IpcrPaperForm
                                 value={selected.form_payload}
                                 mode="review"

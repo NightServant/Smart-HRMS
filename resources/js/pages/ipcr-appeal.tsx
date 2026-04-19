@@ -1,4 +1,5 @@
 import { Head, router } from '@inertiajs/react';
+import { FileSpreadsheet } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     submitAppeal,
@@ -110,6 +111,10 @@ export default function IpcrAppeal({
                     description="Review the evaluated paper form, accept the results, or submit a documented appeal with supporting files."
                     actions={
                         <div className="flex flex-wrap gap-2">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-[#2F5E2B]/20 bg-[#DDEFD7] px-3 py-1 text-xs font-semibold tracking-[0.22em] text-[#2F5E2B] uppercase shadow-sm dark:border-[#4A7C3C]/40 dark:bg-[#274827]/80 dark:text-[#EAF7E6]">
+                                <FileSpreadsheet className="size-3.5" />
+                                Performance Evaluation
+                            </div>
                             <Badge variant="outline">
                                 Score:{' '}
                                 {submission.performance_rating?.toFixed(2) ??

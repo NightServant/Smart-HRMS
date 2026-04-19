@@ -290,11 +290,11 @@ function evaluatorActionState(
 }
 
 const stripedTableRows = [
-    'bg-[#DDEFD7] dark:bg-[#345A34]/80',
-    'bg-[#BFDDB5] dark:bg-[#274827]/80',
+    'border-b border-[#D4EBC8] bg-white transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#18291A]/40 dark:hover:bg-[#243C24]/70',
+    'border-b border-[#D4EBC8] bg-[#F2FAF0] transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#1D2E1D]/60 dark:hover:bg-[#243C24]/70',
 ];
 const tableHeaderClasses =
-    'bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white';
+    'bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10';
 
 function StatCard({
     label,
@@ -465,19 +465,74 @@ function EmployeeOverview({
                     )}
 
                     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                        <Button asChild className="w-full sm:w-auto">
-                            <Link href={employeePanel?.launchFormUrl ?? '#'}>
-                                {launchFormLabel}
-                            </Link>
-                        </Button>
-                        {!periodOpen && (
-                            <p className="flex items-center text-sm text-slate-500 dark:text-slate-400">
-                                {launchFormDescription}
-                            </p>
+                        {periodOpen && (
+                            <Button asChild className="w-full sm:w-auto">
+                                <Link href={employeePanel?.launchFormUrl ?? '#'}>
+                                    {launchFormLabel}
+                                </Link>
+                            </Button>
                         )}
                     </div>
                 </CardContent>
             </Card>
+
+            {(employeePanel?.history ?? []).length > 0 && (
+                <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
+                    <CardHeader className="border-b border-border bg-card">
+                        <CardTitle className="text-xl">IPCR History</CardTitle>
+                        <CardDescription>
+                            Your past IPCR submissions and their current workflow status.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="px-0 py-0">
+                        <Table>
+                            <TableHeader className="bg-[#2F5E2B] dark:bg-[#1A3D1A]">
+                                <TableRow className="hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] border-0">
+                                    <TableHead className="px-5 py-3.5 text-xs font-semibold tracking-wider uppercase text-white border-r border-white/10">Semester</TableHead>
+                                    <TableHead className="px-5 py-3.5 text-xs font-semibold tracking-wider uppercase text-white border-r border-white/10">Year</TableHead>
+                                    <TableHead className="px-5 py-3.5 text-xs font-semibold tracking-wider uppercase text-white border-r border-white/10">Status</TableHead>
+                                    <TableHead className="px-5 py-3.5 text-xs font-semibold tracking-wider uppercase text-white">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {(employeePanel?.history ?? []).map((sub, index) => (
+                                    <TableRow key={sub.id} className={cn('text-sm font-semibold text-foreground border-0', stripedTableRows[index % 2])}>
+                                        <TableCell className="px-5 py-3.5">
+                                            {semesterFromPeriodLabel(sub.form_payload?.metadata?.period ?? undefined)}
+                                        </TableCell>
+                                        <TableCell className="px-5 py-3.5">
+                                            {yearFromPeriodLabel(sub.form_payload?.metadata?.period ?? undefined)}
+                                        </TableCell>
+                                        <TableCell className="px-5 py-3.5">
+                                            <Badge variant="outline">
+                                                {statusLabel(sub.status)}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="px-5 py-3.5">
+                                            {sub.stage === 'finalized' && (
+                                                <Button
+                                                    asChild
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="gap-1 rounded-full"
+                                                >
+                                                    <a
+                                                        href={`/ipcr/print?submission_id=${sub.id}`}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                    >
+                                                        Open Printable PDF View
+                                                    </a>
+                                                </Button>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            )}
         </div>
     );
 }
@@ -575,8 +630,12 @@ function EvaluatorOverview({
                 <CardHeader className="gap-4">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="space-y-2">
-                            <CardTitle className="text-2xl">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-[#2F5E2B]/20 bg-[#DDEFD7] px-3 py-1 text-xs font-semibold tracking-[0.22em] text-[#2F5E2B] uppercase shadow-sm dark:border-[#4A7C3C]/40 dark:bg-[#274827]/80 dark:text-[#EAF7E6]">
+                                <FileSpreadsheet className="size-3.5" />
                                 Performance Evaluation
+                            </div>
+                            <CardTitle className="text-2xl">
+                                Evaluator IPCR Overview
                             </CardTitle>
                             <CardDescription>
                                 Documents, evaluation routing, and current
@@ -640,7 +699,7 @@ function EvaluatorOverview({
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
                                     <th>Semester</th>
                                     <th>Year</th>
                                     <th>Pending Evaluation</th>
@@ -650,22 +709,22 @@ function EvaluatorOverview({
                             </thead>
                             <tbody>
                                 {currentPeriod ? (
-                                    <tr className="bg-[#DDEFD7] text-sm font-semibold text-foreground dark:bg-[#345A34]/80">
-                                        <td className="px-4 py-3">
+                                    <tr className="border-b border-[#D4EBC8] bg-[#F2FAF0] text-sm font-semibold text-foreground transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#1D2E1D]/60 dark:hover:bg-[#243C24]/70">
+                                        <td className="px-5 py-3.5">
                                             {semesterFromPeriodLabel(currentPeriod.label)}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             {yearFromPeriodLabel(currentPeriod.label)}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                                                 {evaluatorPanel?.stats.pendingEvaluation ?? 0} pending
                                             </Badge>
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             {evaluatorPanel?.stats.submitted ?? 0}
                                         </td>
-                                        <td className="px-4 py-3 text-center">
+                                        <td className="px-5 py-3.5 text-center">
                                             <Button size="sm" onClick={() => setShowList(true)}>
                                                 View Employees
                                             </Button>
@@ -675,7 +734,7 @@ function EvaluatorOverview({
                                     <tr>
                                         <td
                                             colSpan={5}
-                                            className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                            className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
                                         >
                                             No active evaluation period.
                                         </td>
@@ -794,7 +853,7 @@ function EvaluatorOverview({
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                    <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
                                         <th>Employee ID</th>
                                         <th>Name</th>
                                         <th>Position</th>
@@ -803,7 +862,7 @@ function EvaluatorOverview({
                                         <th>Action</th>
                                     </tr>
                                 </thead>
-                                <TableBody>
+                                <tbody>
                                     {(evaluatorPanel?.employees ?? []).map(
                                         (employee, index) => {
                                             const actionState =
@@ -821,10 +880,10 @@ function EvaluatorOverview({
                                                         stripedTableRows[index % 2],
                                                     )}
                                                 >
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-5 py-3.5">
                                                         {employee.employeeId}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-5 py-3.5">
                                                         <div>
                                                             <p className="font-medium">
                                                                 {employee.name}
@@ -834,20 +893,20 @@ function EvaluatorOverview({
                                                             </p>
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-5 py-3.5">
                                                         {employee.position}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-5 py-3.5">
                                                         {statusLabel(
                                                             employee.submissionStatus,
                                                         )}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-5 py-3.5">
                                                         {stageLabel(
                                                             employee.submissionStage,
                                                         )}
                                                     </td>
-                                                    <td className="px-4 py-3">
+                                                    <td className="px-5 py-3.5">
                                                         {actionState.disabled ? (
                                                             <Button
                                                                 type="button"
@@ -882,13 +941,13 @@ function EvaluatorOverview({
                                         <tr>
                                             <td
                                                 colSpan={6}
-                                                className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                                className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
                                             >
                                                 No employees match the selected filters.
                                             </td>
                                         </tr>
                                     )}
-                                </TableBody>
+                                </tbody>
                             </table>
                         </div>
 
@@ -1280,7 +1339,7 @@ function HrOverview({
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
                                     <th>Semester</th>
                                     <th>Year</th>
                                     <th>In Review</th>
@@ -1304,15 +1363,15 @@ function HrOverview({
                                                 stripedTableRows[index % 2],
                                             )}
                                         >
-                                            <td className="px-4 py-3">
+                                            <td className="px-5 py-3.5">
                                                 {period.semester === '1'
                                                     ? 'First Semester (Jan–Jun)'
                                                     : 'Second Semester (Jul–Dec)'}
                                             </td>
-                                            <td className="px-4 py-3">{period.year}</td>
-                                            <td className="px-4 py-3">{inReview}</td>
-                                            <td className="px-4 py-3">{finalized}</td>
-                                            <td className="px-4 py-3 text-center">
+                                            <td className="px-5 py-3.5">{period.year}</td>
+                                            <td className="px-5 py-3.5">{inReview}</td>
+                                            <td className="px-5 py-3.5">{finalized}</td>
+                                            <td className="px-5 py-3.5 text-center">
                                                 <Button
                                                     type="button"
                                                     size="sm"
@@ -1329,7 +1388,7 @@ function HrOverview({
                                     <tr>
                                         <td
                                             colSpan={5}
-                                            className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                            className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
                                         >
                                             No IPCR submissions found.
                                         </td>
@@ -1388,7 +1447,8 @@ function HrOverview({
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
+                                    <th className="!w-10 !text-center">Rank</th>
                                     <th>Employee</th>
                                     <th>Status</th>
                                     <th>Stage</th>
@@ -1397,7 +1457,21 @@ function HrOverview({
                                 </tr>
                             </thead>
                             <tbody>
-                                {reviewRows.map((submission, index) => (
+                                {(() => {
+                                    const withRatings = reviewRows
+                                        .filter((s) => finalDisplayRating(s) !== null)
+                                        .sort((a, b) => (finalDisplayRating(b) ?? 0) - (finalDisplayRating(a) ?? 0));
+                                    const withoutRatings = reviewRows.filter((s) => finalDisplayRating(s) === null);
+                                    const ranked = [...withRatings, ...withoutRatings];
+                                    const total = withRatings.length;
+
+                                    return ranked.map((submission, index) => {
+                                        const rank = index + 1;
+                                        const hasRating = finalDisplayRating(submission) !== null;
+                                        const isTopThree = hasRating && rank <= 3;
+                                        const isBottomThree = hasRating && rank > total - 3 && total > 3;
+
+                                        return (
                                     <tr
                                         key={submission.id}
                                         className={cn(
@@ -1405,7 +1479,23 @@ function HrOverview({
                                             stripedTableRows[index % 2],
                                         )}
                                     >
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5 text-center">
+                                            {hasRating ? (
+                                                <span className={cn(
+                                                    'inline-flex size-6 items-center justify-center rounded-full text-[11px] font-bold',
+                                                    isTopThree
+                                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                                        : isBottomThree
+                                                          ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                                          : 'bg-muted text-muted-foreground',
+                                                )}>
+                                                    {rank}
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground">—</span>
+                                            )}
+                                        </td>
+                                        <td className="px-5 py-3.5">
                                             <div>
                                                 <p className="font-medium">
                                                     {submission.employee?.name ??
@@ -1417,16 +1507,21 @@ function HrOverview({
                                                 </p>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             {statusLabel(submission.status)}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             {stageLabel(submission.stage)}
                                         </td>
-                                        <td className="px-4 py-3">
-                                            {finalDisplayRating(submission)?.toFixed(2) ?? 'Pending'}
+                                        <td className="px-5 py-3.5">
+                                            <span className={cn(
+                                                'font-mono',
+                                                isTopThree ? 'text-emerald-600 dark:text-emerald-400' : isBottomThree ? 'text-red-600 dark:text-red-400' : '',
+                                            )}>
+                                                {finalDisplayRating(submission)?.toFixed(2) ?? 'Pending'}
+                                            </span>
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             <div className="flex flex-wrap gap-2">
                                                 <Button
                                                     type="button"
@@ -1469,12 +1564,14 @@ function HrOverview({
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
+                                        );
+                                    });
+                                })()}
                                 {reviewRows.length === 0 && (
                                     <tr>
                                         <td
-                                            colSpan={5}
-                                            className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                            colSpan={6}
+                                            className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
                                         >
                                             {queueEmptyMessage}
                                         </td>
@@ -1649,6 +1746,7 @@ function HrOverview({
                                             review.
                                         </DialogDescription>
                                     </DialogHeader>
+
                                     <IpcrPaperForm
                                         value={selectedFinalize.form_payload}
                                         mode="review"
@@ -1749,8 +1847,12 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
             <Card className="glass-card border-border bg-card shadow-sm">
                 <CardHeader className="space-y-5">
                     <div className="space-y-2">
-                        <CardTitle className="text-2xl">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-[#2F5E2B]/20 bg-[#DDEFD7] px-3 py-1 text-xs font-semibold tracking-[0.22em] text-[#2F5E2B] uppercase shadow-sm dark:border-[#4A7C3C]/40 dark:bg-[#274827]/80 dark:text-[#EAF7E6]">
+                            <FileSpreadsheet className="size-3.5" />
                             Performance Evaluation
+                        </div>
+                        <CardTitle className="text-2xl">
+                            PMT IPCR Overview
                         </CardTitle>
                         <CardDescription>
                             PMT review queue with appeal context and the saved
@@ -1792,7 +1894,7 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
                                     <th>Semester</th>
                                     <th>Year</th>
                                     <th>Pending Review</th>
@@ -1812,18 +1914,18 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                                                 stripedTableRows[index % 2],
                                             )}
                                         >
-                                            <td className="px-4 py-3">
+                                            <td className="px-5 py-3.5">
                                                 {period.semester === '1'
                                                     ? 'First Semester (Jan–Jun)'
                                                     : 'Second Semester (Jul–Dec)'}
                                             </td>
-                                            <td className="px-4 py-3">{period.year}</td>
-                                            <td className="px-4 py-3">
+                                            <td className="px-5 py-3.5">{period.year}</td>
+                                            <td className="px-5 py-3.5">
                                                 <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                                                     {pending} pending
                                                 </Badge>
                                             </td>
-                                            <td className="px-4 py-3 text-center">
+                                            <td className="px-5 py-3.5 text-center">
                                                 <Button
                                                     type="button"
                                                     size="sm"
@@ -1840,7 +1942,7 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                                     <tr>
                                         <td
                                             colSpan={4}
-                                            className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                            className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
                                         >
                                             No IPCR submissions pending PMT review.
                                         </td>
@@ -1872,7 +1974,7 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
                                     <th>Employee</th>
                                     <th>Appeal</th>
                                     <th>Stage</th>
@@ -1889,21 +1991,21 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                                             stripedTableRows[index % 2],
                                         )}
                                     >
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             {submission.employee?.name ?? submission.employee_id}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             {submission.appeal_status === 'appealed'
                                                 ? 'Appealed'
                                                 : 'No Appeal'}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             {stageLabel(submission.stage)}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             {submission.performance_rating?.toFixed(2) ?? 'Pending'}
                                         </td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-5 py-3.5">
                                             <Button
                                                 type="button"
                                                 size="sm"
@@ -1918,7 +2020,7 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                                     <tr>
                                         <td
                                             colSpan={5}
-                                            className="bg-[#DDEFD7] px-4 py-10 text-center text-muted-foreground dark:bg-[#345A34]/80"
+                                            className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
                                         >
                                             No submissions for this period.
                                         </td>

@@ -7,7 +7,7 @@ export type PredictionResult = {
     status: string;
     employee_name: string;
     notification?: string;
-    historical: {
+    historical?: {
         labels: string[];
         scores: number[];
         yearly_labels: string[];
@@ -17,15 +17,23 @@ export type PredictionResult = {
         by_year?: Record<string, [number | null, number | null]>;
         all_year_scores?: [number | null, number | null];
     };
-    forecast: {
+    forecast?: {
         labels: string[];
         scores: number[];
         semester_labels?: string[];
     };
-    trend: string;
-    recent_avg: number;
-    forecast_avg: number;
-    coefficients: Record<string, number>;
+    trend?: string;
+    recent_avg?: number;
+    forecast_avg?: number;
+    coefficients?: Record<string, number>;
+    error_metrics?: {
+        mse: number;
+        rmse: number;
+        mae: number;
+        r2: number;
+        threshold: number;
+        split_fallback: boolean;
+    };
 };
 
 type Props = {
@@ -112,14 +120,14 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
         );
     }
 
-    const trendConfig = resolveTrendConfig(prediction.trend);
+    const trendConfig = resolveTrendConfig(prediction.trend ?? '');
 
     const TrendIcon = trendConfig.icon;
-    const historicalYearLabels = prediction.historical.yearly_labels ?? [];
-    const historicalYearScores = prediction.historical.yearly_scores ?? [];
+    const historicalYearLabels = prediction.historical?.yearly_labels ?? [];
+    const historicalYearScores = prediction.historical?.yearly_scores ?? [];
     const forecastYearAverages = buildForecastYearAverages(
-        prediction.forecast.labels ?? [],
-        prediction.forecast.scores ?? [],
+        prediction.forecast?.labels ?? [],
+        prediction.forecast?.scores ?? [],
     );
     const yearLabels = Array.from(new Set([
         ...historicalYearLabels,
@@ -183,10 +191,10 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
                     {trendConfig.label}
                 </Badge>
                 <span className="text-muted-foreground">
-                    Historical avg: <span className="font-semibold text-foreground">{prediction.recent_avg.toFixed(2)}</span>
+                    Historical avg: <span className="font-semibold text-foreground">{prediction.recent_avg?.toFixed(2) ?? '—'}</span>
                 </span>
                 <span className="text-muted-foreground">
-                    Forecast avg: <span className="font-semibold text-foreground">{prediction.forecast_avg.toFixed(2)}</span>
+                    Forecast avg: <span className="font-semibold text-foreground">{prediction.forecast_avg?.toFixed(2) ?? '—'}</span>
                 </span>
             </div>
             <div className="rounded-2xl border border-border/70 bg-background/45 p-4">

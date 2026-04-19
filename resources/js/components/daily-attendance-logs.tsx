@@ -1,12 +1,11 @@
 import { format } from 'date-fns';
 import { CalendarOff, CheckCircle2, Clock3, XCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     DashboardChartSurface,
     DashboardPanelCard,
 } from '@/components/admin-system-dashboard-cards';
 import { Badge } from '@/components/ui/badge';
-import { DatePicker } from '@/components/ui/date-picker';
 import { Separator } from '@/components/ui/separator';
 
 type AttendanceMetrics = {
@@ -26,7 +25,7 @@ export default function DailyAttendanceLogs() {
     const [metrics, setMetrics] = useState<AttendanceMetrics | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const today = useMemo(() => new Date(), []);
 
     useEffect(() => {
         const fetchAttendanceMetrics = async (): Promise<void> => {
@@ -35,7 +34,7 @@ export default function DailyAttendanceLogs() {
                 setError(null);
 
                 const params = new URLSearchParams();
-                params.set('month', format(selectedDate, 'yyyy-MM'));
+                params.set('month', format(today, 'yyyy-MM'));
 
                 const response = await fetch(
                     `/api/flatfat/attendance-metrics?${params.toString()}`,
@@ -84,10 +83,7 @@ export default function DailyAttendanceLogs() {
 
         const interval = setInterval(fetchAttendanceMetrics, 5 * 60 * 1000);
         return () => clearInterval(interval);
-    }, [selectedDate]);
-
-    const isCurrentMonth =
-        format(selectedDate, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
+    }, [today]);
 
     return (
         <DashboardPanelCard
@@ -105,15 +101,6 @@ export default function DailyAttendanceLogs() {
                             {metrics.attendance_pct}% attendance rate
                         </Badge>
                     ) : undefined}
-                    <DatePicker
-                        value={selectedDate}
-                        onChange={(date) => {
-                            if (date) {
-                                setSelectedDate(date);
-                            }
-                        }}
-                        placeholder="Select month"
-                    />
                 </div>
             }
         >
@@ -131,11 +118,17 @@ export default function DailyAttendanceLogs() {
                 </DashboardChartSurface>
             ) : (
                 <>
+                    <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                        {format(today, 'MMMM d, yyyy')}
+                    </p>
+
+                    <Separator className="bg-border/70" />
+
                     <div className="rounded-2xl border border-brand-300 bg-white/75 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                             <div>
                                 <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
-                                    {format(selectedDate, 'MMMM d, yyyy')} Attendance
+                                    Attendance
                                 </p>
                                 <p className="mt-2 text-2xl font-bold text-foreground">
                                     {metrics?.attendance_pct || 0}%
@@ -153,9 +146,7 @@ export default function DailyAttendanceLogs() {
                                     / {metrics?.total_employees ?? 0}
                                 </p>
                                 <p className="mt-1 text-xs text-muted-foreground">
-                                    {isCurrentMonth
-                                        ? 'employees with attendance records today'
-                                        : `employees with records on ${format(selectedDate, 'MMM d, yyyy')}`}
+                                    employees with attendance records today
                                 </p>
                             </div>
                         </div>
@@ -246,15 +237,11 @@ export default function DailyAttendanceLogs() {
                         <p>
                             Viewing attendance summary for{' '}
                             <span className="font-semibold text-foreground">
-                                {format(selectedDate, 'MMMM d, yyyy')}
+                                {format(today, 'MMMM d, yyyy')}
                             </span>
                             .
                         </p>
-                        <p>
-                            {isCurrentMonth
-                                ? 'Metrics refresh every 5 minutes for the current month.'
-                                : 'Historical month selected. Counts reflect the saved records for that period.'}
-                        </p>
+                        <p>Metrics refresh every 5 minutes for the current month.</p>
                     </div>
                 </>
             )}

@@ -697,6 +697,32 @@ class PaginationController extends Controller
                 'evaluatedPerformanceScore' => (float) $historicalDataRecord->evaluated_performance_score,
             ]);
 
+        $summaryRecords = HistoricalDataRecord::query()
+            ->when($year > 0, fn ($q) => $q->where('year', $year))
+            ->whereNotNull('evaluated_performance_score')
+            ->select(['department_name', 'employee_name', 'evaluated_performance_score'])
+            ->get();
+
+        $departmentSummary = $summaryRecords
+            ->groupBy('department_name')
+            ->map(function ($deptRecords) {
+                $employeeAvgs = $deptRecords
+                    ->groupBy('employee_name')
+                    ->map(fn ($recs) => round($recs->avg('evaluated_performance_score'), 2))
+                    ->sortDesc();
+
+                return [
+                    'top' => $employeeAvgs->take(3)
+                        ->map(fn ($score, $name) => ['name' => $name, 'score' => $score])
+                        ->values(),
+                    'at_risk' => $employeeAvgs->reverse()->take(3)
+                        ->map(fn ($score, $name) => ['name' => $name, 'score' => $score])
+                        ->values(),
+                    'avg_score' => round($employeeAvgs->avg(), 2),
+                    'total_employees' => $employeeAvgs->count(),
+                ];
+            });
+
         return Inertia::render('admin/historical-data', [
             'search' => $search,
             'sort' => $sort,
@@ -709,6 +735,7 @@ class PaginationController extends Controller
                 'perPage' => $historicalData->perPage(),
                 'total' => $historicalData->total(),
             ],
+            'departmentSummary' => $departmentSummary,
         ]);
     }
 }

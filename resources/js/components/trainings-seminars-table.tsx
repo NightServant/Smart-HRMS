@@ -168,18 +168,6 @@ export const TrainingsSeminarsTable = ({ seminars, performanceAreas }: Props) =>
     return (
         <>
             <div className="animate-slide-in-down">
-                <div className="mb-6 flex items-center justify-between">
-                    <div>
-                        <h1 className="flex items-center gap-2 text-3xl font-bold">
-                            <CalendarDays className="h-8 w-8" />
-                            Training Suggestions
-                        </h1>
-                        <p className="mt-1 text-muted-foreground">
-                            Define training criteria for employee seminars.
-                        </p>
-                    </div>
-                </div>
-
                 <div className="glass-card animate-zoom-in-soft mx-auto w-full rounded-xl border border-border bg-card p-4 shadow-sm">
                     <h2 className="mb-4 text-lg font-semibold">
                         Training Suggestions List

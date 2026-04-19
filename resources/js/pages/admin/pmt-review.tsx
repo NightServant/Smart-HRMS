@@ -3,6 +3,7 @@ import {
     CheckCircle2,
     Clock3,
     Database,
+    FileSpreadsheet,
     RotateCcw,
     ShieldAlert,
 } from 'lucide-react';
@@ -179,12 +180,18 @@ export default function PmtReview({
 
                 <Card className="glass-card overflow-hidden border border-border bg-card shadow-sm">
                     <CardHeader className="border-b border-border bg-card">
-                        <CardTitle>Review Periods</CardTitle>
+                        <div className="space-y-2">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-[#2F5E2B]/20 bg-[#DDEFD7] px-3 py-1 text-xs font-semibold tracking-[0.22em] text-[#2F5E2B] uppercase shadow-sm dark:border-[#4A7C3C]/40 dark:bg-[#274827]/80 dark:text-[#EAF7E6]">
+                                <FileSpreadsheet className="size-3.5" />
+                                Performance Evaluation
+                            </div>
+                            <CardTitle>Review Periods</CardTitle>
+                        </div>
                     </CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                                <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
                                     <th>Period</th>
                                     <th>Submissions</th>
                                     <th className="!text-center">View</th>
@@ -194,11 +201,11 @@ export default function PmtReview({
                                 {periods.map((period, index) => (
                                     <tr
                                         key={period}
-                                        className={index % 2 === 0 ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80' : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
+                                        className={index % 2 === 0 ? 'border-b border-[#D4EBC8] bg-white transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#18291A]/40 dark:hover:bg-[#243C24]/70' : 'border-b border-[#D4EBC8] bg-[#F2FAF0] transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#1D2E1D]/60 dark:hover:bg-[#243C24]/70'}
                                     >
-                                        <td className="px-4 py-3 font-medium">{period}</td>
-                                        <td className="px-4 py-3">{periodGroups[period].length}</td>
-                                        <td className="px-4 py-3 text-center">
+                                        <td className="px-5 py-3.5 font-medium">{period}</td>
+                                        <td className="px-5 py-3.5">{periodGroups[period].length}</td>
+                                        <td className="px-5 py-3.5 text-center">
                                             <Button
                                                 size="sm"
                                                 variant="outline"
@@ -211,7 +218,7 @@ export default function PmtReview({
                                 ))}
                                 {periods.length === 0 && (
                                     <tr>
-                                        <td colSpan={3} className="bg-[#DDEFD7] px-4 py-8 text-center text-muted-foreground dark:bg-[#345A34]/80">
+                                        <td colSpan={3} className="bg-white px-5 py-8 text-center text-muted-foreground dark:bg-[#18291A]/40">
                                             No submissions awaiting PMT review.
                                         </td>
                                     </tr>
@@ -236,7 +243,7 @@ export default function PmtReview({
                     </DialogHeader>
                     <table className="w-full text-sm">
                         <thead>
-                            <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
+                            <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
                                 <th>Employee</th>
                                 <th>Rating</th>
                                 <th>Appeal Status</th>
@@ -248,19 +255,19 @@ export default function PmtReview({
                             {periodRows.map((submission, index) => (
                                 <tr
                                     key={submission.id}
-                                    className={index % 2 === 0 ? 'bg-[#DDEFD7] dark:bg-[#345A34]/80' : 'bg-[#BFDDB5] dark:bg-[#274827]/80'}
+                                    className={index % 2 === 0 ? 'border-b border-[#D4EBC8] bg-white transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#18291A]/40 dark:hover:bg-[#243C24]/70' : 'border-b border-[#D4EBC8] bg-[#F2FAF0] transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#1D2E1D]/60 dark:hover:bg-[#243C24]/70'}
                                 >
-                                    <td className="px-4 py-3 font-medium">
+                                    <td className="px-5 py-3.5 font-medium">
                                         {submission.employee?.name ?? submission.employee_id}
                                     </td>
-                                    <td className="px-4 py-3">
+                                    <td className="px-5 py-3.5">
                                         {submission.performance_rating?.toFixed(2) ?? '—'}
                                     </td>
-                                    <td className="px-4 py-3 capitalize">
+                                    <td className="px-5 py-3.5 capitalize">
                                         {submission.appeal_status ?? '—'}
                                     </td>
-                                    <td className="px-4 py-3">{submission.pmt_cycle_count}</td>
-                                    <td className="px-4 py-3 text-center">
+                                    <td className="px-5 py-3.5">{submission.pmt_cycle_count}</td>
+                                    <td className="px-5 py-3.5 text-center">
                                         <Button
                                             size="sm"
                                             variant="outline"
@@ -277,7 +284,7 @@ export default function PmtReview({
                             ))}
                             {periodRows.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="bg-[#DDEFD7] px-4 py-8 text-center text-muted-foreground dark:bg-[#345A34]/80">
+                                    <td colSpan={5} className="bg-white px-5 py-8 text-center text-muted-foreground dark:bg-[#18291A]/40">
                                         No submissions for this period.
                                     </td>
                                 </tr>

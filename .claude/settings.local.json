@@ -97,7 +97,23 @@
       "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -h junction.proxy.rlwy.net -P 18757 -u root -pcwzUYUnyqxkofrZLVqNwbfOjFllnoMiI railway -e 'SELECT \\(SELECT COUNT\\(*\\) FROM employees\\) AS employees, \\(SELECT COUNT\\(*\\) FROM users\\) AS users, \\(SELECT COUNT\\(*\\) FROM leave_requests\\) AS leave_requests, \\(SELECT COUNT\\(*\\) FROM ipcr_submissions\\) AS ipcr_submissions, \\(SELECT COUNT\\(*\\) FROM seminars\\) AS seminars, \\(SELECT COUNT\\(*\\) FROM activity_logs\\) AS activity_logs, \\(SELECT COUNT\\(*\\) FROM historical_data_records\\) AS historical_data_records;')",
       "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -u root -h 127.0.0.1 -P 3306 smart_hrms -e 'SELECT \\(SELECT COUNT\\(*\\) FROM employees\\) AS employees, \\(SELECT COUNT\\(*\\) FROM users\\) AS users, \\(SELECT COUNT\\(*\\) FROM leave_requests\\) AS leave_requests, \\(SELECT COUNT\\(*\\) FROM ipcr_submissions\\) AS ipcr_submissions, \\(SELECT COUNT\\(*\\) FROM seminars\\) AS seminars, \\(SELECT COUNT\\(*\\) FROM activity_logs\\) AS activity_logs, \\(SELECT COUNT\\(*\\) FROM historical_data_records\\) AS historical_data_records;')",
       "Bash(/usr/local/mysql-9.6.0-macos15-arm64/bin/mysql -h junction.proxy.rlwy.net -P 18757 -u root -pcwzUYUnyqxkofrZLVqNwbfOjFllnoMiI railway -e 'SELECT u.id, u.name, u.email, u.role, e.employee_id, e.job_title FROM users u LEFT JOIN employees e ON u.employee_id = e.employee_id WHERE u.name LIKE '\\\\''%Mark%Reyes%'\\\\'' OR u.name LIKE '\\\\''%Reyes%Mark%'\\\\'';')",
-      "Bash(xargs ls *)"
+      "Bash(xargs ls *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"hr dashboard performance summary stat cards professional government\" --design-system -p \"Smart HRMS\" -f markdown)",
+      "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"stat cards data comparison leaderboard ranking\" --domain ux)",
+      "Bash(vendor/bin/pint app/Http/Controllers/PaginationController.php --test)",
+      "Bash(awk '{print $2, $11, $12}')",
+      "Bash(kill 16880 13685)",
+      "Bash(kill 17302)",
+      "Bash(pkill -f \"node_modules/.bin/vite\")",
+      "Bash(pkill -9 -f \"vite\")",
+      "Bash(python/ppe/.venv/bin/python -c \"from sklearn.metrics import mean_squared_error, mean_absolute_error; print\\('OK'\\)\")",
+      "Bash(python/iwr/.venv/bin/python -c \"from sklearn.metrics import mean_squared_error, mean_absolute_error; print\\('OK'\\)\")",
+      "Bash(sqlite3 storage/database.sqlite \".schema historical_data_records\")",
+      "Bash(php -r ' *)",
+      "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"government HRMS dashboard table enterprise data\" --design-system -p \"Smart HRMS IPCR Tables\" -f markdown)",
+      "Bash(sed -i '' 's/className=\"px-4 py-3/className=\"px-5 py-3.5/g' resources/js/pages/admin/pmt-review.tsx)",
+      "Bash(sed -i '' 's/className=\"bg-\\\\[#DDEFD7\\\\] px-4 py-8 text-center text-muted-foreground dark:bg-\\\\[#345A34\\\\]\\\\/80\"/className=\"bg-white px-5 py-8 text-center text-muted-foreground dark:bg-[#18291A]\\\\/40\"/g' resources/js/pages/admin/pmt-review.tsx)"
     ]
   }
 }

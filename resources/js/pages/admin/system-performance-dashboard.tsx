@@ -377,11 +377,7 @@ export default function SystemPerformanceDashboard({
                         className="xl:col-span-5"
                         accentClassName="right-0 top-0 size-36 rounded-full bg-chart-3/10 blur-3xl"
                     >
-                        <DashboardStatChipGrid
-                            items={roleLegendItems}
-                            className="grid gap-2 sm:grid-cols-2 sm:gap-2"
-                            itemClassName="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] rounded-2xl px-3 py-2.5"
-                        />
+                        <DashboardStatChipGrid items={roleLegendItems} />
                         <DashboardChartSurface className="flex flex-1 flex-col items-center justify-center gap-4">
                             <AdminDashboardDoughnutChart
                                 labels={roleDistributionLabels}

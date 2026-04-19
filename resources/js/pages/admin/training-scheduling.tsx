@@ -1,4 +1,5 @@
 import { Head } from '@inertiajs/react';
+import PageIntro from '@/components/page-intro';
 import { TrainingsSeminarsTable } from '@/components/trainings-seminars-table';
 import AppLayout from '@/layouts/app-layout';
 import * as admin from '@/routes/admin';
@@ -31,7 +32,12 @@ export default function TrainingScheduling({
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Training Suggestions" />
-            <div className="flex w-full flex-col gap-6 p-4 md:p-6 xl:p-8 lg:items-stretch">
+            <div className="app-page-shell app-page-stack">
+                <PageIntro
+                    eyebrow="HR Personnel · Training"
+                    title="Training Suggestions"
+                    description="Automated training recommendations based on employee competency gaps."
+                />
                 <TrainingsSeminarsTable
                     seminars={seminars}
                     performanceAreas={performanceAreas}
