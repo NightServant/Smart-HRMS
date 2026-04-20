@@ -186,7 +186,7 @@ class AdmsController extends Controller
             'OpStamp=0',
             'PhotoStamp=0',
             'ErrorDelay=60',
-            'Delay=30',
+            'Delay=1',
             'TransTimes=00:00;14:05',
             'TransInterval=1',
             'TransFlag=TransData AttLog',
@@ -228,7 +228,7 @@ class AdmsController extends Controller
         }
 
         if (! empty($records)) {
-            ProcessAttendanceBatch::dispatch(
+            ProcessAttendanceBatch::dispatchSync(
                 $device->id,
                 $records,
                 $request->query('Stamp'),

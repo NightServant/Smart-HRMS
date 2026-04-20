@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\AttendanceRecord;
 use App\Models\BiometricDevice;
+use App\Models\BiometricSyncIssue;
 use App\Models\Employee;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
@@ -32,55 +33,100 @@ class ProcessAttendanceBatch implements ShouldQueue
 
     public function handle(): void
     {
-        $device = BiometricDevice::findOrFail($this->deviceId);
+        $device = BiometricDevice::query()->findOrFail($this->deviceId);
         $synced = 0;
 
         foreach ($this->records as $record) {
-            $employee = Employee::where('zkteco_pin', $record['pin'])->first();
+            $pin = trim((string) ($record['pin'] ?? ''));
+            $rawDateTime = trim((string) ($record['datetime'] ?? ''));
+            $employee = $this->resolveEmployee($pin);
 
             if (! $employee) {
                 Log::warning('ProcessAttendanceBatch: Unknown PIN', [
-                    'pin' => $record['pin'],
+                    'pin' => $pin,
                     'device_id' => $this->deviceId,
                 ]);
+                $this->recordIssue($pin, $rawDateTime, 'unknown_pin', 'No employee matched this biometric PIN.');
 
                 continue;
             }
 
             try {
-                $punchDateTime = Carbon::parse($record['datetime']);
+                $punchDateTime = Carbon::parse($rawDateTime);
             } catch (\Exception $e) {
                 Log::warning('ProcessAttendanceBatch: Invalid datetime', [
-                    'datetime' => $record['datetime'],
-                    'pin' => $record['pin'],
+                    'datetime' => $rawDateTime,
+                    'pin' => $pin,
                 ]);
+                $this->recordIssue($pin, $rawDateTime, 'invalid_datetime', 'The punch timestamp could not be parsed.');
 
                 continue;
             }
 
             $status = $punchDateTime->hour >= 9 ? 'Late' : 'Present';
+            $timestamp = now();
 
-            $created = AttendanceRecord::query()->firstOrCreate(
-                [
+            try {
+                $created = AttendanceRecord::query()->insertOrIgnore([
                     'employee_id' => $employee->employee_id,
-                    'punch_time' => $punchDateTime,
-                ],
-                [
                     'date' => $punchDateTime->toDateString(),
+                    'punch_time' => $punchDateTime,
                     'status' => $status,
                     'source' => 'biometric',
-                ],
-            );
+                    'created_at' => $timestamp,
+                    'updated_at' => $timestamp,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('ProcessAttendanceBatch: Failed to store attendance record', [
+                    'employee_id' => $employee->employee_id,
+                    'pin' => $pin,
+                    'datetime' => $rawDateTime,
+                    'message' => $e->getMessage(),
+                ]);
+                $this->recordIssue($pin, $rawDateTime, 'store_failed', 'The punch could not be written to attendance records.');
 
-            if ($created->wasRecentlyCreated) {
-                $synced++;
+                continue;
             }
+
+            if ($created === 1) {
+                $synced++;
+
+                continue;
+            }
+
+            $this->recordIssue($pin, $rawDateTime, 'duplicate_punch', 'A matching punch already exists and was skipped.');
         }
 
-        $device->increment('records_synced', $synced);
+        if ($synced > 0) {
+            $device->increment('records_synced', $synced);
+        }
 
         if ($this->stamp !== null) {
             $device->update(['last_sync_stamp' => $this->stamp]);
         }
+    }
+
+    private function resolveEmployee(string $pin): ?Employee
+    {
+        if ($pin === '') {
+            return null;
+        }
+
+        return Employee::query()
+            ->where('zkteco_pin', $pin)
+            ->orWhere('employee_id', $pin)
+            ->first();
+    }
+
+    private function recordIssue(string $pin, string $rawDateTime, string $issueType, string $message): void
+    {
+        BiometricSyncIssue::query()->create([
+            'biometric_device_id' => $this->deviceId,
+            'pin' => $pin !== '' ? $pin : null,
+            'punch_time_raw' => $rawDateTime !== '' ? $rawDateTime : null,
+            'issue_type' => $issueType,
+            'message' => $message,
+            'occurred_at' => now(),
+        ]);
     }
 }

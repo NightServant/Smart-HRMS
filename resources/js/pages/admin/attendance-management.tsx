@@ -1,8 +1,8 @@
-import { Head, router } from '@inertiajs/react';
-import { useEffect } from 'react';
+import { Head, usePoll } from '@inertiajs/react';
 import { ArcElement, Chart as ChartJS, Legend, Tooltip } from 'chart.js';
 import {
     Activity,
+    AlertTriangle,
     CheckCircle2,
     Clock3,
     Database,
@@ -40,6 +40,16 @@ type Stats = {
     biometricCount: number;
     manualCount: number;
     importCount: number;
+};
+
+type SyncIssue = {
+    id: number;
+    device_name: string;
+    pin: string;
+    punch_time: string;
+    issue_type: string;
+    message: string;
+    occurred_at: string;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -119,23 +129,35 @@ function shareText(value: number, total: number): string {
     return `${percentage}% of all logged attendance records.`;
 }
 
+function issueLabel(issueType: string): string {
+    return issueType
+        .split('_')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+}
+
 export default function AttendanceManagement({
     attendances,
     search,
     pagination,
     stats,
+    syncIssues,
 }: {
     attendances: AttendanceRecord[];
     search: string;
     pagination: PaginationMeta;
     stats: Stats;
+    syncIssues: SyncIssue[];
 }) {
-    useEffect(() => {
-        const id = setInterval(() => {
-            router.reload({ only: ['attendances', 'pagination', 'stats'] });
-        }, 15000);
-        return () => clearInterval(id);
-    }, []);
+    usePoll(
+        2000,
+        {
+            only: ['attendances', 'pagination', 'stats', 'syncIssues'],
+        },
+        {
+            keepAlive: true,
+        },
+    );
 
     const sourceData = {
         labels: ['Biometric', 'Manual', 'Import'],
@@ -255,6 +277,65 @@ export default function AttendanceManagement({
                                     }}
                                 />
                             </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="glass-card rounded-xl border border-border bg-card p-4 shadow-sm">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <AlertTriangle className="size-4 text-amber-500" />
+                                <h3 className="text-sm font-semibold text-foreground">
+                                    Live Sync Exceptions
+                                </h3>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Latest biometric records that were skipped during sync. This panel refreshes every 2 seconds.
+                            </p>
+                        </div>
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                            {syncIssues.length === 0
+                                ? 'No recent sync issues'
+                                : `${syncIssues.length} recent issue${syncIssues.length === 1 ? '' : 's'}`}
+                        </span>
+                    </div>
+
+                    {syncIssues.length === 0 ? (
+                        <div className="mt-4 rounded-lg border border-dashed border-emerald-200 bg-emerald-50/70 p-4 text-sm text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/20 dark:text-emerald-300">
+                            All recent biometric punches have synced successfully.
+                        </div>
+                    ) : (
+                        <div className="mt-4 space-y-3">
+                            {syncIssues.map((issue) => (
+                                <div
+                                    key={issue.id}
+                                    className="rounded-lg border border-border/80 bg-background/70 p-3"
+                                >
+                                    <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                                        <div className="space-y-2">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-amber-800 uppercase dark:bg-amber-950/40 dark:text-amber-200">
+                                                    {issueLabel(issue.issue_type)}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground">
+                                                    Device: {issue.device_name}
+                                                </span>
+                                            </div>
+                                            <p className="text-sm font-medium text-foreground">
+                                                {issue.message}
+                                            </p>
+                                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                                                <span>PIN: {issue.pin}</span>
+                                                <span>Punch: {issue.punch_time}</span>
+                                            </div>
+                                        </div>
+                                        <span className="text-xs text-muted-foreground">
+                                            {issue.occurred_at}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
                 </div>

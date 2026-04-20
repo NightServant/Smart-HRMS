@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\AttendanceRecord;
+use App\Models\BiometricDevice;
+use App\Models\BiometricSyncIssue;
 use App\Models\Employee;
 use App\Models\HistoricalDataRecord;
 use App\Models\LeaveRequest;
@@ -74,6 +76,34 @@ test('attendance management exposes summary counts for hr stat cards', function 
             ->where('stats.biometricCount', 1)
             ->where('stats.manualCount', 1)
             ->where('stats.importCount', 1));
+});
+
+test('attendance management exposes recent biometric sync issues for live monitoring', function () {
+    $hrUser = User::factory()->asHrPersonnel()->create();
+
+    $device = BiometricDevice::query()->create([
+        'serial_number' => 'TEST001',
+        'name' => 'Main Entrance',
+        'is_active' => true,
+    ]);
+
+    BiometricSyncIssue::query()->create([
+        'biometric_device_id' => $device->id,
+        'pin' => '1001',
+        'punch_time_raw' => '2026-04-20 09:01:15',
+        'issue_type' => 'duplicate_punch',
+        'message' => 'A matching punch already exists and was skipped.',
+        'occurred_at' => now(),
+    ]);
+
+    $this->actingAs($hrUser)
+        ->get(route('admin.attendance-management'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/attendance-management')
+            ->has('syncIssues', 1)
+            ->where('syncIssues.0.device_name', 'Main Entrance')
+            ->where('syncIssues.0.pin', '1001')
+            ->where('syncIssues.0.issue_type', 'duplicate_punch'));
 });
 
 test('evaluator attendance page exposes subordinate manual punch settings', function () {

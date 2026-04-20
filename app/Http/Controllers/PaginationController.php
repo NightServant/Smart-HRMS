@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateEmployeeEmploymentStatusRequest;
 use App\Models\AttendanceRecord;
+use App\Models\BiometricSyncIssue;
 use App\Models\Employee;
 use App\Models\HistoricalDataRecord;
 use App\Models\LeaveRequest;
@@ -163,6 +164,22 @@ class PaginationController extends Controller
         $biometricCount = AttendanceRecord::query()->where('source', 'biometric')->count();
         $manualCount = AttendanceRecord::query()->where('source', 'manual')->count();
         $importCount = AttendanceRecord::query()->where('source', 'import')->count();
+        $syncIssues = BiometricSyncIssue::query()
+            ->with('device')
+            ->latest('occurred_at')
+            ->limit(10)
+            ->get()
+            ->map(fn (BiometricSyncIssue $issue): array => [
+                'id' => $issue->id,
+                'device_name' => $issue->device?->name ?? $issue->device?->serial_number ?? 'Unknown Device',
+                'pin' => $issue->pin ?? '-',
+                'punch_time' => $issue->punch_time_raw ?? '-',
+                'issue_type' => $issue->issue_type,
+                'message' => $issue->message,
+                'occurred_at' => $issue->occurred_at?->format('Y-m-d H:i:s') ?? '-',
+            ])
+            ->values()
+            ->all();
 
         return Inertia::render('admin/attendance-management', [
             'search' => $search,
@@ -182,6 +199,7 @@ class PaginationController extends Controller
                 'manualCount' => $manualCount,
                 'importCount' => $importCount,
             ],
+            'syncIssues' => $syncIssues,
         ]);
     }
 

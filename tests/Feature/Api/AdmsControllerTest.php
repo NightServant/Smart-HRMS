@@ -35,6 +35,7 @@ test('POST attendance data creates records with source biometric', function () {
         'employee_id' => 'EMP-001',
         'name' => 'Test Employee',
         'job_title' => 'Tester',
+        'zkteco_pin' => '1001',
     ]);
 
     BiometricDevice::create([
@@ -42,7 +43,7 @@ test('POST attendance data creates records with source biometric', function () {
         'is_active' => true,
     ]);
 
-    $body = "EMP-001\t2026-03-28 08:30:00\t0\t1\t0\t0\t0";
+    $body = "{$employee->zkteco_pin}\t2026-03-28 08:30:00\t0\t1\t0\t0\t0";
 
     $response = $this->call('POST', '/api/iclock/cdata?SN=TEST001&table=ATTLOG&Stamp=1', content: $body);
 
@@ -61,6 +62,7 @@ test('duplicate push is idempotent', function () {
         'employee_id' => 'EMP-001',
         'name' => 'Test Employee',
         'job_title' => 'Tester',
+        'zkteco_pin' => '1001',
     ]);
 
     BiometricDevice::create([
@@ -68,12 +70,19 @@ test('duplicate push is idempotent', function () {
         'is_active' => true,
     ]);
 
-    $body = "EMP-001\t2026-03-28 08:30:00\t0\t1\t0\t0\t0";
+    $firstPunch = "1001\t2026-03-28 08:30:00\t0\t1\t0\t0\t0";
+    $secondPunch = "1001\t2026-03-28 08:31:00\t0\t1\t0\t0\t0";
 
-    $this->call('POST', '/api/iclock/cdata?SN=TEST001&table=ATTLOG&Stamp=1', content: $body);
-    $this->call('POST', '/api/iclock/cdata?SN=TEST001&table=ATTLOG&Stamp=2', content: $body);
+    $this->call('POST', '/api/iclock/cdata?SN=TEST001&table=ATTLOG&Stamp=1', content: $firstPunch);
+    $this->call('POST', '/api/iclock/cdata?SN=TEST001&table=ATTLOG&Stamp=2', content: $firstPunch);
+    $this->call('POST', '/api/iclock/cdata?SN=TEST001&table=ATTLOG&Stamp=3', content: $secondPunch);
 
-    expect(AttendanceRecord::where('employee_id', 'EMP-001')->count())->toBe(1);
+    expect(AttendanceRecord::where('employee_id', 'EMP-001')->count())->toBe(2);
+
+    $this->assertDatabaseHas('biometric_sync_issues', [
+        'pin' => '1001',
+        'issue_type' => 'duplicate_punch',
+    ]);
 });
 
 test('unknown PIN is skipped gracefully', function () {
@@ -95,6 +104,7 @@ test('late detection marks punch after 9AM as Late', function () {
         'employee_id' => 'EMP-001',
         'name' => 'Test Employee',
         'job_title' => 'Tester',
+        'zkteco_pin' => '1001',
     ]);
 
     BiometricDevice::create([
@@ -102,7 +112,7 @@ test('late detection marks punch after 9AM as Late', function () {
         'is_active' => true,
     ]);
 
-    $body = "EMP-001\t2026-03-28 09:30:00\t0\t1\t0\t0\t0";
+    $body = "1001\t2026-03-28 09:30:00\t0\t1\t0\t0\t0";
 
     $this->call('POST', '/api/iclock/cdata?SN=TEST001&table=ATTLOG&Stamp=1', content: $body);
 
@@ -151,6 +161,48 @@ test('biometric punch endpoint creates record for logged-in employee', function 
     $this->assertDatabaseHas('biometric_devices', [
         'serial_number' => 'SIMULATOR',
     ]);
+});
+
+test('device attendance push is written immediately even when the default queue is asynchronous', function () {
+    config(['queue.default' => 'database']);
+
+    Employee::create([
+        'employee_id' => 'EMP-010',
+        'name' => 'Immediate Employee',
+        'job_title' => 'Tester',
+        'zkteco_pin' => '1010',
+    ]);
+
+    BiometricDevice::create([
+        'serial_number' => 'TEST001',
+        'is_active' => true,
+    ]);
+
+    $response = $this->call(
+        'POST',
+        '/api/iclock/cdata?SN=TEST001&table=ATTLOG&Stamp=1',
+        content: "1010\t2026-03-28 08:30:00\t0\t1\t0\t0\t0",
+    );
+
+    $response->assertOk();
+
+    $this->assertDatabaseHas('attendance_records', [
+        'employee_id' => 'EMP-010',
+        'punch_time' => '2026-03-28 08:30:00',
+    ]);
+});
+
+test('GET handshake requests near real-time pushes from the biometric device', function () {
+    BiometricDevice::create([
+        'serial_number' => 'TEST001',
+        'is_active' => true,
+    ]);
+
+    $response = $this->get('/api/iclock/cdata?SN=TEST001');
+
+    $response->assertOk();
+    expect($response->getContent())->toContain('Delay=1');
+    expect($response->getContent())->toContain('Realtime=1');
 });
 
 test('biometric punch requires authentication', function () {

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BiometricDevice extends Model
 {
@@ -26,5 +27,10 @@ class BiometricDevice extends Model
             'last_activity_at' => 'datetime',
             'is_active' => 'boolean',
         ];
+    }
+
+    public function syncIssues(): HasMany
+    {
+        return $this->hasMany(BiometricSyncIssue::class);
     }
 }
