@@ -192,7 +192,9 @@
       "Bash(npx tsc *)",
       "Bash(find /Users/gabe/Herd/Smart-HRMS/app/Jobs -name \"ProcessAttendance*\" -exec cat {} \\\\;)",
       "Bash(/Applications/Herd.app/Contents/Resources/valet/bin/mysql --version)",
-      "Bash(brew list *)"
+      "Bash(brew list *)",
+      "Bash(git rm *)",
+      "Bash(git commit -m 'chore: untrack python/zk-sync/.last_sync \\(already gitignored\\) *)"
     ]
   }
 }
