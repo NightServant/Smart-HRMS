@@ -136,9 +136,9 @@ class AdmsController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        ProcessAttendanceBatch::dispatch($device->id, $data['records']);
+        ProcessAttendanceBatch::dispatchSync($device->id, $data['records']);
 
-        return response()->json(['status' => 'queued', 'count' => count($data['records'])]);
+        return response()->json(['status' => 'processed', 'count' => count($data['records'])]);
     }
 
     /**

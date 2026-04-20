@@ -42,7 +42,7 @@ ZK_API_KEY      = os.getenv('ZK_API_KEY', '')
 DEVICE_TZ     = ZoneInfo('Asia/Manila')
 PAGE_SIZE     = 100
 STAMP_FILE    = Path(__file__).parent / '.last_sync'
-SYNC_INTERVAL = int(os.getenv('SYNC_INTERVAL', '30'))   # seconds between polls in daemon mode
+SYNC_INTERVAL = int(os.getenv('SYNC_INTERVAL', '10'))   # seconds between polls in daemon mode
 TOKEN_RENEW_BUFFER = 300                                  # renew token 5 min before expiry
 
 _shutdown = False

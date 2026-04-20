@@ -1,4 +1,5 @@
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
+import { useEffect } from 'react';
 import { ArcElement, Chart as ChartJS, Legend, Tooltip } from 'chart.js';
 import {
     Activity,
@@ -129,6 +130,13 @@ export default function AttendanceManagement({
     pagination: PaginationMeta;
     stats: Stats;
 }) {
+    useEffect(() => {
+        const id = setInterval(() => {
+            router.reload({ only: ['attendances', 'pagination', 'stats'] });
+        }, 15000);
+        return () => clearInterval(id);
+    }, []);
+
     const sourceData = {
         labels: ['Biometric', 'Manual', 'Import'],
         datasets: [

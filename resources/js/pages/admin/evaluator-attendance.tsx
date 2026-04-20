@@ -12,7 +12,7 @@ import {
     UserSearch,
     XCircle,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { updateManualPunchStatus } from '@/actions/App/Http/Controllers/AttendanceRecordController';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -432,6 +432,13 @@ export default function EvaluatorAttendance({
     const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(
         subordinates[0]?.employee_id ?? '',
     );
+
+    useEffect(() => {
+        const id = setInterval(() => {
+            router.reload({ only: ['attendances', 'pagination', 'stats'] });
+        }, 15000);
+        return () => clearInterval(id);
+    }, []);
 
     const navigate = (params: {
         search?: string;
