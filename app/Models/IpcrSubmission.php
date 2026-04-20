@@ -97,6 +97,32 @@ class IpcrSubmission extends Model
         return $this->hasOne(IpcrAppeal::class);
     }
 
+    public function hasAppealSubmission(): bool
+    {
+        if (in_array($this->appeal_status, ['appealed', 'submitted'], true)) {
+            return true;
+        }
+
+        return $this->appeal !== null;
+    }
+
+    public function normalizedAppealStatus(): ?string
+    {
+        if ($this->appeal_status === 'appeal_window_open' || $this->stage === 'appeal_window_open') {
+            return 'appeal_window_open';
+        }
+
+        if ($this->hasAppealSubmission()) {
+            return 'appealed';
+        }
+
+        if ($this->appeal_status === 'no_appeal') {
+            return 'no_appeal';
+        }
+
+        return $this->appeal_status;
+    }
+
     /**
      * Check if the appeal window is currently open and not expired.
      */

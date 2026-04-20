@@ -1,5 +1,4 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { toast } from 'sonner';
 import {
     CalendarClock,
     Clock3,
@@ -13,6 +12,7 @@ import {
     ShieldAlert,
 } from 'lucide-react';
 import { startTransition, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import AppealCountdown from '@/components/appeal-countdown';
 import EscalationWarning from '@/components/escalation-warning';
 import IpcrPaperForm from '@/components/ipcr-paper-form';
@@ -192,26 +192,6 @@ function submissionPeriodLabel(semester: '1' | '2', year: string): string {
         : `January to June ${safeYear}`;
 }
 
-function reviewerTargetUrl(
-    employeeId: string | null | undefined,
-    source: 'evaluator' | 'hr-review' | 'hr-finalize' | 'pmt',
-    submissionId?: number | null,
-): string {
-    const params = new URLSearchParams();
-
-    if (employeeId) {
-        params.set('employee_id', employeeId);
-    }
-
-    if (submissionId) {
-        params.set('submission_id', String(submissionId));
-    }
-
-    params.set('source', source);
-
-    return `/ipcr/target-review?${params.toString()}`;
-}
-
 function computedRating(submission: IpcrSubmission): number | null {
     return (
         submission.form_payload.summary.computed_rating ??
@@ -294,8 +274,6 @@ const stripedTableRows = [
     'border-b border-[#D4EBC8] bg-white transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#18291A]/40 dark:hover:bg-[#243C24]/70',
     'border-b border-[#D4EBC8] bg-[#F2FAF0] transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#1D2E1D]/60 dark:hover:bg-[#243C24]/70',
 ];
-const tableHeaderClasses =
-    'bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10';
 
 function StatCard({
     label,
@@ -384,11 +362,6 @@ function EmployeeOverview({
     const launchFormLabel = periodOpen
         ? 'Open IPCR Form'
         : 'Preview IPCR Form';
-    const launchFormDescription = periodOpen
-        ? employeePanel?.periodMessage ??
-          'HR has enabled the current evaluation period. Start a new IPCR form when you are ready.'
-        : employeePanel?.periodMessage ??
-          'HR has not enabled the evaluation period yet. You can still preview the IPCR form below, but editing and submission stay disabled until the period opens.';
 
     return (
         <div className="space-y-6">
@@ -2026,7 +1999,8 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                                             {submission.employee?.name ?? submission.employee_id}
                                         </td>
                                         <td className="px-5 py-3.5">
-                                            {submission.appeal_status === 'appealed'
+                                            {submission.appeal_status === 'appealed' ||
+                                            submission.appeal_status === 'submitted'
                                                 ? 'Appealed'
                                                 : 'No Appeal'}
                                         </td>

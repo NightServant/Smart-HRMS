@@ -322,9 +322,9 @@ class RuleEngine:
         appeal_status = form.get("appeal_status")
 
         # RULE 1: The submission must be in the appeal flow.
-        # The Laravel controller submits appeals with appeal_status="submitted",
+        # The Laravel controller submits appeals with appeal_status="appealed",
         # while some legacy payloads still surface the open-window state.
-        if appeal_status not in ("submitted", "appeal_window_open"):
+        if appeal_status not in ("appealed", "submitted", "appeal_window_open"):
             return False, "Appeal window is not open. Cannot submit an appeal."
 
         # RULE 2: Appeal reason is required (R-A2)

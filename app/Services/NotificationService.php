@@ -200,7 +200,7 @@ class NotificationService
             ) : null,
             'route_to_pmt' => $this->notifyRoleUsers(
                 User::ROLE_PMT, 'ipcr_pending_pmt_review', 'New IPCR awaiting PMT review',
-                $submission->appeal_status === 'appealed'
+                $submission->hasAppealSubmission()
                     ? "{$employeeName} submitted an appeal on their IPCR. Please review the evidence and take action."
                     : "{$employeeName}'s IPCR is ready for PMT review after the appeal window closed without an appeal.",
                 $submission->id,

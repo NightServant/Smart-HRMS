@@ -150,7 +150,8 @@ export default function PmtReview({
                         value={
                             submissions.data.filter(
                                 (submission) =>
-                                    submission.appeal_status === 'appealed',
+                                    submission.appeal_status === 'appealed' ||
+                                    submission.appeal_status === 'submitted',
                             ).length
                         }
                         icon={Database}
@@ -343,7 +344,8 @@ export default function PmtReview({
                                 mode="review"
                             />
 
-                            {selected.appeal_status === 'appealed' &&
+                            {(selected.appeal_status === 'appealed' ||
+                                selected.appeal_status === 'submitted') &&
                                 selected.appeal && (
                                     <div className="grid gap-4 lg:grid-cols-2">
                                         <div className="glass-card rounded-[26px] border border-border bg-card p-4 shadow-sm">

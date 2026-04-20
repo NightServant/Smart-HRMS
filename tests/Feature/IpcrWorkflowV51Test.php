@@ -458,7 +458,7 @@ test('appeal submission routes successfully when the appeal window is open', fun
     $submission->refresh();
 
     expect($submission->appeal_count)->toBe(1)
-        ->and($submission->appeal_status)->toBe('submitted')
+        ->and($submission->appeal_status)->toBe('appealed')
         ->and($submission->stage)->toBe('sent_to_evaluator')
         ->and($submission->status)->toBe('routed');
 });
@@ -485,9 +485,54 @@ test('appeal submission falls back to local routing when the workflow service er
     $submission->refresh();
 
     expect($submission->appeal_count)->toBe(1)
-        ->and($submission->appeal_status)->toBe('submitted')
+        ->and($submission->appeal_status)->toBe('appealed')
         ->and($submission->stage)->toBe('sent_to_evaluator')
         ->and($submission->status)->toBe('routed');
+});
+
+test('second appeal routes to pmt and surfaces as appealed in the review queue', function () {
+    ['employeeUser' => $employeeUser, 'employee' => $employee, 'pmtUser' => $pmtUser] = seedIpcrUsersAndEmployees();
+    $submission = createAppealWindowSubmission($employee);
+    $submission->update(['appeal_count' => 1]);
+
+    mockIwrService(['routeAppeal' => [
+        'status' => 'routed',
+        'stage' => 'sent_to_pmt',
+        'routing_action' => 'route_to_pmt',
+        'notification' => 'Second appeal submitted by Patricia Garcia. Routed to PMT for policy-level validation.',
+    ]]);
+
+    $response = $this->actingAs($employeeUser)->post(route('ipcr.appeal.submit', $submission), [
+        'appeal_reason' => 'The second review still has a rating issue.',
+        'appeal_evidence_description' => 'Supporting records for the second appeal.',
+        'evidence_files' => [
+            UploadedFile::fake()->create('second-appeal.pdf', 120, 'application/pdf'),
+        ],
+    ]);
+
+    $response->assertRedirect(route('submit-evaluation'));
+
+    $submission->refresh();
+
+    expect($submission->appeal_count)->toBe(2)
+        ->and($submission->appeal_status)->toBe('appealed')
+        ->and($submission->stage)->toBe('sent_to_pmt')
+        ->and($submission->routing_action)->toBe('route_to_pmt');
+
+    expect(Notification::query()
+        ->where('user_id', $pmtUser->id)
+        ->where('type', 'ipcr_pending_pmt_review')
+        ->where('message', 'like', '%submitted an appeal%')
+        ->exists())->toBeTrue();
+
+    $this->actingAs($pmtUser)
+        ->get(route('admin.pmt-review'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('performance-evaluation')
+            ->where('roleView', 'pmt')
+            ->where('pmtPanel.submissions.0.appeal_status', 'appealed')
+        );
 });
 
 test('appeal evidence files can be viewed inline', function () {

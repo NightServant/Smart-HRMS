@@ -938,7 +938,7 @@ class IwrController extends Controller
             'stage' => 'appeal',
             'employee_id' => $submission->employee_id,
             'employee_name' => $submission->employee?->name ?? $submission->employee_id,
-            'appeal_status' => 'submitted',
+            'appeal_status' => 'appealed',
             'appeal_count' => $newAppealCount,
             'appeal_reason' => $request->validated('appeal_reason'),
             'evidence_files' => $evidencePaths,
@@ -956,7 +956,7 @@ class IwrController extends Controller
 
         $submission->update([
             'form_payload' => $formPayload,
-            'appeal_status' => 'submitted',
+            'appeal_status' => 'appealed',
             'stage' => $iwrResult['stage'] ?? ($newAppealCount >= 2 ? 'sent_to_pmt' : 'sent_to_evaluator'),
             'status' => $iwrResult['status'] ?? 'routed',
             'routing_action' => $iwrResult['routing_action'] ?? ($newAppealCount >= 2 ? 'route_to_pmt' : 're_evaluate'),
@@ -1030,7 +1030,10 @@ class IwrController extends Controller
                 'submissions' => $submissions,
                 'stats' => [
                     'pendingReview' => count($submissions),
-                    'appealed' => IpcrSubmission::query()->where('stage', 'sent_to_pmt')->where('appeal_status', 'appealed')->count(),
+                    'appealed' => IpcrSubmission::query()
+                        ->where('stage', 'sent_to_pmt')
+                        ->whereIn('appeal_status', ['appealed', 'submitted'])
+                        ->count(),
                     'returnedForReevaluation' => IpcrSubmission::query()->where('stage', 'sent_to_evaluator')->where('pmt_cycle_count', '>', 0)->count(),
                     'escalated' => IpcrSubmission::query()->where('is_escalated', true)->count(),
                 ],
@@ -1785,7 +1788,7 @@ class IwrController extends Controller
             $submission->status !== 'error'
             || $submission->stage !== 'appeal'
             || $submission->routing_action !== 'validation_failed'
-            || ! in_array($submission->appeal_status, ['submitted', 'no_appeal'], true)
+            || ! in_array($submission->appeal_status, ['appealed', 'submitted', 'no_appeal'], true)
         ) {
             return $submission;
         }
@@ -1793,7 +1796,7 @@ class IwrController extends Controller
         $submission->loadMissing(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal']);
 
         $appealCount = $submission->appeal_count ?? 0;
-        $hasAppeal = $submission->appeal_status === 'submitted';
+        $hasAppeal = $submission->hasAppealSubmission();
         $appealReason = $hasAppeal
             ? ($submission->appeal?->appeal_reason ?? data_get($submission->form_payload, 'workflow_notes.appeal_reason'))
             : null;
@@ -1814,7 +1817,7 @@ class IwrController extends Controller
             'stage' => 'appeal',
             'employee_id' => $submission->employee_id,
             'employee_name' => $submission->employee?->name ?? $submission->employee_id,
-            'appeal_status' => $hasAppeal ? 'submitted' : 'no_appeal',
+            'appeal_status' => $hasAppeal ? 'appealed' : 'no_appeal',
             'appeal_count' => $appealCount,
             'appeal_reason' => $appealReason,
             'evidence_files' => $evidenceFiles,
@@ -1829,7 +1832,7 @@ class IwrController extends Controller
             'status' => $iwrResult['status'] ?? $submission->status,
             'routing_action' => $iwrResult['routing_action'] ?? $submission->routing_action,
             'notification' => $iwrResult['notification'] ?? $submission->notification,
-            'appeal_status' => $hasAppeal ? 'submitted' : 'no_appeal',
+            'appeal_status' => $hasAppeal ? 'appealed' : 'no_appeal',
         ]);
 
         $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
@@ -1951,7 +1954,7 @@ class IwrController extends Controller
             'pmt_remarks' => $submission->pmt_remarks ?? data_get($formPayload, 'workflow_notes.pmt_remarks'),
             'hr_cycle_count' => $submission->hr_cycle_count,
             'pmt_cycle_count' => $submission->pmt_cycle_count,
-            'appeal_status' => $submission->appeal_status,
+            'appeal_status' => $submission->normalizedAppealStatus(),
             'appeal_count' => $submission->appeal_count ?? 0,
             'appeal_window_opens_at' => $submission->appeal_window_opens_at?->toIso8601String(),
             'appeal_window_closes_at' => $submission->appeal_window_closes_at?->toIso8601String(),
