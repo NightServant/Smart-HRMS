@@ -142,7 +142,9 @@ class PaginationController extends Controller
                         ->orWhere('status', 'like', '%'.$search.'%');
                 });
             })
-            ->latest('date')
+            ->orderByDesc('date')
+            ->orderByDesc('punch_time')
+            ->orderByDesc('id')
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (AttendanceRecord $record): array => [
@@ -364,7 +366,9 @@ class PaginationController extends Controller
                         ->orWhere('status', 'like', '%'.$search.'%');
                 });
             })
-            ->latest('date')
+            ->orderByDesc('date')
+            ->orderByDesc('punch_time')
+            ->orderByDesc('id')
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (AttendanceRecord $record): array => [

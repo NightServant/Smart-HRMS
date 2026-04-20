@@ -1,4 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { toast } from 'sonner';
 import {
     CalendarClock,
     Clock3,
@@ -1075,20 +1076,25 @@ function HrOverview({
     );
     const [savingPeriod, setSavingPeriod] = useState(false);
     const [finalRating, setFinalRating] = useState('');
-    const [notifyingTrainingSubmissionId, setNotifyingTrainingSubmissionId] =
-        useState<number | null>(null);
+    const [notifyAllOpen, setNotifyAllOpen] = useState(false);
+    const [notifyingAll, setNotifyingAll] = useState(false);
 
-    function notifyTrainingSuggestions(submissionId: number): void {
-        setNotifyingTrainingSubmissionId(submissionId);
+    function notifyAllEmployeesTraining(): void {
+        setNotifyingAll(true);
 
         router.post(
-            '/admin/training-suggestions/notify',
-            {
-                submission_id: submissionId,
-            },
+            '/admin/training-suggestions/notify-all',
+            {},
             {
                 preserveScroll: true,
-                onFinish: () => setNotifyingTrainingSubmissionId(null),
+                onSuccess: () => {
+                    toast.success('Global training notification queued.');
+                    setNotifyAllOpen(false);
+                },
+                onError: () => {
+                    toast.error('Could not queue training notifications.');
+                },
+                onFinish: () => setNotifyingAll(false),
             },
         );
     }
@@ -1444,6 +1450,24 @@ function HrOverview({
                             Finalized
                         </Button>
                     </div>
+                    {!isReviewView && (
+                        <div className="flex items-center justify-between gap-4 rounded-[20px] border border-brand-300 bg-brand-50/60 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                            <div>
+                                <p className="text-sm font-semibold">Notify all employees</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Send a global training recommendation notification to every employee.
+                                </p>
+                            </div>
+                            <Button
+                                size="sm"
+                                className="gap-2"
+                                onClick={() => setNotifyAllOpen(true)}
+                            >
+                                <Megaphone className="size-4" />
+                                Notify Training (All)
+                            </Button>
+                        </div>
+                    )}
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
@@ -1542,25 +1566,6 @@ function HrOverview({
                                                           ? queueButtonLabel
                                                           : 'View Finalization'}
                                                 </Button>
-                                                {!isReviewView && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="gap-2"
-                                                        disabled={
-                                                            notifyingTrainingSubmissionId === submission.id
-                                                        }
-                                                        onClick={() =>
-                                                            notifyTrainingSuggestions(submission.id)
-                                                        }
-                                                    >
-                                                        <Megaphone className="size-4" />
-                                                        {notifyingTrainingSubmissionId === submission.id
-                                                            ? 'Sending...'
-                                                            : 'Notify Training'}
-                                                    </Button>
-                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -1583,6 +1588,32 @@ function HrOverview({
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setSelectedPeriodKey(null)}>
                             Close
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={notifyAllOpen}
+                onOpenChange={(open) => !notifyingAll && setNotifyAllOpen(open)}
+            >
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Notify all employees?</DialogTitle>
+                        <DialogDescription>
+                            This will send a training recommendation notification to every employee account. Employees already notified today will be skipped automatically.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            disabled={notifyingAll}
+                            onClick={() => setNotifyAllOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button disabled={notifyingAll} onClick={notifyAllEmployeesTraining}>
+                            {notifyingAll ? 'Queuing…' : 'Notify All'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

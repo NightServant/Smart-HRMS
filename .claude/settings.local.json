@@ -180,7 +180,19 @@
       "Bash(sed -i '' 's/from datetime import datetime, timedelta/from datetime import datetime, timedelta, timezone/' /Users/gabe/Herd/Smart-HRMS/python/zk-sync/sync_agent.py)",
       "Bash(launchctl unload *)",
       "Bash(railway --version)",
-      "Bash(railway list *)"
+      "Bash(railway list *)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code} in %{time_total}s\\\\n\" https://sunny-reverence-production-4bf9.up.railway.app/up)",
+      "Bash(curl -sS -o /dev/null -w \"HTTP %{http_code} in %{time_total}s\\\\n\" https://sunny-reverence-production-4bf9.up.railway.app/)",
+      "Bash(git fetch *)",
+      "Bash(curl -sS https://sunny-reverence-production-4bf9.up.railway.app/up -I)",
+      "Bash(curl -sS https://sunny-reverence-production-4bf9.up.railway.app/)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); env=d['environments']['edges'][0]['node']; [print\\(s['node']['serviceName'], '->', s['node']['latestDeployment'].get\\('status','?'\\), s['node']['latestDeployment'].get\\('createdAt','?'\\), s['node']['latestDeployment'].get\\('id',''\\)[:8]\\) for s in env['serviceInstances']['edges']]\")",
+      "Bash(railway add *)",
+      "Bash(railway redeploy *)",
+      "Bash(npx tsc *)",
+      "Bash(find /Users/gabe/Herd/Smart-HRMS/app/Jobs -name \"ProcessAttendance*\" -exec cat {} \\\\;)",
+      "Bash(/Applications/Herd.app/Contents/Resources/valet/bin/mysql --version)",
+      "Bash(brew list *)"
     ]
   }
 }
