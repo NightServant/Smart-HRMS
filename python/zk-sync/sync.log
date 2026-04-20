@@ -1,0 +1,79 @@
+[2026-04-20 15:25:01] Opening Zlink portal ...
+[2026-04-20 15:25:04] Submitting login ...
+[2026-04-20 15:25:08] Company-scoped token obtained.
+[2026-04-20 15:25:08] Fetching transactions from 2026-04-20 15:23:45 → 2026-04-20 15:25:00
+[2026-04-20 15:25:08]   Page 1/1: 0 records
+[2026-04-20 15:25:08] Total: 0 transaction(s).
+[2026-04-20 15:30:02] Opening Zlink portal ...
+[2026-04-20 15:30:08] Submitting login ...
+[2026-04-20 15:30:11] Company-scoped token obtained.
+[2026-04-20 15:30:11] Fetching transactions from 2026-04-20 15:25:00 → 2026-04-20 15:30:01
+[2026-04-20 15:30:12]   Page 1/1: 1 records
+[2026-04-20 15:30:12] Total: 1 transaction(s).
+[2026-04-20 15:30:12] Pushing 1 record(s) to Laravel ...
+[2026-04-20 15:30:13] Success — server queued 1 record(s).
+[2026-04-20 15:30:13] Done. Stamp saved: 2026-04-20T15:30:01.302289
+[2026-04-20 15:35:02] Opening Zlink portal ...
+[2026-04-20 15:35:05] Submitting login ...
+[2026-04-20 15:35:09] Company-scoped token obtained.
+[2026-04-20 15:35:09] Fetching transactions from 2026-04-20 15:30:01 → 2026-04-20 15:35:01
+[2026-04-20 15:35:09]   Page 1/1: 0 records
+[2026-04-20 15:35:09] Total: 0 transaction(s).
+[2026-04-20 15:40:03] Opening Zlink portal ...
+[2026-04-20 15:40:06] Submitting login ...
+[2026-04-20 15:40:09] Company-scoped token obtained.
+[2026-04-20 15:40:09] Fetching transactions from 2026-04-20 15:35:01 → 2026-04-20 15:40:01
+[2026-04-20 15:40:09]   Page 1/1: 0 records
+[2026-04-20 15:40:09] Total: 0 transaction(s).
+[2026-04-20 15:45:01] Opening Zlink portal ...
+[2026-04-20 15:45:07] Submitting login ...
+[2026-04-20 15:45:10] Company-scoped token obtained.
+[2026-04-20 15:45:10] Fetching transactions from 2026-04-20 15:41:45 → 2026-04-20 15:45:00
+[2026-04-20 15:45:11]   Page 1/1: 0 records
+[2026-04-20 15:45:11] Total: 0 transaction(s).
+[2026-04-20 15:50:02] Opening Zlink portal ...
+[2026-04-20 15:50:05] Submitting login ...
+[2026-04-20 15:50:08] Company-scoped token obtained.
+[2026-04-20 15:50:08] Fetching transactions from 2026-04-20 15:45:00 → 2026-04-20 15:50:00
+[2026-04-20 15:50:09]   Page 1/1: 0 records
+[2026-04-20 15:50:09] Total: 0 transaction(s).
+[2026-04-20 15:55:02] Opening Zlink portal ...
+[2026-04-20 15:55:07] Submitting login ...
+/Users/gabe/Herd/Smart-HRMS/python/zk-sync/sync_agent.py:72: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  return datetime.utcfromtimestamp(claims['exp'])
+[2026-04-20 15:55:11] Company-scoped token obtained (expires ~08:50 UTC).
+[2026-04-20 15:55:11] Fetching 2026-04-20 15:50:00 → 2026-04-20 15:55:00
+[2026-04-20 15:55:11]   Page 1/1: 1 records
+[2026-04-20 15:55:11] Pushing 1 record(s) to Laravel ...
+[2026-04-20 15:55:12] Queued 1 record(s).
+[2026-04-20 15:55:12] Done.
+[2026-04-20 15:55:34] Daemon started — polling every 30s.
+/Users/gabe/Herd/Smart-HRMS/python/zk-sync/sync_agent.py:264: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  token_expiry: datetime = datetime.utcnow()
+[2026-04-20 15:55:34] Authenticating with Zlink ...
+[2026-04-20 15:55:34] Opening Zlink portal ...
+[2026-04-20 15:55:39] Submitting login ...
+/Users/gabe/Herd/Smart-HRMS/python/zk-sync/sync_agent.py:72: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  return datetime.utcfromtimestamp(claims['exp'])
+[2026-04-20 15:55:43] Company-scoped token obtained (expires ~08:50 UTC).
+[2026-04-20 15:55:43] Poll: 15:55:00 → 15:55:43
+[2026-04-20 15:55:43]   Page 1/1: 0 records
+/Users/gabe/Herd/Smart-HRMS/python/zk-sync/sync_agent.py:269: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  if not token or datetime.utcnow() >= token_expiry - timedelta(seconds=TOKEN_RENEW_BUFFER):
+[2026-04-20 15:56:13] Poll: 15:55:43 → 15:56:13
+[2026-04-20 15:56:13]   Page 1/1: 0 records
+[2026-04-20 15:56:17] Daemon started — polling every 30s.
+[2026-04-20 15:56:17] Authenticating with Zlink ...
+[2026-04-20 15:56:18] Opening Zlink portal ...
+[2026-04-20 15:56:23] Submitting login ...
+[2026-04-20 15:56:26] Company-scoped token obtained (expires ~08:50 UTC).
+[2026-04-20 15:56:26] Poll: 15:56:13 → 15:56:26
+[2026-04-20 15:56:27]   Page 1/1: 0 records
+[2026-04-20 15:56:57] Poll: 15:56:26 → 15:56:57
+[2026-04-20 15:56:57]   Page 1/1: 0 records
+[2026-04-20 15:57:27] Poll: 15:56:57 → 15:57:27
+[2026-04-20 15:57:28]   Page 1/1: 0 records
+[2026-04-20 15:57:58] Poll: 15:57:27 → 15:57:58
+[2026-04-20 15:57:58]   Page 1/1: 0 records
+[2026-04-20 15:58:28] Poll: 15:57:58 → 15:58:28
+[2026-04-20 15:58:28]   Page 1/1: 0 records
