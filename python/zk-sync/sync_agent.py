@@ -42,7 +42,7 @@ ZK_API_KEY      = os.getenv('ZK_API_KEY', '')
 DEVICE_TZ     = ZoneInfo('Asia/Manila')
 PAGE_SIZE     = 100
 STAMP_FILE    = Path(__file__).parent / '.last_sync'
-SYNC_INTERVAL = int(os.getenv('SYNC_INTERVAL', '10'))   # seconds between polls in daemon mode
+SYNC_INTERVAL = int(os.getenv('SYNC_INTERVAL', '2'))   # seconds between polls in daemon mode
 TOKEN_RENEW_BUFFER = 300                                  # renew token 5 min before expiry
 
 _shutdown = False
@@ -147,7 +147,7 @@ def _get_company_token() -> tuple[str, datetime]:
         # Wait for post-login redirect and all background API calls to complete
         page.wait_for_url(lambda url: 'login' not in url.lower(), timeout=20000)
         page.wait_for_load_state('networkidle', timeout=15000)
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(500)
 
         browser.close()
 

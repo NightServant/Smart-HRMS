@@ -1,5 +1,4 @@
-import { Head, router } from '@inertiajs/react';
-import { useEffect } from 'react';
+import { Head, usePoll } from '@inertiajs/react';
 import AttendanceScanner from '@/components/attendance-scanner';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
@@ -29,12 +28,15 @@ export default function Attendance({
     hasDevice: boolean;
     manualPunchEnabled?: boolean;
 }) {
-    useEffect(() => {
-        const id = setInterval(() => {
-            router.reload({ only: ['records'] });
-        }, 15000);
-        return () => clearInterval(id);
-    }, []);
+    usePoll(
+        1000,
+        {
+            only: ['records'],
+        },
+        {
+            keepAlive: true,
+        },
+    );
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>

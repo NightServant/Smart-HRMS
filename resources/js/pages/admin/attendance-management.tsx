@@ -150,7 +150,7 @@ export default function AttendanceManagement({
     syncIssues: SyncIssue[];
 }) {
     usePoll(
-        2000,
+        1000,
         {
             only: ['attendances', 'pagination', 'stats', 'syncIssues'],
         },

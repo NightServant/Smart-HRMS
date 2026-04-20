@@ -11,7 +11,7 @@
     "apiKey": "paste-64-char-hex-api-key-from-system-settings"
   },
   "sync": {
-    "intervalMs": 60000,
+    "intervalMs": 5000,
     "retryAfterMs": 30000,
     "clearDeviceAfterSync": false
   },

@@ -1,4 +1,4 @@
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePoll } from '@inertiajs/react';
 import { format, parseISO } from 'date-fns';
 import {
     CalendarRange,
@@ -12,7 +12,7 @@ import {
     UserSearch,
     XCircle,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { updateManualPunchStatus } from '@/actions/App/Http/Controllers/AttendanceRecordController';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -433,12 +433,15 @@ export default function EvaluatorAttendance({
         subordinates[0]?.employee_id ?? '',
     );
 
-    useEffect(() => {
-        const id = setInterval(() => {
-            router.reload({ only: ['attendances', 'pagination', 'stats'] });
-        }, 15000);
-        return () => clearInterval(id);
-    }, []);
+    usePoll(
+        1000,
+        {
+            only: ['attendances', 'pagination', 'stats', 'subordinates'],
+        },
+        {
+            keepAlive: true,
+        },
+    );
 
     const navigate = (params: {
         search?: string;

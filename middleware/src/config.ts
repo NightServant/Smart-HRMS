@@ -49,7 +49,7 @@ if (!config.cloud?.apiKey) throw new Error('config.cloud.apiKey is required');
 config.device.port ??= 4370;
 config.device.timeout ??= 10000;
 config.device.inport ??= 4000;
-config.sync.intervalMs ??= 60000;
+config.sync.intervalMs ??= 5000;
 config.sync.retryAfterMs ??= 30000;
 config.sync.clearDeviceAfterSync ??= false;
 config.buffer.path ??= './data/buffer.sqlite';
