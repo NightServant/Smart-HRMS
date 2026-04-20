@@ -308,6 +308,10 @@ Route::post('admin/training-suggestions/notify', [SeminarsController::class, 'tr
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.training-suggestions.notify');
 
+Route::post('admin/training-suggestions/notify-all', [SeminarsController::class, 'notifyAllEmployeesTraining'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.training-suggestions.notify-all');
+
 // PPE (Predictive Performance Evaluation) API
 Route::get('api/predict', [PredictionController::class, 'predict'])
     ->middleware(['auth', 'role:evaluator,hr-personnel'])

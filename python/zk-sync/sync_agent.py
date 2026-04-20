@@ -18,10 +18,12 @@ Run as a permanent daemon via launchd (see com.shrms.zksync.plist).
 
 import json
 import os
+import signal
 import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import requests
 from dotenv import load_dotenv
@@ -37,10 +39,24 @@ ZLINK_DEVICE_SN = os.getenv('ZLINK_DEVICE_SN', '')
 LARAVEL_URL     = os.getenv('LARAVEL_URL', '').rstrip('/')
 ZK_API_KEY      = os.getenv('ZK_API_KEY', '')
 
+DEVICE_TZ     = ZoneInfo('Asia/Manila')
 PAGE_SIZE     = 100
 STAMP_FILE    = Path(__file__).parent / '.last_sync'
 SYNC_INTERVAL = int(os.getenv('SYNC_INTERVAL', '30'))   # seconds between polls in daemon mode
 TOKEN_RENEW_BUFFER = 300                                  # renew token 5 min before expiry
+
+_shutdown = False
+
+
+def _request_shutdown(signum, frame) -> None:
+    global _shutdown
+    _shutdown = True
+    _log(f"Received signal {signum} — finishing current poll and exiting.")
+
+
+def _device_now() -> datetime:
+    """Current time in the device's timezone (Asia/Manila), naive for API payload."""
+    return datetime.now(DEVICE_TZ).replace(tzinfo=None)
 
 
 def _log(msg: str) -> None:
@@ -203,7 +219,7 @@ def _load_last_sync() -> datetime:
             return datetime.fromisoformat(STAMP_FILE.read_text().strip())
         except ValueError:
             pass
-    return datetime.now() - timedelta(hours=24)
+    return _device_now() - timedelta(hours=24)
 
 
 def _save_last_sync(dt: datetime) -> None:
@@ -211,10 +227,13 @@ def _save_last_sync(dt: datetime) -> None:
 
 
 def _push(token: str, last_sync: datetime, now: datetime) -> None:
-    """Fetch transactions and push to Laravel. Raises on hard errors."""
+    """Fetch transactions and push to Laravel. Cursor only advances on success.
+    Raises on hard errors so the daemon loop can retry the same window next tick.
+    """
     transactions = _fetch_transactions(token, last_sync, now)
 
     if not transactions:
+        _log(f"⚠ No new records (window {last_sync.strftime('%H:%M:%S')} → {now.strftime('%H:%M:%S')} Asia/Manila)")
         _save_last_sync(now)
         return
 
@@ -224,7 +243,11 @@ def _push(token: str, last_sync: datetime, now: datetime) -> None:
         if t.get('personPin') and t.get('eventTime')
     ]
 
-    _log(f"Pushing {len(records)} record(s) to Laravel ...")
+    if not records:
+        _log(f"⚠ {len(transactions)} transaction(s) fetched but none had usable pin+eventTime.")
+        _save_last_sync(now)
+        return
+
     resp = requests.post(
         f'{LARAVEL_URL}/api/iclock/middleware-push',
         json={'serialNumber': ZLINK_DEVICE_SN, 'records': records},
@@ -233,7 +256,7 @@ def _push(token: str, last_sync: datetime, now: datetime) -> None:
     )
     resp.raise_for_status()
     result = resp.json()
-    _log(f"Queued {result.get('count', '?')} record(s).")
+    _log(f"✔ {result.get('count', len(records))} new record(s) synced — last sync: {now.strftime('%Y-%m-%d %H:%M:%S')} Asia/Manila")
     _save_last_sync(now)
 
 
@@ -241,16 +264,16 @@ def sync() -> None:
     """Run once: authenticate, fetch, push, exit."""
     _validate_config()
     last_sync    = _load_last_sync()
-    now          = datetime.now()
+    now          = _device_now()
     token, _     = _get_company_token()
-    _log(f"Fetching {last_sync.strftime('%Y-%m-%d %H:%M:%S')} → {now.strftime('%Y-%m-%d %H:%M:%S')}")
+    _log(f"Fetching {last_sync.strftime('%Y-%m-%d %H:%M:%S')} → {now.strftime('%Y-%m-%d %H:%M:%S')} Asia/Manila")
     try:
         _push(token, last_sync, now)
     except requests.HTTPError as e:
-        _log(f"ERROR: HTTP {e.response.status_code} — {e.response.text[:200]}")
+        _log(f"❌ HTTP {e.response.status_code} — {e.response.text[:200]}")
         sys.exit(1)
     except requests.RequestException as e:
-        _log(f"ERROR: {e}")
+        _log(f"❌ {e}")
         sys.exit(1)
     _log('Done.')
 
@@ -258,12 +281,14 @@ def sync() -> None:
 def daemon() -> None:
     """Loop forever: reuse the token, re-authenticate before expiry."""
     _validate_config()
-    _log(f"Daemon started — polling every {SYNC_INTERVAL}s.")
+    signal.signal(signal.SIGINT, _request_shutdown)
+    signal.signal(signal.SIGTERM, _request_shutdown)
+    _log(f"Daemon started — polling every {SYNC_INTERVAL}s (device TZ: Asia/Manila).")
 
     token: str            = ''
     token_expiry: datetime = datetime.now(timezone.utc).replace(tzinfo=None)
 
-    while True:
+    while not _shutdown:
         try:
             # Re-authenticate if token is missing or about to expire
             if not token or datetime.now(timezone.utc).replace(tzinfo=None) >= token_expiry - timedelta(seconds=TOKEN_RENEW_BUFFER):
@@ -271,24 +296,28 @@ def daemon() -> None:
                 token, token_expiry = _get_company_token()
 
             last_sync = _load_last_sync()
-            now       = datetime.now()
-            _log(f"Poll: {last_sync.strftime('%H:%M:%S')} → {now.strftime('%H:%M:%S')}")
+            now       = _device_now()
 
             try:
                 _push(token, last_sync, now)
             except requests.HTTPError as e:
                 status = e.response.status_code
-                _log(f"HTTP {status} from Laravel — {e.response.text[:120]}")
+                _log(f"❌ HTTP {status} from Laravel — {e.response.text[:120]} (cursor not advanced, will retry)")
                 if status == 401:
-                    # Force token renewal on next iteration
                     token = ''
             except requests.RequestException as e:
-                _log(f"Network error: {e}")
+                _log(f"❌ Network error: {e} (cursor not advanced, will retry)")
 
         except Exception as e:
-            _log(f"Unexpected error: {e} — retrying in {SYNC_INTERVAL}s")
+            _log(f"❌ Unexpected error: {e} — retrying in {SYNC_INTERVAL}s")
 
-        time.sleep(SYNC_INTERVAL)
+        # Interruptible sleep so SIGTERM shuts down within 1s, not 30s
+        for _ in range(SYNC_INTERVAL):
+            if _shutdown:
+                break
+            time.sleep(1)
+
+    _log('Daemon stopped.')
 
 
 if __name__ == '__main__':

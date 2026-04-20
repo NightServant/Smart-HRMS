@@ -1,7 +1,10 @@
 <?php
 
+use App\Jobs\NotifyAllEmployeesTrainingJob;
+use App\Models\Notification;
 use App\Models\Seminars;
 use App\Models\User;
+use Illuminate\Support\Facades\Queue;
 
 function createVerifiedHrUser(): User
 {
@@ -98,4 +101,46 @@ test('seminar can be deleted', function () {
     $this->assertDatabaseMissing('seminars', [
         'id' => $seminar->id,
     ]);
+});
+
+test('notify-all training endpoint dispatches the queued job', function () {
+    Queue::fake();
+
+    $this->actingAs(createVerifiedHrUser())
+        ->post(route('admin.training-suggestions.notify-all'))
+        ->assertRedirect();
+
+    Queue::assertPushed(NotifyAllEmployeesTrainingJob::class, 1);
+});
+
+test('notify-all job creates one notification per employee and skips duplicates', function () {
+    $employees = User::factory()->count(3)->create(['role' => User::ROLE_EMPLOYEE]);
+    User::factory()->asHrPersonnel()->create();
+    User::factory()->asEvaluator()->create();
+
+    (new NotifyAllEmployeesTrainingJob)->handle();
+
+    expect(Notification::query()->where('type', NotifyAllEmployeesTrainingJob::NOTIFICATION_TYPE)->count())
+        ->toBe(3);
+
+    foreach ($employees as $employee) {
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $employee->id,
+            'type' => NotifyAllEmployeesTrainingJob::NOTIFICATION_TYPE,
+            'is_important' => true,
+        ]);
+    }
+
+    (new NotifyAllEmployeesTrainingJob)->handle();
+
+    expect(Notification::query()->where('type', NotifyAllEmployeesTrainingJob::NOTIFICATION_TYPE)->count())
+        ->toBe(3);
+});
+
+test('notify-all endpoint requires hr-personnel role', function () {
+    $employee = User::factory()->create(['role' => User::ROLE_EMPLOYEE]);
+
+    $this->actingAs($employee)
+        ->post(route('admin.training-suggestions.notify-all'))
+        ->assertForbidden();
 });

@@ -6,8 +6,8 @@
   },
   "deploy": {
     "startCommand": "sh ./start-server.sh",
-    "healthcheckPath": "/",
-    "healthcheckTimeout": 300,
+    "healthcheckPath": "/up",
+    "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   }

@@ -75,8 +75,8 @@ export default function HrFinalize({
     const [selected, setSelected] = useState<IpcrSubmission | null>(null);
     const [finalRating, setFinalRating] = useState('');
     const [processing, setProcessing] = useState(false);
-    const [notifyingTrainingSubmissionId, setNotifyingTrainingSubmissionId] =
-        useState<number | null>(null);
+    const [notifyAllOpen, setNotifyAllOpen] = useState(false);
+    const [notifyingAll, setNotifyingAll] = useState(false);
 
     const periodGroups = submissions.data.reduce<Record<string, IpcrSubmission[]>>(
         (acc, sub) => {
@@ -90,17 +90,22 @@ export default function HrFinalize({
     const periods = Object.keys(periodGroups);
     const periodRows = selectedPeriod ? (periodGroups[selectedPeriod] ?? []) : [];
 
-    function notifyTrainingSuggestions(submissionId: number): void {
-        setNotifyingTrainingSubmissionId(submissionId);
+    function notifyAllEmployeesTraining(): void {
+        setNotifyingAll(true);
 
         router.post(
-            '/admin/training-suggestions/notify',
-            {
-                submission_id: submissionId,
-            },
+            '/admin/training-suggestions/notify-all',
+            {},
             {
                 preserveScroll: true,
-                onFinish: () => setNotifyingTrainingSubmissionId(null),
+                onSuccess: () => {
+                    toast.success('Global training notification queued.');
+                    setNotifyAllOpen(false);
+                },
+                onError: () => {
+                    toast.error('Could not queue training notifications.');
+                },
+                onFinish: () => setNotifyingAll(false),
             },
         );
     }
@@ -228,6 +233,22 @@ export default function HrFinalize({
                             {periodRows.length} submission{periodRows.length === 1 ? '' : 's'} awaiting finalization for this period.
                         </DialogDescription>
                     </DialogHeader>
+                    <div className="flex items-center justify-between gap-4 rounded-[20px] border border-brand-300 bg-brand-50/60 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+                        <div>
+                            <p className="text-sm font-semibold">Notify all employees</p>
+                            <p className="text-xs text-muted-foreground">
+                                Send a global training recommendation notification to every employee.
+                            </p>
+                        </div>
+                        <Button
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => setNotifyAllOpen(true)}
+                        >
+                            <Megaphone className="size-4" />
+                            Notify Training (All)
+                        </Button>
+                    </div>
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="bg-[#2F5E2B] text-white dark:bg-[#1F3F1D] [&_th]:px-4 [&_th]:py-3 [&_th]:text-left [&_th]:font-semibold">
@@ -253,21 +274,9 @@ export default function HrFinalize({
                                         {submission.pmt_reviewer?.name ?? '—'}
                                     </td>
                                     <td className="px-4 py-3 text-center">
-                                        <div className="flex flex-wrap justify-center gap-2">
-                                            <Button size="sm" variant="outline" onClick={() => setSelected(submission)}>
-                                                Finalize
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="gap-2"
-                                                disabled={notifyingTrainingSubmissionId === submission.id}
-                                                onClick={() => notifyTrainingSuggestions(submission.id)}
-                                            >
-                                                <Megaphone className="size-4" />
-                                                {notifyingTrainingSubmissionId === submission.id ? 'Sending...' : 'Notify Training'}
-                                            </Button>
-                                        </div>
+                                        <Button size="sm" variant="outline" onClick={() => setSelected(submission)}>
+                                            Finalize
+                                        </Button>
                                     </td>
                                 </tr>
                             ))}
@@ -412,6 +421,35 @@ export default function HrFinalize({
                             onClick={handleFinalize}
                         >
                             {processing ? 'Finalizing…' : 'Finalize IPCR'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={notifyAllOpen}
+                onOpenChange={(open) => !notifyingAll && setNotifyAllOpen(open)}
+            >
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Notify all employees?</DialogTitle>
+                        <DialogDescription>
+                            This will send a training recommendation notification to every employee account. Employees already notified today will be skipped automatically.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            disabled={notifyingAll}
+                            onClick={() => setNotifyAllOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            disabled={notifyingAll}
+                            onClick={notifyAllEmployeesTraining}
+                        >
+                            {notifyingAll ? 'Queuing…' : 'Notify All'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

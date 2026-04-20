@@ -30,12 +30,13 @@ class LeaveRequestController extends Controller
             ->toArray();
 
         [$vlCredits, $slCredits] = $this->computeLeaveCredits($user);
+        $fixedAllotmentUsage = $this->fixedAllotmentUsage($user);
 
         return Inertia::render('leave-application', [
             'leaveHistory' => $leaveHistory,
             'vlCredits' => round($vlCredits, 2),
             'slCredits' => round($slCredits, 2),
-            'leaveCreditsByType' => $this->leaveCreditsByType($vlCredits, $slCredits),
+            'leaveCreditsByType' => $this->leaveCreditsByType($vlCredits, $slCredits, $fixedAllotmentUsage),
             'holidays' => $this->philippineHolidays(now()->year),
         ]);
     }
@@ -107,10 +108,40 @@ class LeaveRequestController extends Controller
     }
 
     /**
+     * Sum approved days used this year for each fixed-allotment leave type.
+     *
+     * @return array<string, float>
+     */
+    private function fixedAllotmentUsage(mixed $user): array
+    {
+        $types = ['force_leave', 'special_privilege_leave', 'wellness_leave', 'solo_parent_leave'];
+
+        $usage = LeaveRequest::query()
+            ->where('user_id', $user->id)
+            ->where('dh_decision', 1)
+            ->where('hr_decision', 1)
+            ->whereIn('leave_type', $types)
+            ->whereYear('start_date', now()->year)
+            ->selectRaw('leave_type, SUM(days_requested) as total')
+            ->groupBy('leave_type')
+            ->pluck('total', 'leave_type');
+
+        return collect($types)
+            ->mapWithKeys(fn (string $type): array => [$type => (float) ($usage[$type] ?? 0)])
+            ->all();
+    }
+
+    /**
+     * @param  array<string, float>  $fixedAllotmentUsage
      * @return list<array{value: string, label: string, creditDisplay: string}>
      */
-    private function leaveCreditsByType(float $vlCredits, float $slCredits): array
+    private function leaveCreditsByType(float $vlCredits, float $slCredits, array $fixedAllotmentUsage): array
     {
+        $remaining = fn (string $type, int $allotment): float => max(
+            0.0,
+            $allotment - (float) ($fixedAllotmentUsage[$type] ?? 0),
+        );
+
         return [
             [
                 'value' => 'vacation-leave',
@@ -120,17 +151,17 @@ class LeaveRequestController extends Controller
             [
                 'value' => 'force-leave',
                 'label' => 'Force Leave',
-                'creditDisplay' => '5 days',
+                'creditDisplay' => number_format($remaining('force_leave', 5), 2).' days',
             ],
             [
                 'value' => 'special-privilege-leave',
                 'label' => 'Special Privilege Leave',
-                'creditDisplay' => '3 days',
+                'creditDisplay' => number_format($remaining('special_privilege_leave', 3), 2).' days',
             ],
             [
                 'value' => 'wellness-leave',
                 'label' => 'Wellness Leave',
-                'creditDisplay' => '5 days',
+                'creditDisplay' => number_format($remaining('wellness_leave', 5), 2).' days',
             ],
             [
                 'value' => 'sick-leave',
@@ -155,7 +186,7 @@ class LeaveRequestController extends Controller
             [
                 'value' => 'solo-parent-leave',
                 'label' => 'Solo Parent Leave',
-                'creditDisplay' => '7 days',
+                'creditDisplay' => number_format($remaining('solo_parent_leave', 7), 2).' days',
             ],
         ];
     }

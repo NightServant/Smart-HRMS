@@ -38,3 +38,9 @@ yarn-error.log
 /middleware/dist/
 /middleware/config.json
 /middleware/data/*.sqlite
+
+# ZK-Sync daemon runtime artifacts
+/python/zk-sync/.venv/
+/python/zk-sync/__pycache__/
+/python/zk-sync/.last_sync
+/python/zk-sync/sync.log

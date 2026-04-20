@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\NotifyTrainingSuggestionRequest;
 use App\Http\Requests\StoreSeminarsRequest;
 use App\Http\Requests\UpdateSeminarsRequest;
+use App\Jobs\NotifyAllEmployeesTrainingJob;
 use App\Models\IpcrSubmission;
 use App\Models\LeaveRequest;
 use App\Models\Notification;
@@ -214,5 +215,12 @@ class SeminarsController extends Controller
         $employeeName = $submission->employee?->name ?? $submission->employee_id;
 
         return back()->with('success', "Training notification sent to {$employeeName}.");
+    }
+
+    public function notifyAllEmployeesTraining(): RedirectResponse
+    {
+        NotifyAllEmployeesTrainingJob::dispatch();
+
+        return back()->with('success', 'Global training notification queued. All employees will be notified shortly.');
     }
 }

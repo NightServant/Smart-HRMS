@@ -33,5 +33,6 @@ php artisan route:cache
 php artisan view:cache
 
 php artisan queue:work --daemon --sleep=3 --tries=3 --timeout=60 &
+php artisan schedule:work &
 
 php artisan serve --host=0.0.0.0 --port="${PORT:-8080}"

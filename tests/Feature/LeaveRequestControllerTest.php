@@ -457,6 +457,10 @@ test('leave application page passes vlCredits and slCredits props', function () 
             ->where('leaveCreditsByType', fn ($credits) => collect($credits)->count() === 9
                 && collect($credits)->contains(fn ($item) => $item['value'] === 'vacation-leave' && $item['creditDisplay'] === '15.00 days')
                 && collect($credits)->contains(fn ($item) => $item['value'] === 'sick-leave' && $item['creditDisplay'] === '15.00 days')
+                && collect($credits)->contains(fn ($item) => $item['value'] === 'force-leave' && $item['creditDisplay'] === '5.00 days')
+                && collect($credits)->contains(fn ($item) => $item['value'] === 'special-privilege-leave' && $item['creditDisplay'] === '3.00 days')
+                && collect($credits)->contains(fn ($item) => $item['value'] === 'wellness-leave' && $item['creditDisplay'] === '5.00 days')
+                && collect($credits)->contains(fn ($item) => $item['value'] === 'solo-parent-leave' && $item['creditDisplay'] === '7.00 days')
                 && collect($credits)->contains(fn ($item) => $item['value'] === 'maternity-leave' && $item['creditDisplay'] === 'Not specified')
                 && collect($credits)->contains(fn ($item) => $item['value'] === 'paternity-leave' && $item['creditDisplay'] === 'Not specified')
                 && collect($credits)->contains(fn ($item) => $item['value'] === 'special-sick-leave-women' && $item['creditDisplay'] === '3 months'))
@@ -631,6 +635,40 @@ test('pending or rejected leave requests do not reduce credits', function () {
             ->component('leave-application')
             ->where('vlCredits', fn ($credits) => (float) $credits === 15.0)
             ->where('slCredits', fn ($credits) => (float) $credits === 15.0));
+});
+
+test('fixed-allotment leaves reduce their credit display when used this year', function () {
+    $hiredDate = Carbon::today()->subMonths(12)->toDateString();
+
+    Employee::query()->create([
+        'employee_id' => 'EMP-3007',
+        'name' => 'Force Leave User',
+        'job_title' => 'Administrative Aide',
+        'date_hired' => $hiredDate,
+    ]);
+
+    $user = User::factory()->create(['employee_id' => 'EMP-3007']);
+
+    LeaveRequest::query()->create([
+        'user_id' => $user->id,
+        'employee_id' => 'EMP-3007',
+        'leave_type' => 'force_leave',
+        'start_date' => now()->year.'-03-01',
+        'end_date' => now()->year.'-03-03',
+        'days_requested' => 3,
+        'reason' => 'Mandatory forced leave.',
+        'status' => 'completed',
+        'dh_decision' => 1,
+        'hr_decision' => 1,
+        'has_rejection_reason' => 0,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('leave-application'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('leave-application')
+            ->where('leaveCreditsByType', fn ($credits) => collect($credits)
+                ->contains(fn ($item) => $item['value'] === 'force-leave' && $item['creditDisplay'] === '2.00 days')));
 });
 
 test('holidays prop contains current year holiday strings', function () {

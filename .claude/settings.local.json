@@ -178,7 +178,9 @@
       "Bash(sed -i '' 's/datetime.utcfromtimestamp\\(claims\\\\[.exp.\\\\]\\)/datetime.fromtimestamp\\(claims[\"exp\"], tz=timezone.utc\\).replace\\(tzinfo=None\\)/' /Users/gabe/Herd/Smart-HRMS/python/zk-sync/sync_agent.py)",
       "Bash(sed -i '' 's/datetime.utcnow\\(\\)/datetime.now\\(timezone.utc\\).replace\\(tzinfo=None\\)/g' /Users/gabe/Herd/Smart-HRMS/python/zk-sync/sync_agent.py)",
       "Bash(sed -i '' 's/from datetime import datetime, timedelta/from datetime import datetime, timedelta, timezone/' /Users/gabe/Herd/Smart-HRMS/python/zk-sync/sync_agent.py)",
-      "Bash(launchctl unload *)"
+      "Bash(launchctl unload *)",
+      "Bash(railway --version)",
+      "Bash(railway list *)"
     ]
   }
 }
