@@ -14,7 +14,7 @@ type Employee = {
     position: string;
     employment_status: string;
     date_hired: string;
-    zkteco_pin: number | null;
+    zkteco_pin: string | null;
     age: string;
     performance_rating?: string | null;
     remarks?: string | null;

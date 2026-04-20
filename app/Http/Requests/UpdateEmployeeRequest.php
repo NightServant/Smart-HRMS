@@ -50,9 +50,8 @@ class UpdateEmployeeRequest extends FormRequest
             'date_hired' => ['required', 'date'],
             'zkteco_pin' => [
                 'nullable',
-                'integer',
-                'min:1',
-                'max:9999999',
+                'string',
+                'max:50',
                 Rule::unique('employees', 'zkteco_pin')->ignore($employee->employee_id, 'employee_id'),
             ],
         ];

@@ -59,7 +59,7 @@ type Employee = {
     position: string;
     employment_status: string;
     date_hired: string;
-    zkteco_pin: number | null;
+    zkteco_pin: string | null;
     performance_rating?: string | null;
     remarks?: string | null;
     notification?: string | null;
@@ -322,7 +322,7 @@ function EditEmployeeDialog({
             job_title: employee.position,
             employment_status: employee.employment_status,
             date_hired: employee.date_hired,
-            zkteco_pin: employee.zkteco_pin !== null ? String(employee.zkteco_pin) : '',
+            zkteco_pin: employee.zkteco_pin ?? '',
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, employee?.employee_id]);
@@ -459,17 +459,15 @@ function EditEmployeeDialog({
                         </div>
                         <div className="grid gap-1.5">
                             <Label htmlFor="edit-zkteco-pin">
-                                ZKTeco PIN{' '}
+                                ZKTeco Person ID{' '}
                                 <span className="font-normal text-muted-foreground">
-                                    (biometric device slot, 1–9999999)
+                                    (from ZKBio Zlink Person ID column)
                                 </span>
                             </Label>
                             <Input
                                 id="edit-zkteco-pin"
-                                type="number"
-                                min={1}
-                                max={9999999}
-                                placeholder="Leave blank if not enrolled on device"
+                                type="text"
+                                placeholder="e.g. EMP002 or 229532"
                                 value={data.zkteco_pin}
                                 onChange={(e) =>
                                     setData('zkteco_pin', e.target.value)

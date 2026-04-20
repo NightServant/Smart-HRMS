@@ -22,7 +22,7 @@ class ProcessAttendanceBatch implements ShouldQueue
     public int $backoff = 30;
 
     /**
-     * @param  array<int, array{pin: int, datetime: string}>  $records
+     * @param  array<int, array{pin: string, datetime: string}>  $records
      */
     public function __construct(
         private readonly int $deviceId,

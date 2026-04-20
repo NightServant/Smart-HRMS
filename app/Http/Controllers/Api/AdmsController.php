@@ -122,7 +122,7 @@ class AdmsController extends Controller
         $data = $request->validate([
             'serialNumber' => 'required|string|max:50',
             'records' => 'required|array|min:1',
-            'records.*.pin' => 'required|integer|min:1',
+            'records.*.pin' => 'required|string|max:50',
             'records.*.datetime' => 'required|string',
         ]);
 
@@ -182,7 +182,7 @@ class AdmsController extends Controller
 
         $options = implode("\r\n", [
             "GET OPTION FROM: {$sn}",
-            'Stamp=0',
+            'Stamp='.($device->last_sync_stamp ?? 0),
             'OpStamp=0',
             'PhotoStamp=0',
             'ErrorDelay=60',
@@ -222,7 +222,7 @@ class AdmsController extends Controller
             }
 
             $records[] = [
-                'pin' => (int) $fields[0],
+                'pin' => trim($fields[0]),
                 'datetime' => $fields[1],
             ];
         }

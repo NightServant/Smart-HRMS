@@ -37,7 +37,7 @@ class Employee extends Model
     protected function casts(): array
     {
         return [
-            'zkteco_pin' => 'integer',
+
             'manual_punch_enabled' => 'boolean',
             'date_hired' => 'date',
         ];
