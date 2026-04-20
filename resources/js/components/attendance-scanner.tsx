@@ -1,5 +1,5 @@
-import { router, useForm } from '@inertiajs/react';
-import { Clock, Fingerprint, IdCard, Monitor, ShieldCheck } from 'lucide-react';
+import { useForm } from '@inertiajs/react';
+import { Clock, Fingerprint, IdCard, Monitor, RefreshCw, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import PageIntro from '@/components/page-intro';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -44,24 +43,6 @@ export default function AttendanceScanner({
     const { data, post, processing } = useForm({
         employee_id: employeeId,
     });
-
-    const { post: biometricPost, processing: biometricProcessing } = useForm(
-        {},
-    );
-
-    const handleBiometricPunch = (): void => {
-        biometricPost('/attendance/biometric-punch', {
-            preserveScroll: true,
-            onSuccess: () => {
-                toast.success('Biometric punch recorded successfully.');
-            },
-            onError: (errors) => {
-                const message =
-                    errors.employee_id || 'Failed to record biometric punch.';
-                toast.error(message);
-            },
-        });
-    };
 
     const handlePunch = (): void => {
         post('/attendance/punch', {
@@ -158,26 +139,30 @@ export default function AttendanceScanner({
                                 </p>
                             </div>
                         ) : (
-                            <>
-                                <Button
-                                    type="button"
-                                    className="w-full gap-2"
-                                    disabled={
-                                        biometricProcessing || !employeeId
-                                    }
-                                    onClick={handleBiometricPunch}
-                                >
-                                    <Fingerprint className="size-4" />
-                                    {biometricProcessing
-                                        ? 'Recording...'
-                                        : 'Biometric Punch'}
-                                </Button>
+                            <div className="flex flex-col gap-3">
+                                <div className="flex items-center gap-2">
+                                    <span className="relative flex size-2.5">
+                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                                        <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
+                                    </span>
+                                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                                        Active — Syncing
+                                    </span>
+                                </div>
 
-                                <p className="text-center text-xs text-muted-foreground">
-                                    Simulates a fingerprint scan &mdash; records
-                                    attendance with biometric verification.
+                                <p className="text-sm text-foreground/80">
+                                    Your fingerprint scans at the ZKBio Zlink
+                                    terminal are recorded automatically.
                                 </p>
-                            </>
+
+                                <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/50 px-3 py-2">
+                                    <RefreshCw className="size-3.5 shrink-0 text-muted-foreground" />
+                                    <p className="text-xs text-muted-foreground">
+                                        Records sync to this system every 5
+                                        minutes.
+                                    </p>
+                                </div>
+                            </div>
                         )}
                     </CardContent>
                 </Card>
