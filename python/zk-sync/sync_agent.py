@@ -6,17 +6,21 @@ intercept the company-scoped JWT that the portal's switchCompany flow produces.
 Then uses that token with requests to fetch paginated attendance transactions and
 push them to the Laravel middleware-push endpoint.
 
-Usage:
-    python sync_agent.py
+Modes:
+    python sync_agent.py            # run once and exit
+    python sync_agent.py --daemon   # loop forever, syncing every SYNC_INTERVAL seconds
 
-Schedule with cron (every 5 minutes):
-    */5 * * * * cd /path/to/zk-sync && python sync_agent.py >> sync.log 2>&1
+The token is cached in memory and renewed ~5 minutes before it expires, so the
+browser is only launched once per hour rather than on every poll.
+
+Run as a permanent daemon via launchd (see com.shrms.zksync.plist).
 """
 
 import json
 import os
 import sys
-from datetime import datetime, timedelta
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import requests
@@ -33,8 +37,10 @@ ZLINK_DEVICE_SN = os.getenv('ZLINK_DEVICE_SN', '')
 LARAVEL_URL     = os.getenv('LARAVEL_URL', '').rstrip('/')
 ZK_API_KEY      = os.getenv('ZK_API_KEY', '')
 
-PAGE_SIZE  = 100
-STAMP_FILE = Path(__file__).parent / '.last_sync'
+PAGE_SIZE     = 100
+STAMP_FILE    = Path(__file__).parent / '.last_sync'
+SYNC_INTERVAL = int(os.getenv('SYNC_INTERVAL', '30'))   # seconds between polls in daemon mode
+TOKEN_RENEW_BUFFER = 300                                  # renew token 5 min before expiry
 
 
 def _log(msg: str) -> None:
@@ -56,10 +62,23 @@ def _validate_config() -> None:
         sys.exit(1)
 
 
-def _get_company_token() -> str:
+def _token_expiry(token: str) -> datetime:
+    """Decode the JWT expiry claim (no signature verification needed)."""
+    import base64
+    try:
+        payload = token.split('.')[1]
+        payload += '=' * (4 - len(payload) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+        return datetime.fromtimestamp(claims["exp"], tz=timezone.utc).replace(tzinfo=None)
+    except Exception:
+        return datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(minutes=55)
+
+
+def _get_company_token() -> tuple[str, datetime]:
     """
     Drive a headless browser through the Zlink login flow.
     Intercept the company-scoped JWT returned by the switchCompany endpoint.
+    Returns (token, expiry_utc).
     """
     captured: list[str] = []
 
@@ -120,8 +139,10 @@ def _get_company_token() -> str:
         _log('ERROR: Could not capture company token — switchCompany was not called.')
         sys.exit(1)
 
-    _log('Company-scoped token obtained.')
-    return captured[0]
+    token  = captured[0]
+    expiry = _token_expiry(token)
+    _log(f"Company-scoped token obtained (expires ~{expiry.strftime('%H:%M')} UTC).")
+    return token, expiry
 
 
 def _api_headers(token: str) -> dict:
@@ -189,17 +210,9 @@ def _save_last_sync(dt: datetime) -> None:
     STAMP_FILE.write_text(dt.isoformat())
 
 
-def sync() -> None:
-    _validate_config()
-
-    last_sync = _load_last_sync()
-    now       = datetime.now()
-
-    token = _get_company_token()
-
-    _log(f"Fetching transactions from {last_sync.strftime('%Y-%m-%d %H:%M:%S')} → {now.strftime('%Y-%m-%d %H:%M:%S')}")
+def _push(token: str, last_sync: datetime, now: datetime) -> None:
+    """Fetch transactions and push to Laravel. Raises on hard errors."""
     transactions = _fetch_transactions(token, last_sync, now)
-    _log(f"Total: {len(transactions)} transaction(s).")
 
     if not transactions:
         _save_last_sync(now)
@@ -212,27 +225,74 @@ def sync() -> None:
     ]
 
     _log(f"Pushing {len(records)} record(s) to Laravel ...")
+    resp = requests.post(
+        f'{LARAVEL_URL}/api/iclock/middleware-push',
+        json={'serialNumber': ZLINK_DEVICE_SN, 'records': records},
+        headers={'Authorization': f'Bearer {ZK_API_KEY}'},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    result = resp.json()
+    _log(f"Queued {result.get('count', '?')} record(s).")
+    _save_last_sync(now)
 
+
+def sync() -> None:
+    """Run once: authenticate, fetch, push, exit."""
+    _validate_config()
+    last_sync    = _load_last_sync()
+    now          = datetime.now()
+    token, _     = _get_company_token()
+    _log(f"Fetching {last_sync.strftime('%Y-%m-%d %H:%M:%S')} → {now.strftime('%Y-%m-%d %H:%M:%S')}")
     try:
-        resp = requests.post(
-            f'{LARAVEL_URL}/api/iclock/middleware-push',
-            json={'serialNumber': ZLINK_DEVICE_SN, 'records': records},
-            headers={'Authorization': f'Bearer {ZK_API_KEY}'},
-            timeout=30,
-        )
-        resp.raise_for_status()
-        result = resp.json()
-        _log(f"Success — server queued {result.get('count', '?')} record(s).")
+        _push(token, last_sync, now)
     except requests.HTTPError as e:
         _log(f"ERROR: HTTP {e.response.status_code} — {e.response.text[:200]}")
         sys.exit(1)
     except requests.RequestException as e:
-        _log(f"ERROR: Could not reach Laravel API — {e}")
+        _log(f"ERROR: {e}")
         sys.exit(1)
+    _log('Done.')
 
-    _save_last_sync(now)
-    _log(f"Done. Stamp saved: {now.isoformat()}")
+
+def daemon() -> None:
+    """Loop forever: reuse the token, re-authenticate before expiry."""
+    _validate_config()
+    _log(f"Daemon started — polling every {SYNC_INTERVAL}s.")
+
+    token: str            = ''
+    token_expiry: datetime = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    while True:
+        try:
+            # Re-authenticate if token is missing or about to expire
+            if not token or datetime.now(timezone.utc).replace(tzinfo=None) >= token_expiry - timedelta(seconds=TOKEN_RENEW_BUFFER):
+                _log('Authenticating with Zlink ...')
+                token, token_expiry = _get_company_token()
+
+            last_sync = _load_last_sync()
+            now       = datetime.now()
+            _log(f"Poll: {last_sync.strftime('%H:%M:%S')} → {now.strftime('%H:%M:%S')}")
+
+            try:
+                _push(token, last_sync, now)
+            except requests.HTTPError as e:
+                status = e.response.status_code
+                _log(f"HTTP {status} from Laravel — {e.response.text[:120]}")
+                if status == 401:
+                    # Force token renewal on next iteration
+                    token = ''
+            except requests.RequestException as e:
+                _log(f"Network error: {e}")
+
+        except Exception as e:
+            _log(f"Unexpected error: {e} — retrying in {SYNC_INTERVAL}s")
+
+        time.sleep(SYNC_INTERVAL)
 
 
 if __name__ == '__main__':
-    sync()
+    if '--daemon' in sys.argv:
+        daemon()
+    else:
+        sync()
