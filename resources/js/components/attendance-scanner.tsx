@@ -1,4 +1,4 @@
-import { useForm } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import { Clock, Fingerprint, IdCard, Monitor, RefreshCw, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import PageIntro from '@/components/page-intro';
@@ -48,6 +48,7 @@ export default function AttendanceScanner({
         post('/attendance/punch', {
             preserveScroll: true,
             onSuccess: () => {
+                router.reload({ only: ['records'] });
                 toast.success('Attendance recorded successfully.');
             },
             onError: (errors) => {
@@ -158,8 +159,8 @@ export default function AttendanceScanner({
                                 <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/50 px-3 py-2">
                                     <RefreshCw className="size-3.5 shrink-0 text-muted-foreground" />
                                     <p className="text-xs text-muted-foreground">
-                                        Records sync to this system every 5
-                                        minutes.
+                                        Records update automatically within
+                                        seconds.
                                     </p>
                                 </div>
                             </div>
