@@ -5,7 +5,6 @@ import {
     Database,
     FileSpreadsheet,
     RotateCcw,
-    ShieldAlert,
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
