@@ -167,16 +167,6 @@ export default function PmtReview({
                         icon={RotateCcw}
                         color="emerald"
                     />
-                    <StatCard
-                        title="Escalated"
-                        value={
-                            submissions.data.filter(
-                                (submission) => submission.is_escalated,
-                            ).length
-                        }
-                        icon={ShieldAlert}
-                        color="red"
-                    />
                 </div>
 
                 <Card className="glass-card overflow-hidden border border-border bg-card shadow-sm">
