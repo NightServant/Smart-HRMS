@@ -1035,7 +1035,6 @@ class IwrController extends Controller
                         ->whereIn('appeal_status', ['appealed', 'submitted'])
                         ->count(),
                     'returnedForReevaluation' => IpcrSubmission::query()->where('stage', 'sent_to_evaluator')->where('pmt_cycle_count', '>', 0)->count(),
-                    'escalated' => IpcrSubmission::query()->where('is_escalated', true)->count(),
                 ],
             ],
         ]);

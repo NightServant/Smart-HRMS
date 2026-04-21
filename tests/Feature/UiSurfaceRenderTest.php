@@ -105,6 +105,7 @@ test('evaluator, hr, pmt, and admin entry surfaces render expected components', 
 
     $this->actingAs($pmt)
         ->get(route('admin.pmt-review'))
+        ->assertDontSee('Escalated')
         ->assertInertia(fn (Assert $page) => $page
             ->component('performance-evaluation')
             ->where('roleView', 'pmt')

@@ -132,7 +132,6 @@ type PmtPanel = {
         pendingReview: number;
         appealed: number;
         returnedForReevaluation: number;
-        escalated: number;
     };
 };
 
@@ -1877,11 +1876,6 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                             label="Returned"
                             value={pmtPanel?.stats.returnedForReevaluation ?? 0}
                             tone="amber"
-                        />
-                        <StatCard
-                            label="Escalated"
-                            value={pmtPanel?.stats.escalated ?? 0}
-                            tone="emerald"
                         />
                     </div>
                 </CardHeader>
