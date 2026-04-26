@@ -10,7 +10,7 @@ test('login screen can be rendered', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('auth/login')
-            ->where('passwordChangeRecommendation', 'If HR gave you a temporary password, sign in first, then change it from Password Settings using your old password, your new password, and the confirmation field.'));
+            ->where('passwordChangeRecommendation', 'If HR gave you a temporary password, sign in with it first and you will be asked to retype the old password, enter a new password, and confirm the new password.'));
 });
 
 test('users can authenticate using the login screen', function () {
@@ -23,6 +23,21 @@ test('users can authenticate using the login screen', function () {
 
     $this->assertAuthenticated();
     $response->assertRedirect(route('dashboard', absolute: false));
+});
+
+test('employees with a temporary password are redirected to password settings after login', function () {
+    $user = User::factory()->create([
+        'role' => User::ROLE_EMPLOYEE,
+        'must_change_password' => true,
+    ]);
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('user-password.edit', absolute: false));
 });
 
 test('hr personnel are redirected to hr dashboard after login', function () {

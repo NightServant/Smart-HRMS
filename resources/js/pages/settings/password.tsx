@@ -1,4 +1,4 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, usePage } from '@inertiajs/react';
 import { CheckCircle2, KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useRef } from 'react';
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 import { edit } from '@/routes/user-password';
-import type { BreadcrumbItem } from '@/types';
+import type { Auth, BreadcrumbItem } from '@/types';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -63,8 +63,12 @@ const handleClick = () => {
 };
 
 export default function Password() {
+    const { auth } = usePage<{ auth: Auth }>().props;
     const passwordInput = useRef<HTMLInputElement>(null);
     const currentPasswordInput = useRef<HTMLInputElement>(null);
+    const isFirstLoginPasswordChange = Boolean(
+        auth.user.must_change_password && auth.user.role === 'employee',
+    );
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -93,6 +97,11 @@ export default function Password() {
                                         <p className="max-w-2xl text-sm font-medium text-muted-foreground md:text-base">
                                             Keep your account secure with a strong password that is unique to Smart HRMS.
                                         </p>
+                                        {isFirstLoginPasswordChange && (
+                                            <p className="max-w-2xl text-sm font-semibold text-brand-900 dark:text-brand-100">
+                                                Your employee account is using a temporary password. Retype the old password below, then set the new one you want to use for future logins.
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-2">

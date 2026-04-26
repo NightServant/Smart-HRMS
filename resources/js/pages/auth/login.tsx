@@ -72,16 +72,16 @@ export default function Login({
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-6">
                 <div className="grid gap-6">
-                    <div className="rounded-2xl border border-brand-200/70 bg-brand-50/70 px-4 py-3 text-sm text-brand-950 shadow-sm dark:border-brand-900/40 dark:bg-brand-950/35 dark:text-brand-50">
+                    <div className="rounded-2xl border border-border/70 bg-card/85 px-4 py-3 text-sm text-foreground shadow-sm backdrop-blur-sm dark:border-brand-900/35 dark:bg-white/8 dark:text-brand-50">
                         <div className="flex items-start gap-3">
-                            <div className="rounded-full bg-white/80 p-2 text-brand-700 shadow-sm dark:bg-brand-900/60 dark:text-brand-200">
+                            <div className="rounded-full bg-brand-100/90 p-2 text-brand-800 shadow-sm dark:bg-brand-900/55 dark:text-brand-100">
                                 <KeyRound className="size-4" />
                             </div>
                             <div className="space-y-1">
-                                <p className="font-semibold">
+                                <p className="font-semibold text-foreground dark:text-brand-50">
                                     First-time login password reminder
                                 </p>
-                                <p className="text-brand-900/80 dark:text-brand-100/85">
+                                <p className="text-muted-foreground dark:text-brand-100/80">
                                     {passwordChangeRecommendation}
                                 </p>
                             </div>
