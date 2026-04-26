@@ -28,15 +28,13 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
     const getInitials = useInitials();
     const currentTime = useCurrentTime();
     const homeLink =
-        auth.user.role === 'administrator'
-            ? admin.systemDashboard()
-            : auth.user.role === 'hr-personnel'
-              ? admin.performanceDashboard()
-              : auth.user.role === 'pmt'
-                ? admin.pmtReview()
-                : auth.user.role === 'evaluator'
-                  ? performanceDashboard()
-                  : dashboard();
+        auth.user.role === 'hr-personnel'
+            ? admin.performanceDashboard()
+            : auth.user.role === 'pmt'
+              ? admin.pmtReview()
+              : auth.user.role === 'evaluator'
+                ? performanceDashboard()
+                : dashboard();
 
     return (
         <div className="fixed inset-x-0 top-0 z-50">

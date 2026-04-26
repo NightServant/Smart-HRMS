@@ -18,7 +18,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import * as admin from '@/routes/admin';
+
+const AUDIT_LOGS_ROUTE = '/admin/audit-logs';
 
 type AuditLog = {
     id: number;
@@ -75,7 +76,7 @@ export function AdminAuditLogsTable({
 
     const visit = (params: Partial<Filters> & { page?: number; perPage?: number }): void => {
         router.get(
-            admin.auditLogs().url,
+            AUDIT_LOGS_ROUTE,
             {
                 search: params.search ?? searchTerm,
                 documentType: (params.documentType ?? documentType) === 'all' ? '' : params.documentType ?? documentType,

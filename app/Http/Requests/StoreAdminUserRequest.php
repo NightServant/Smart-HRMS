@@ -14,7 +14,7 @@ class StoreAdminUserRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()?->hasRole(User::ROLE_ADMINISTRATOR) ?? false;
+        return $this->user()?->hasRole(User::ROLE_HR_PERSONNEL) ?? false;
     }
 
     protected function prepareForValidation(): void

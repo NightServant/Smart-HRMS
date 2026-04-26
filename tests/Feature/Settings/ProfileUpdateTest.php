@@ -4,8 +4,8 @@ use App\Models\Employee;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('profile page is displayed for administrators with editable profile props', function () {
-    $user = User::factory()->asAdministrator()->create();
+test('profile page is displayed for hr personnel with editable profile props', function () {
+    $user = User::factory()->asHrPersonnel()->create();
 
     $this->actingAs($user)
         ->get(route('profile.edit'))
@@ -13,7 +13,7 @@ test('profile page is displayed for administrators with editable profile props',
         ->assertInertia(fn (Assert $page) => $page
             ->component('settings/profile')
             ->where('canEditProfile', true)
-            ->where('accountProfile.role', User::ROLE_ADMINISTRATOR)
+            ->where('accountProfile.role', User::ROLE_HR_PERSONNEL)
             ->where('employeeProfile', null));
 });
 
@@ -87,8 +87,8 @@ test('employee profile page safely returns no employee profile when no employee 
             ->where('employeeProfile', null));
 });
 
-test('administrator profile information can be updated', function () {
-    $user = User::factory()->asAdministrator()->create();
+test('hr personnel profile information can be updated', function () {
+    $user = User::factory()->asHrPersonnel()->create();
 
     $response = $this
         ->actingAs($user)
@@ -108,7 +108,7 @@ test('administrator profile information can be updated', function () {
     expect($user->email_verified_at)->not->toBeNull();
 });
 
-test('non administrator roles cannot update profile information', function (string $role) {
+test('non hr personnel roles cannot update profile information', function (string $role) {
     $user = User::factory()->create([
         'role' => $role,
     ]);
@@ -125,11 +125,11 @@ test('non administrator roles cannot update profile information', function (stri
 })->with([
     User::ROLE_EMPLOYEE,
     User::ROLE_EVALUATOR,
-    User::ROLE_HR_PERSONNEL,
+    User::ROLE_PMT,
 ]);
 
-test('administrator email verification status is unchanged when the email address changes', function () {
-    $user = User::factory()->asAdministrator()->create();
+test('hr personnel email verification status is unchanged when the email address changes', function () {
+    $user = User::factory()->asHrPersonnel()->create();
     $originalVerificationTimestamp = $user->email_verified_at;
 
     $response = $this
@@ -159,8 +159,8 @@ test('delete account endpoint is forbidden for all roles', function (string $rol
 
     expect($user->fresh())->not->toBeNull();
 })->with([
-    User::ROLE_ADMINISTRATOR,
     User::ROLE_EMPLOYEE,
     User::ROLE_EVALUATOR,
     User::ROLE_HR_PERSONNEL,
+    User::ROLE_PMT,
 ]);

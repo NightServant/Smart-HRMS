@@ -212,7 +212,7 @@ class NotificationService
             ),
             're_evaluate' => $this->notifyEvaluator($submission, $employeeName),
             'escalate' => $this->notifyRoleUsers(
-                User::ROLE_ADMINISTRATOR, 'ipcr_escalated', 'IPCR Escalated',
+                User::ROLE_HR_PERSONNEL, 'ipcr_escalated', 'IPCR Escalated',
                 "{$employeeName}'s IPCR has been escalated. {$message}",
                 $submission->id,
             ),

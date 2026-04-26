@@ -3,7 +3,6 @@ import { Archive, Database, LogIn, UserCog, Workflow } from 'lucide-react';
 import { AdminActivityLogsTable } from '@/components/admin-activity-logs-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
-import * as admin from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types/navigation';
 
 type Props = {
@@ -41,7 +40,7 @@ type Props = {
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Activity Logs',
-        href: admin.activityLogs().url,
+        href: '/admin/activity-logs',
     },
 ];
 

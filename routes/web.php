@@ -1,11 +1,6 @@
 <?php
 
-use App\Http\Controllers\Admin\ActivityLogController;
-use App\Http\Controllers\Admin\AuditLogController;
 use App\Http\Controllers\Admin\EmployeeDirectoryController;
-use App\Http\Controllers\Admin\ReportsDashboardController;
-use App\Http\Controllers\Admin\SystemDashboardController;
-use App\Http\Controllers\Admin\SystemSettingController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\AttendanceImportController;
 use App\Http\Controllers\AttendanceRecordController;
@@ -163,22 +158,22 @@ Route::delete('admin/attendance-management/clear', [AttendanceImportController::
 
 // FlatFAT Real-Time Dashboard APIs
 Route::get('api/flatfat/organization-aggregate', [FlatFatController::class, 'organizationAggregate'])
-    ->middleware(['auth', 'role:administrator,employee,evaluator,hr-personnel'])
+    ->middleware(['auth', 'role:employee,evaluator,hr-personnel'])
     ->name('api.flatfat.organization-aggregate');
 Route::get('api/flatfat/employee/{employeeId}', [FlatFatController::class, 'employeeScore'])
-    ->middleware(['auth', 'role:administrator,employee,evaluator,hr-personnel'])
+    ->middleware(['auth', 'role:employee,evaluator,hr-personnel'])
     ->name('api.flatfat.employee-score');
 Route::get('api/flatfat/attendance-metrics', [FlatFatController::class, 'attendanceMetrics'])
-    ->middleware(['auth', 'role:administrator,employee,evaluator,hr-personnel'])
+    ->middleware(['auth', 'role:employee,evaluator,hr-personnel'])
     ->name('api.flatfat.attendance-metrics');
 Route::get('api/flatfat/quarter-scores', [FlatFatController::class, 'quarterScores'])
-    ->middleware(['auth', 'role:administrator,employee,evaluator,hr-personnel'])
+    ->middleware(['auth', 'role:employee,evaluator,hr-personnel'])
     ->name('api.flatfat.quarter-scores');
 Route::get('api/flatfat/semester-scores', [FlatFatController::class, 'semesterScores'])
-    ->middleware(['auth', 'role:administrator,employee,evaluator,hr-personnel'])
+    ->middleware(['auth', 'role:employee,evaluator,hr-personnel'])
     ->name('api.flatfat.semester-scores');
 Route::get('api/flatfat/evaluation-risk-summary', [FlatFatController::class, 'evaluationRiskSummary'])
-    ->middleware(['auth', 'role:administrator,employee,evaluator,hr-personnel'])
+    ->middleware(['auth', 'role:employee,evaluator,hr-personnel'])
     ->name('api.flatfat.evaluation-risk-summary');
 Route::get('api/flatfat/employee-quarter-scores', [FlatFatController::class, 'employeeQuarterScores'])
     ->middleware(['auth', 'role:employee'])
@@ -286,24 +281,24 @@ Route::get('admin/training-scheduling', [SeminarsController::class, 'adminTraini
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.training-scheduling');
 
-Route::prefix('admin')->middleware(['auth', 'role:administrator'])->name('admin.')->group(function (): void {
-    Route::get('system-dashboard', [SystemDashboardController::class, 'index'])->name('system-dashboard');
-    Route::get('user-management', [UserManagementController::class, 'index'])->name('user-management');
-    Route::post('user-management', [UserManagementController::class, 'store'])->name('user-management.store');
-    Route::put('user-management/{user}', [UserManagementController::class, 'update'])->name('user-management.update');
-    Route::post('user-management/{user}/activate', [UserManagementController::class, 'activate'])->name('user-management.activate');
-    Route::post('user-management/{user}/deactivate', [UserManagementController::class, 'deactivate'])->name('user-management.deactivate');
-    Route::post('user-management/{user}/password-reset', [UserManagementController::class, 'sendPasswordReset'])->name('user-management.password-reset');
-    Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs');
-    Route::get('system-settings', [SystemSettingController::class, 'index'])->name('system-settings');
-    Route::put('system-settings', [SystemSettingController::class, 'update'])->name('system-settings.update');
-    Route::put('system-settings/devices/{device}', [SystemSettingController::class, 'updateDevice'])->name('system-settings.update-device');
-    Route::post('system-settings/devices', [SystemSettingController::class, 'storeDevice'])->name('system-settings.devices.store');
-    Route::delete('system-settings/devices/{device}', [SystemSettingController::class, 'destroyDevice'])->name('system-settings.devices.destroy');
-    Route::get('reports', [ReportsDashboardController::class, 'index'])->name('reports');
-    Route::get('reports/export', [ReportsDashboardController::class, 'export'])->name('reports.export');
-    Route::get('activity-logs', [ActivityLogController::class, 'index'])->name('activity-logs');
-});
+Route::get('admin/user-management', [UserManagementController::class, 'index'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.user-management');
+Route::post('admin/user-management', [UserManagementController::class, 'store'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.user-management.store');
+Route::put('admin/user-management/{user}', [UserManagementController::class, 'update'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.user-management.update');
+Route::post('admin/user-management/{user}/activate', [UserManagementController::class, 'activate'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.user-management.activate');
+Route::post('admin/user-management/{user}/deactivate', [UserManagementController::class, 'deactivate'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.user-management.deactivate');
+Route::post('admin/user-management/{user}/password-reset', [UserManagementController::class, 'sendPasswordReset'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.user-management.password-reset');
 
 Route::resource('seminars', SeminarsController::class)
     ->only(['store', 'update', 'destroy'])

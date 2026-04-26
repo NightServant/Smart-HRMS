@@ -56,10 +56,10 @@ test('evaluator can fetch predictive performance data for an employee', function
         ->assertJsonPath('employee_name', 'Alice Employee');
 });
 
-test('administrator cannot fetch predictive performance data from evaluator endpoint', function () {
-    $administrator = User::factory()->asAdministrator()->create();
+test('employees cannot fetch predictive performance data from evaluator endpoint', function () {
+    $employee = User::factory()->create();
 
-    $this->actingAs($administrator)
+    $this->actingAs($employee)
         ->getJson(route('api.predict', ['employee_name' => 'Alice Employee']))
         ->assertForbidden();
 });

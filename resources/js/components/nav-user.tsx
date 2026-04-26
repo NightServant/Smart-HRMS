@@ -24,10 +24,6 @@ function formatRoleLabel(role: string): string {
         return 'PMT';
     }
 
-    if (role === 'administrator') {
-        return 'Admin';
-    }
-
     return role.charAt(0).toUpperCase() + role.slice(1);
 }
 

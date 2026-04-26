@@ -1,24 +1,42 @@
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { Briefcase, Clock, Shield, Users } from 'lucide-react';
 import { EmployeesTable } from '@/components/employees-table';
+import { OperationalAccountsPanel } from '@/components/operational-accounts-panel';
 import AppLayout from '@/layouts/app-layout';
 import * as admin from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types';
 
 type Employee = {
     id: number;
+    user_id: number;
     name: string;
     email: string;
     role: string;
     employee_id: string;
+    department_id: number | null;
+    department: string;
+    position_id: number | null;
     position: string;
     employment_status: string;
     date_hired: string;
     zkteco_pin: string | null;
-    age: string;
     performance_rating?: string | null;
     remarks?: string | null;
     notification?: string | null;
+    account_is_active: boolean;
+    account_two_factor_enabled: boolean;
+    account_created_at?: string | null;
+    account_links: {
+        update: string;
+        activate: string;
+        deactivate: string;
+        password_reset: string;
+    };
+};
+
+type Option = {
+    id: number;
+    name: string;
 };
 
 type PaginationMeta = {
@@ -35,7 +53,45 @@ type Stats = {
     job_order: number;
 };
 
-type EmployeeSortKey = 'employee_id' | 'name' | 'email' | 'position';
+type OperationalAccount = {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    employeeId?: string | null;
+    position?: string | null;
+    twoFactorEnabled: boolean;
+    isActive: boolean;
+    createdAt?: string | null;
+    links: {
+        update: string;
+        activate: string;
+        deactivate: string;
+        passwordReset: string;
+    };
+};
+
+type OperationalFilters = {
+    search: string;
+    role: string;
+    status: string;
+    twoFactor: string;
+    sort: 'name' | 'email' | 'role' | 'created_at';
+    direction: 'asc' | 'desc';
+};
+
+type EmployeeSortKey = 'employee_id' | 'name' | 'email' | 'department' | 'position';
+
+type PageProps = {
+    flash: {
+        employeeAccountCredentials?: {
+            employeeName: string;
+            employeeId: string;
+            email: string;
+            temporaryPassword: string;
+        } | null;
+    };
+};
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -90,9 +146,16 @@ export default function EmployeeDirectory({
     direction,
     pagination,
     stats,
+    nextEmployeeId,
+    departments,
     positions,
     statusFilter,
     positionFilter,
+    operationalAccounts,
+    operationalFilters,
+    operationalRoles,
+    operationalPagination,
+    accountRoles,
 }: {
     employees: Employee[];
     search: string;
@@ -100,10 +163,20 @@ export default function EmployeeDirectory({
     direction: 'asc' | 'desc';
     pagination: PaginationMeta;
     stats: Stats;
-    positions: string[];
+    nextEmployeeId: string;
+    departments: Option[];
+    positions: Option[];
     statusFilter: string;
     positionFilter: string;
+    operationalAccounts?: OperationalAccount[];
+    operationalFilters?: OperationalFilters;
+    operationalRoles?: string[];
+    operationalPagination?: PaginationMeta;
+    accountRoles?: string[];
 }) {
+    const { flash } = usePage<PageProps>().props;
+    const createdAccountCredentials = flash.employeeAccountCredentials;
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Employee Directory" />
@@ -136,16 +209,76 @@ export default function EmployeeDirectory({
                     />
                 </div>
 
+                {createdAccountCredentials && (
+                    <section className="rounded-2xl border border-emerald-300/70 bg-emerald-50/90 p-5 text-emerald-950 shadow-sm dark:border-emerald-800/70 dark:bg-emerald-950/25 dark:text-emerald-100">
+                        <div className="space-y-1">
+                            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-emerald-700 dark:text-emerald-300">
+                                Employee Account Ready
+                            </p>
+                            <h2 className="text-lg font-semibold">
+                                {createdAccountCredentials.employeeName} can
+                                now sign in to Smart HRMS
+                            </h2>
+                            <p className="text-sm text-emerald-800 dark:text-emerald-200">
+                                These one-time login credentials are shown here
+                                for HR because local email delivery is not
+                                always visible during testing.
+                            </p>
+                        </div>
+                        <div className="mt-4 grid gap-3 md:grid-cols-3">
+                            <div className="rounded-xl border border-emerald-200/80 bg-white/75 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+                                <p className="text-xs font-semibold uppercase text-emerald-700 dark:text-emerald-300">
+                                    Employee ID
+                                </p>
+                                <p className="mt-1 font-semibold">
+                                    {createdAccountCredentials.employeeId}
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-emerald-200/80 bg-white/75 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+                                <p className="text-xs font-semibold uppercase text-emerald-700 dark:text-emerald-300">
+                                    Login Email
+                                </p>
+                                <p className="mt-1 font-semibold break-all">
+                                    {createdAccountCredentials.email}
+                                </p>
+                            </div>
+                            <div className="rounded-xl border border-emerald-200/80 bg-white/75 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+                                <p className="text-xs font-semibold uppercase text-emerald-700 dark:text-emerald-300">
+                                    Temporary Password
+                                </p>
+                                <p className="mt-1 font-mono font-semibold">
+                                    {createdAccountCredentials.temporaryPassword}
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
                 <EmployeesTable
                     employees={employees}
                     search={search}
                     sort={sort}
                     direction={direction}
                     pagination={pagination}
+                    nextEmployeeId={nextEmployeeId}
+                    departments={departments}
                     positions={positions}
                     statusFilter={statusFilter}
                     positionFilter={positionFilter}
+                    accountRoles={accountRoles ?? []}
                 />
+
+                {operationalAccounts &&
+                    operationalFilters &&
+                    operationalRoles &&
+                    operationalPagination && (
+                        <OperationalAccountsPanel
+                            accounts={operationalAccounts}
+                            filters={operationalFilters}
+                            roles={operationalRoles}
+                            pagination={operationalPagination}
+                        />
+                    )}
             </div>
         </AppLayout>
     );

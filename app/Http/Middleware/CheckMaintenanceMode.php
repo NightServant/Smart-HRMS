@@ -20,8 +20,8 @@ class CheckMaintenanceMode
             return $next($request);
         }
 
-        // Allow admin users through always
-        if ($user->role === User::ROLE_ADMINISTRATOR) {
+        // Allow HR personnel through always
+        if ($user->role === User::ROLE_HR_PERSONNEL) {
             return $next($request);
         }
 

@@ -79,7 +79,7 @@ class FortifyServiceProvider extends ServiceProvider
                 event(new Lockout($request));
 
                 throw ValidationException::withMessages([
-                    Fortify::username() => 'This account has been deactivated. Please contact an administrator.',
+                    Fortify::username() => 'This account has been deactivated. Please contact HR personnel.',
                 ]);
             }
 
@@ -107,6 +107,7 @@ class FortifyServiceProvider extends ServiceProvider
             return Inertia::render('auth/login', [
                 'canResetPassword' => Features::enabled(Features::resetPasswords()),
                 'canRegister' => Features::enabled(Features::registration()),
+                'passwordChangeRecommendation' => 'If HR gave you a temporary password, sign in first, then change it from Password Settings using your old password, your new password, and the confirmation field.',
                 'status' => $request->session()->get('status'),
                 'publicKey' => $publicPem,
             ]);

@@ -4,7 +4,6 @@ import { AdminAuditLogsTable } from '@/components/admin-audit-logs-table';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
-import * as admin from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types';
 
 type Props = {
@@ -48,7 +47,7 @@ type Props = {
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Audit Logs',
-        href: admin.auditLogs().url,
+        href: '/admin/audit-logs',
     },
 ];
 

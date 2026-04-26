@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { Head } from '@inertiajs/react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, KeyRound } from 'lucide-react';
 import type { FormEvent} from 'react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
@@ -18,10 +18,16 @@ import { request } from '@/routes/password';
 type Props = {
     status?: string;
     canResetPassword: boolean;
+    passwordChangeRecommendation: string;
     publicKey: string;
 };
 
-export default function Login({ status, canResetPassword, publicKey }: Props) {
+export default function Login({
+    status,
+    canResetPassword,
+    passwordChangeRecommendation,
+    publicKey,
+}: Props) {
     const form = useForm({
         email: '',
         password: '',
@@ -66,6 +72,22 @@ export default function Login({ status, canResetPassword, publicKey }: Props) {
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-6">
                 <div className="grid gap-6">
+                    <div className="rounded-2xl border border-brand-200/70 bg-brand-50/70 px-4 py-3 text-sm text-brand-950 shadow-sm dark:border-brand-900/40 dark:bg-brand-950/35 dark:text-brand-50">
+                        <div className="flex items-start gap-3">
+                            <div className="rounded-full bg-white/80 p-2 text-brand-700 shadow-sm dark:bg-brand-900/60 dark:text-brand-200">
+                                <KeyRound className="size-4" />
+                            </div>
+                            <div className="space-y-1">
+                                <p className="font-semibold">
+                                    First-time login password reminder
+                                </p>
+                                <p className="text-brand-900/80 dark:text-brand-100/85">
+                                    {passwordChangeRecommendation}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="grid gap-2">
                         <Label htmlFor="email">Email address</Label>
                         <Input
@@ -146,7 +168,7 @@ export default function Login({ status, canResetPassword, publicKey }: Props) {
                 </div>
 
                 <div className="text-center text-sm text-muted-foreground">
-                    Need a new account? Contact an administrator.
+                    Need a new account? Contact HR personnel.
                 </div>
             </form>
 

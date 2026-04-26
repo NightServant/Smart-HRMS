@@ -12,94 +12,29 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
-use Inertia\Inertia;
-use Inertia\Response;
 
 class UserManagementController extends Controller
 {
-    /**
-     * @param  array<string, string>  $allowedSorts
-     * @return array{sort: string, direction: string}
-     */
-    private function resolveSort(Request $request, array $allowedSorts, string $defaultSort): array
-    {
-        $requestedSort = (string) $request->string('sort', $defaultSort);
-        $requestedDirection = strtolower((string) $request->string('direction', 'asc'));
-
-        return [
-            'sort' => array_key_exists($requestedSort, $allowedSorts) ? $requestedSort : $defaultSort,
-            'direction' => in_array($requestedDirection, ['asc', 'desc'], true) ? $requestedDirection : 'asc',
-        ];
-    }
-
-    public function index(Request $request): Response
+    public function index(Request $request): RedirectResponse
     {
         $search = trim((string) $request->string('search'));
         $role = trim((string) $request->string('role'));
         $status = trim((string) $request->string('status'));
         $twoFactor = trim((string) $request->string('twoFactor'));
         $perPage = max(5, min(50, (int) $request->integer('perPage', 10)));
-        $allowedSorts = [
-            'name' => 'users.name',
-            'email' => 'users.email',
-            'role' => 'users.role',
-            'created_at' => 'users.created_at',
-        ];
-        ['sort' => $sort, 'direction' => $direction] = $this->resolveSort($request, $allowedSorts, 'name');
+        $sort = (string) $request->string('sort', 'name');
+        $direction = strtolower((string) $request->string('direction', 'asc'));
 
-        $users = User::query()
-            ->with('employee')
-            ->when($search !== '', function ($query) use ($search): void {
-                $query->where(function ($subQuery) use ($search): void {
-                    $subQuery
-                        ->where('name', 'like', '%'.$search.'%')
-                        ->orWhere('email', 'like', '%'.$search.'%')
-                        ->orWhere('employee_id', 'like', '%'.$search.'%');
-                });
-            })
-            ->when($role !== '', fn ($query) => $query->where('role', $role))
-            ->when($status === 'active', fn ($query) => $query->where('is_active', true))
-            ->when($status === 'inactive', fn ($query) => $query->where('is_active', false))
-            ->when($twoFactor === 'enabled', fn ($query) => $query->whereNotNull('two_factor_confirmed_at'))
-            ->when($twoFactor === 'disabled', fn ($query) => $query->whereNull('two_factor_confirmed_at'))
-            ->orderBy($allowedSorts[$sort], $direction)
-            ->when($sort !== 'name', fn ($query) => $query->orderBy('users.name'))
-            ->paginate($perPage)
-            ->withQueryString()
-            ->through(fn (User $user): array => [
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'employeeId' => $user->employee_id,
-                'position' => $user->employee?->job_title,
-                'twoFactorEnabled' => $user->two_factor_confirmed_at !== null,
-                'isActive' => (bool) $user->is_active,
-                'createdAt' => $user->created_at?->format('Y-m-d H:i:s'),
-                'links' => [
-                    'update' => "/admin/user-management/{$user->id}",
-                    'activate' => "/admin/user-management/{$user->id}/activate",
-                    'deactivate' => "/admin/user-management/{$user->id}/deactivate",
-                ],
-            ]);
-
-        return Inertia::render('admin/user-management', [
-            'users' => $users->items(),
-            'filters' => [
-                'search' => $search,
-                'role' => $role,
-                'status' => $status,
-                'twoFactor' => $twoFactor,
-                'sort' => $sort,
-                'direction' => $direction,
-            ],
-            'roles' => User::roles(),
-            'pagination' => [
-                'currentPage' => $users->currentPage(),
-                'lastPage' => $users->lastPage(),
-                'perPage' => $users->perPage(),
-                'total' => $users->total(),
-            ],
-        ]);
+        return to_route('admin.employee-directory', array_filter([
+            'accountSearch' => $search !== '' ? $search : null,
+            'accountRole' => $role !== '' ? $role : null,
+            'accountStatus' => $status !== '' ? $status : null,
+            'accountTwoFactor' => $twoFactor !== '' ? $twoFactor : null,
+            'accountSort' => $sort !== 'name' ? $sort : null,
+            'accountDirection' => $direction !== 'asc' ? $direction : null,
+            'accountPerPage' => $perPage !== 10 ? $perPage : null,
+            'accountPage' => $request->integer('page') > 1 ? $request->integer('page') : null,
+        ], fn (mixed $value): bool => $value !== null));
     }
 
     public function store(StoreAdminUserRequest $request): RedirectResponse
@@ -124,7 +59,7 @@ class UserManagementController extends Controller
         $newRole = $request->string('role')->toString();
         $isActive = $request->boolean('is_active');
 
-        $this->guardAdminState($request->user(), $user, $newRole, $isActive);
+        $this->guardHrPersonnelState($request->user(), $user, $newRole, $isActive);
 
         $payload = [
             'name' => $request->string('name')->toString(),
@@ -147,7 +82,7 @@ class UserManagementController extends Controller
 
     public function activate(Request $request, User $user): RedirectResponse
     {
-        $this->assertAdministrator($request);
+        $this->assertHrPersonnel($request);
 
         $user->update(['is_active' => true]);
 
@@ -158,8 +93,8 @@ class UserManagementController extends Controller
 
     public function deactivate(Request $request, User $user): RedirectResponse
     {
-        $this->assertAdministrator($request);
-        $this->guardAdminState($request->user(), $user, $user->role, false);
+        $this->assertHrPersonnel($request);
+        $this->guardHrPersonnelState($request->user(), $user, $user->role, false);
 
         $user->update(['is_active' => false]);
 
@@ -170,7 +105,7 @@ class UserManagementController extends Controller
 
     public function sendPasswordReset(Request $request, User $user): RedirectResponse
     {
-        $this->assertAdministrator($request);
+        $this->assertHrPersonnel($request);
 
         Password::broker()->sendResetLink([
             'email' => $user->email,
@@ -181,40 +116,40 @@ class UserManagementController extends Controller
         return back()->with('success', 'Password reset link sent successfully.');
     }
 
-    private function assertAdministrator(Request $request): void
+    private function assertHrPersonnel(Request $request): void
     {
-        if (! $request->user()?->hasRole(User::ROLE_ADMINISTRATOR)) {
+        if (! $request->user()?->hasRole(User::ROLE_HR_PERSONNEL)) {
             abort(403);
         }
     }
 
-    private function guardAdminState(User $actor, User $subject, string $newRole, bool $newIsActive): void
+    private function guardHrPersonnelState(User $actor, User $subject, string $newRole, bool $newIsActive): void
     {
         if ($actor->is($subject) && ! $newIsActive) {
             throw ValidationException::withMessages([
-                'is_active' => 'You cannot deactivate your own administrator account.',
+                'is_active' => 'You cannot deactivate your own HR personnel account.',
             ]);
         }
 
-        if ($subject->role !== User::ROLE_ADMINISTRATOR || (! $subject->is_active && $newRole === User::ROLE_ADMINISTRATOR)) {
+        if ($subject->role !== User::ROLE_HR_PERSONNEL || (! $subject->is_active && $newRole === User::ROLE_HR_PERSONNEL)) {
             return;
         }
 
-        $remainsActiveAdministrator = $newRole === User::ROLE_ADMINISTRATOR && $newIsActive;
+        $remainsActiveHrPersonnel = $newRole === User::ROLE_HR_PERSONNEL && $newIsActive;
 
-        if ($remainsActiveAdministrator) {
+        if ($remainsActiveHrPersonnel) {
             return;
         }
 
-        $otherActiveAdministrators = User::query()
-            ->where('role', User::ROLE_ADMINISTRATOR)
+        $otherActiveHrPersonnel = User::query()
+            ->where('role', User::ROLE_HR_PERSONNEL)
             ->where('is_active', true)
             ->whereKeyNot($subject->getKey())
             ->count();
 
-        if ($otherActiveAdministrators === 0) {
+        if ($otherActiveHrPersonnel === 0) {
             throw ValidationException::withMessages([
-                'role' => 'At least one active administrator account must remain in the system.',
+                'role' => 'At least one active HR personnel account must remain in the system.',
             ]);
         }
     }

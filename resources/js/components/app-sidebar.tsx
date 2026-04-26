@@ -1,7 +1,5 @@
 import { router, usePage } from '@inertiajs/react';
 import {
-    Activity,
-    BarChart3,
     Bell,
     CalendarClock,
     ClipboardCheck,
@@ -10,11 +8,8 @@ import {
     FileUser,
     Fingerprint,
     Grid,
-    LayoutDashboard,
     PieChart,
-    ScrollText,
     Send,
-    Settings,
     ShieldPlus,
     Target,
     Users,
@@ -207,39 +202,6 @@ const pmtNavItems: NavItem[] = [
     },
 ];
 
-const administratorNavItems: NavItem[] = [
-    {
-        title: 'System Dashboard',
-        href: admin.systemDashboard(),
-        icon: LayoutDashboard,
-    },
-    {
-        title: 'User Management',
-        href: admin.userManagement(),
-        icon: ShieldPlus,
-    },
-    {
-        title: 'System Settings',
-        href: admin.systemSettings(),
-        icon: Settings,
-    },
-    {
-        title: 'Reports',
-        href: admin.reports(),
-        icon: BarChart3,
-    },
-    {
-        title: 'Audit Logs',
-        href: admin.auditLogs(),
-        icon: ScrollText,
-    },
-    {
-        title: 'Activity Logs',
-        href: admin.activityLogs(),
-        icon: Activity,
-    },
-];
-
 export function AppSidebar() {
     const { auth, unreadNotificationCount } = usePage<{
         auth: Auth;
@@ -255,9 +217,7 @@ export function AppSidebar() {
     }, []);
 
     const mainNavItems =
-        auth.user.role === 'administrator'
-            ? administratorNavItems
-            : auth.user.role === 'evaluator'
+        auth.user.role === 'evaluator'
               ? evaluatorNavItems
               : auth.user.role === 'hr-personnel'
                 ? hrPersonnelNavItems

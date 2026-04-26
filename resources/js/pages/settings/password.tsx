@@ -117,7 +117,7 @@ export default function Password() {
                 <div className="grid gap-6">
                     <SectionCard
                         title="Change your password"
-                        description="Enter your current password first, then choose a new one you do not use elsewhere."
+                        description="Retype your old password first, then enter and confirm the new one you want to use for future logins."
                     >
                         <Form
                             action={PasswordController.update().url}
@@ -146,7 +146,7 @@ export default function Password() {
                                 <>
                                     <div className="grid gap-5 md:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor="current_password">Current password</Label>
+                                            <Label htmlFor="current_password">Retype old password</Label>
 
                                             <Input
                                                 id="current_password"
@@ -154,7 +154,7 @@ export default function Password() {
                                                 name="current_password"
                                                 type="password"
                                                 autoComplete="current-password"
-                                                placeholder="Enter your current password"
+                                                placeholder="Retype your old password"
                                             />
 
                                             <InputError message={errors.current_password} />
@@ -176,14 +176,14 @@ export default function Password() {
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="password_confirmation">Confirm password</Label>
+                                            <Label htmlFor="password_confirmation">Confirm new password</Label>
 
                                             <Input
                                                 id="password_confirmation"
                                                 name="password_confirmation"
                                                 type="password"
                                                 autoComplete="new-password"
-                                                placeholder="Re-enter the new password"
+                                                placeholder="Confirm your new password"
                                             />
 
                                             <InputError message={errors.password_confirmation} />

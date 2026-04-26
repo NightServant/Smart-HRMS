@@ -9,7 +9,7 @@ class EnrollEmployeeRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return in_array($this->user()?->role, ['administrator', 'hr-personnel'], true);
+        return $this->user()?->role === 'hr-personnel';
     }
 
     /**

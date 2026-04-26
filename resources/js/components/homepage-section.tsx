@@ -31,15 +31,13 @@ export default function HomepageSection() {
     }>().props;
     const user = auth?.user ?? null;
     const dashboardLink =
-        user?.role === 'administrator'
-            ? admin.systemDashboard()
-            : user?.role === 'hr-personnel'
-              ? admin.performanceDashboard()
-              : user?.role === 'pmt'
-                ? admin.pmtReview()
-                : user?.role === 'evaluator'
-                  ? performanceDashboard()
-                  : dashboard();
+        user?.role === 'hr-personnel'
+            ? admin.performanceDashboard()
+            : user?.role === 'pmt'
+              ? admin.pmtReview()
+              : user?.role === 'evaluator'
+                ? performanceDashboard()
+                : dashboard();
 
     const [tilt, setTilt] = useState<TiltState>(defaultTilt);
     const [isDragging, setIsDragging] = useState<boolean>(false);

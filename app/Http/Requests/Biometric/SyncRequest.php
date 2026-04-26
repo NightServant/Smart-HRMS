@@ -8,7 +8,7 @@ class SyncRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->role === 'administrator';
+        return $this->user()?->role === 'hr-personnel';
     }
 
     /**

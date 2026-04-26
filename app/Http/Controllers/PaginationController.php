@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\UpdateEmployeeEmploymentStatusRequest;
 use App\Models\BiometricSyncIssue;
 use App\Models\DailyAttendance;
+use App\Models\Department;
 use App\Models\Employee;
+use App\Models\EmployeePosition;
 use App\Models\HistoricalDataRecord;
 use App\Models\LeaveRequest;
 use App\Models\Notification;
@@ -450,6 +452,7 @@ class PaginationController extends Controller
 
     public function employeeDirectory(Request $request): Response
     {
+        $isHrPersonnel = $request->user()?->hasRole(User::ROLE_HR_PERSONNEL) ?? false;
         $search = trim((string) $request->string('search'));
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
         $statusFilter = trim((string) $request->string('statusFilter'));
@@ -459,19 +462,24 @@ class PaginationController extends Controller
             'name' => 'users.name',
             'email' => 'users.email',
             'position' => 'employees.job_title',
+            'department' => 'departments.name',
         ];
         ['sort' => $sort, 'direction' => $direction] = $this->resolveSort($request, $allowedSorts, 'name');
 
         $employees = User::query()
             ->select('users.*')
-            ->with(['employee', 'employee.latestSubmission'])
+            ->with(['employee.department', 'employee.position', 'employee.latestSubmission'])
             ->leftJoin('employees', 'users.employee_id', '=', 'employees.employee_id')
+            ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
             ->where('role', User::ROLE_EMPLOYEE)
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
                     $subQuery
                         ->where('users.name', 'like', '%'.$search.'%')
-                        ->orWhere('users.email', 'like', '%'.$search.'%');
+                        ->orWhere('users.email', 'like', '%'.$search.'%')
+                        ->orWhere('users.employee_id', 'like', '%'.$search.'%')
+                        ->orWhere('employees.job_title', 'like', '%'.$search.'%')
+                        ->orWhere('departments.name', 'like', '%'.$search.'%');
                 });
             })
             ->when($statusFilter !== '', function ($query) use ($statusFilter): void {
@@ -488,26 +496,49 @@ class PaginationController extends Controller
             ->withQueryString()
             ->through(fn (User $user): array => [
                 'id' => $user->id,
+                'user_id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
                 'employee_id' => $user->employee_id ?? '',
-                'position' => $user->employee?->job_title ?? 'Employee',
+                'department_id' => $user->employee?->department_id,
+                'department' => $user->employee?->department?->name ?? '',
+                'position_id' => $user->employee?->position_id,
+                'position' => $user->employee?->position?->name ?? $user->employee?->job_title ?? 'Employee',
                 'employment_status' => $user->employee?->employment_status ?? 'regular',
                 'date_hired' => $user->employee?->date_hired?->format('Y-m-d') ?? '',
                 'zkteco_pin' => $user->employee?->zkteco_pin,
-
+                'account_is_active' => (bool) $user->is_active,
+                'account_two_factor_enabled' => $user->two_factor_confirmed_at !== null,
+                'account_created_at' => $user->created_at?->format('Y-m-d H:i:s'),
+                'account_links' => [
+                    'update' => route('admin.user-management.update', $user),
+                    'activate' => route('admin.user-management.activate', $user),
+                    'deactivate' => route('admin.user-management.deactivate', $user),
+                    'password_reset' => route('admin.user-management.password-reset', $user),
+                ],
                 'performance_rating' => $user->employee?->latestSubmission?->performance_rating,
                 'remarks' => $user->employee?->latestSubmission?->rejection_reason,
                 'notification' => $user->employee?->latestSubmission?->notification,
             ]);
 
-        $allEmployees = \App\Models\Employee::query();
-        $positions = \App\Models\Employee::query()
-            ->whereNotNull('job_title')
-            ->distinct()
-            ->pluck('job_title')
-            ->sort()
+        $allEmployees = Employee::query();
+        $positions = EmployeePosition::query()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (EmployeePosition $position): array => [
+                'id' => $position->id,
+                'name' => $position->name,
+            ])
+            ->values()
+            ->all();
+        $departments = Department::query()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Department $department): array => [
+                'id' => $department->id,
+                'name' => $department->name,
+            ])
             ->values()
             ->all();
 
@@ -517,8 +548,7 @@ class PaginationController extends Controller
             'regular' => (clone $allEmployees)->where('employment_status', 'regular')->count(),
             'job_order' => (clone $allEmployees)->where('employment_status', 'job_order')->count(),
         ];
-
-        return Inertia::render('admin/employee-directory', [
+        $payload = [
             'search' => $search,
             'sort' => $sort,
             'direction' => $direction,
@@ -532,8 +562,95 @@ class PaginationController extends Controller
                 'total' => $employees->total(),
             ],
             'stats' => $stats,
+            'nextEmployeeId' => Employee::nextEmployeeId(),
+            'departments' => $departments,
             'positions' => $positions,
-        ]);
+        ];
+
+        if ($isHrPersonnel) {
+            $accountSearch = trim((string) $request->string('accountSearch'));
+            $accountRole = trim((string) $request->string('accountRole'));
+            $accountStatus = trim((string) $request->string('accountStatus'));
+            $accountTwoFactor = trim((string) $request->string('accountTwoFactor'));
+            $accountSort = (string) $request->string('accountSort', 'name');
+            $accountDirection = strtolower((string) $request->string('accountDirection', 'asc'));
+            $accountPerPage = max(5, min(50, (int) $request->integer('accountPerPage', 10)));
+            $allowedAccountSorts = [
+                'name' => 'users.name',
+                'email' => 'users.email',
+                'role' => 'users.role',
+                'created_at' => 'users.created_at',
+            ];
+
+            if (! array_key_exists($accountSort, $allowedAccountSorts)) {
+                $accountSort = 'name';
+            }
+
+            if (! in_array($accountDirection, ['asc', 'desc'], true)) {
+                $accountDirection = 'asc';
+            }
+
+            $operationalAccounts = User::query()
+                ->with('employee')
+                ->where('role', '!=', User::ROLE_EMPLOYEE)
+                ->when($accountSearch !== '', function ($query) use ($accountSearch): void {
+                    $query->where(function ($subQuery) use ($accountSearch): void {
+                        $subQuery
+                            ->where('name', 'like', '%'.$accountSearch.'%')
+                            ->orWhere('email', 'like', '%'.$accountSearch.'%')
+                            ->orWhere('employee_id', 'like', '%'.$accountSearch.'%');
+                    });
+                })
+                ->when($accountRole !== '', fn ($query) => $query->where('role', $accountRole))
+                ->when($accountStatus === 'active', fn ($query) => $query->where('is_active', true))
+                ->when($accountStatus === 'inactive', fn ($query) => $query->where('is_active', false))
+                ->when($accountTwoFactor === 'enabled', fn ($query) => $query->whereNotNull('two_factor_confirmed_at'))
+                ->when($accountTwoFactor === 'disabled', fn ($query) => $query->whereNull('two_factor_confirmed_at'))
+                ->orderBy($allowedAccountSorts[$accountSort], $accountDirection)
+                ->when($accountSort !== 'name', fn ($query) => $query->orderBy('users.name'))
+                ->paginate($accountPerPage, ['*'], 'accountPage')
+                ->withQueryString()
+                ->through(fn (User $user): array => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                    'employeeId' => $user->employee_id,
+                    'position' => $user->employee?->job_title,
+                    'twoFactorEnabled' => $user->two_factor_confirmed_at !== null,
+                    'isActive' => (bool) $user->is_active,
+                    'createdAt' => $user->created_at?->format('Y-m-d H:i:s'),
+                    'links' => [
+                        'update' => route('admin.user-management.update', $user),
+                        'activate' => route('admin.user-management.activate', $user),
+                        'deactivate' => route('admin.user-management.deactivate', $user),
+                        'passwordReset' => route('admin.user-management.password-reset', $user),
+                    ],
+                ]);
+
+            $payload['operationalAccounts'] = $operationalAccounts->items();
+            $payload['operationalFilters'] = [
+                'search' => $accountSearch,
+                'role' => $accountRole,
+                'status' => $accountStatus,
+                'twoFactor' => $accountTwoFactor,
+                'sort' => $accountSort,
+                'direction' => $accountDirection,
+            ];
+            $payload['operationalRoles'] = array_values(array_filter(
+                User::roles(),
+                fn (string $role): bool => $role !== User::ROLE_EMPLOYEE,
+            ));
+            $payload['accountRoles'] = User::roles();
+            $payload['operationalPagination'] = [
+                'currentPage' => $operationalAccounts->currentPage(),
+                'lastPage' => $operationalAccounts->lastPage(),
+                'perPage' => $operationalAccounts->perPage(),
+                'total' => $operationalAccounts->total(),
+            ];
+        }
+
+        return Inertia::render('admin/employee-directory', $payload);
     }
 
     public function updateEmployeeEmploymentStatus(UpdateEmployeeEmploymentStatusRequest $request, Employee $employee): RedirectResponse

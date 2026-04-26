@@ -69,11 +69,10 @@ test('employee surfaces render expected inertia components', function () {
             ->has('existingTarget'));
 });
 
-test('evaluator, hr, pmt, and admin entry surfaces render expected components', function () {
+test('evaluator, hr, and pmt entry surfaces render expected components', function () {
     $evaluator = User::factory()->asEvaluator()->create();
     $hr = User::factory()->asHrPersonnel()->create();
     $pmt = User::factory()->asPmt()->create();
-    $admin = User::factory()->asAdministrator()->create();
 
     $this->actingAs($evaluator)
         ->get(route('performanceDashboard'))
@@ -111,11 +110,16 @@ test('evaluator, hr, pmt, and admin entry surfaces render expected components', 
             ->where('roleView', 'pmt')
             ->has('pmtPanel.submissions'));
 
-    $this->actingAs($admin)
-        ->get(route('admin.system-dashboard'))
+    $this->actingAs($hr)
+        ->get(route('admin.employee-directory'))
         ->assertInertia(fn (Assert $page) => $page
-            ->component('admin/system-performance-dashboard')
-            ->has('accountMetrics'));
+            ->component('admin/employee-directory')
+            ->has('employees')
+            ->has('operationalAccounts'));
+
+    $this->actingAs($hr)
+        ->get(route('admin.user-management'))
+        ->assertRedirect(route('admin.employee-directory'));
 });
 
 test('auth, settings, and maintenance support screens render expected components', function () {

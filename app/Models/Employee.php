@@ -21,6 +21,8 @@ class Employee extends Model
         'employee_id',
         'name',
         'job_title',
+        'department_id',
+        'position_id',
         'employment_status',
         'supervisor_id',
         'zkteco_pin',
@@ -37,10 +39,38 @@ class Employee extends Model
     protected function casts(): array
     {
         return [
-
             'manual_punch_enabled' => 'boolean',
             'date_hired' => 'date',
         ];
+    }
+
+    public static function nextEmployeeId(bool $lockForUpdate = false): string
+    {
+        $query = self::query()
+            ->where('employee_id', 'like', 'EMP-%')
+            ->orderByDesc('employee_id');
+
+        if ($lockForUpdate) {
+            $query->lockForUpdate();
+        }
+
+        $latestEmployeeId = $query->value('employee_id');
+
+        preg_match('/(\d+)$/', (string) $latestEmployeeId, $matches);
+
+        $nextNumber = ((int) ($matches[1] ?? 0)) + 1;
+
+        return 'EMP-'.str_pad((string) $nextNumber, 3, '0', STR_PAD_LEFT);
+    }
+
+    public function department(): BelongsTo
+    {
+        return $this->belongsTo(Department::class);
+    }
+
+    public function position(): BelongsTo
+    {
+        return $this->belongsTo(EmployeePosition::class, 'position_id');
     }
 
     public function supervisor(): BelongsTo

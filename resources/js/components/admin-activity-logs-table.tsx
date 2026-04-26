@@ -19,7 +19,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import * as admin from '@/routes/admin';
+
+const ACTIVITY_LOGS_ROUTE = '/admin/activity-logs';
 
 type ActivityLog = {
     id: number;
@@ -79,7 +80,7 @@ export function AdminActivityLogsTable({
 
     const visit = (params: Partial<Filters> & { page?: number; perPage?: number }): void => {
         router.get(
-            admin.activityLogs().url,
+            ACTIVITY_LOGS_ROUTE,
             {
                 search: params.search ?? searchTerm,
                 actionType: (params.actionType ?? actionType) === 'all' ? '' : params.actionType ?? actionType,

@@ -12,7 +12,7 @@ class ProfileUpdateRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return $this->user()?->isAdministrator() ?? false;
+        return $this->user()?->isHrPersonnel() ?? false;
     }
 
     protected function prepareForValidation(): void

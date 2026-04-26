@@ -27,18 +27,20 @@ export default function AppSidebarLayout({
                     >
                         <AppHeader breadcrumbs={breadcrumbs} />
                         <div
-                            className="flex min-h-0 flex-1"
+                            className="flex min-h-0 flex-1 flex-col"
                             style={{
                                 paddingTop: 'var(--app-header-height)',
                             }}
                         >
-                            <AppSidebar />
-                            <AppContent
-                                variant="sidebar"
-                                className="h-auto w-full overflow-x-hidden bg-transparent"
-                            >
-                                {children}
-                            </AppContent>
+                            <div className="flex min-h-0 flex-1">
+                                <AppSidebar />
+                                <AppContent
+                                    variant="sidebar"
+                                    className="h-auto w-full overflow-x-hidden bg-transparent"
+                                >
+                                    {children}
+                                </AppContent>
+                            </div>
                         </div>
                     </div>
                 </AppShell>

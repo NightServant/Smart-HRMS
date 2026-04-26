@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Route;
 
 dataset('employee-allowed-routes', [
     'dashboard',
@@ -14,9 +15,7 @@ dataset('employee-forbidden-routes', [
     'performanceDashboard',
     'document-management',
     'admin.performance-dashboard',
-    'admin.system-dashboard',
     'admin.user-management',
-    'admin.audit-logs',
     'admin.employee-directory',
     'admin.attendance-management',
     'admin.evaluator-attendance',
@@ -41,9 +40,7 @@ dataset('evaluator-allowed-routes', [
 
 dataset('evaluator-forbidden-routes', [
     'admin.performance-dashboard',
-    'admin.system-dashboard',
     'admin.user-management',
-    'admin.audit-logs',
     'dashboard',
     'leave-application',
     'submit-evaluation',
@@ -71,9 +68,6 @@ dataset('hr-allowed-routes', [
 ]);
 
 dataset('hr-forbidden-routes', [
-    'admin.system-dashboard',
-    'admin.user-management',
-    'admin.audit-logs',
     'performanceDashboard',
     'dashboard',
     'document-management',
@@ -108,35 +102,14 @@ dataset('pmt-forbidden-routes', [
     'admin.hr-finalize',
     'training-scheduling',
     'admin.training-scheduling',
-    'admin.system-dashboard',
 ]);
 
-dataset('administrator-allowed-routes', [
+dataset('retired-admin-routes', [
     'admin.system-dashboard',
-    'admin.user-management',
     'admin.audit-logs',
-]);
-
-dataset('administrator-forbidden-routes', [
-    'dashboard',
-    'leave-application',
-    'submit-evaluation',
-    'ipcr.form',
-    'performanceDashboard',
-    'document-management',
-    'admin.performance-dashboard',
-    'admin.employee-directory',
-    'admin.attendance-management',
-    'admin.evaluator-attendance',
-    'admin.hr-leave-management',
-    'admin.leave-management',
-    'admin.hr-review',
-    'admin.hr-finalize',
-    'admin.pmt-review',
-    'ipcr.target.review',
-    'notifications',
-    'training-scheduling',
-    'admin.training-scheduling',
+    'admin.system-settings',
+    'admin.reports',
+    'admin.activity-logs',
 ]);
 
 test('employee can access employee routes', function (string $routeName) {
@@ -203,18 +176,14 @@ test('pmt cannot access non-pmt routes', function (string $routeName) {
         ->assertForbidden();
 })->with('pmt-forbidden-routes');
 
-test('administrators can access administrator routes', function (string $routeName) {
-    $user = User::factory()->asAdministrator()->create();
+test('retired admin routes are not registered', function (string $routeName) {
+    expect(Route::has($routeName))->toBeFalse();
+})->with('retired-admin-routes');
+
+test('hr personnel are redirected from user management to employee directory', function () {
+    $user = User::factory()->asHrPersonnel()->create();
 
     $this->actingAs($user)
-        ->get(route($routeName))
-        ->assertOk();
-})->with('administrator-allowed-routes');
-
-test('administrators cannot access employee, evaluator, and hr personnel routes', function (string $routeName) {
-    $user = User::factory()->asAdministrator()->create();
-
-    $this->actingAs($user)
-        ->get(route($routeName))
-        ->assertForbidden();
-})->with('administrator-forbidden-routes');
+        ->get(route('admin.user-management'))
+        ->assertRedirect(route('admin.employee-directory'));
+});

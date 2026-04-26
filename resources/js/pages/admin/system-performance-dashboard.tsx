@@ -27,7 +27,6 @@ import {
 } from '@/components/ui/carousel';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
-import * as admin from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types';
 
 type DashboardProps = {
@@ -37,10 +36,10 @@ type DashboardProps = {
         inactive: number;
         twoFactorEnabled: number;
         byRole: {
-            administrators: number;
             hrPersonnel: number;
             evaluators: number;
             employees: number;
+            pmt: number;
         };
     };
     workflowMetrics: {
@@ -93,7 +92,7 @@ type DashboardProps = {
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'System Dashboard',
-        href: admin.systemDashboard().url,
+        href: '/admin/system-dashboard',
     },
 ];
 
@@ -144,16 +143,16 @@ export default function SystemPerformanceDashboard({
 }: DashboardProps) {
     const roleDistributionColors = ['#4A7C3C', '#2A6F97', '#C89C3D', '#FF0056'];
     const roleDistributionLabels = [
-        'Administrators',
         'HR Personnel',
         'Evaluators',
         'Employees',
+        'PMT',
     ];
     const roleDistributionValues = [
-        accountMetrics.byRole.administrators,
         accountMetrics.byRole.hrPersonnel,
         accountMetrics.byRole.evaluators,
         accountMetrics.byRole.employees,
+        accountMetrics.byRole.pmt,
     ];
 
     const workflowStatusLabels = ['Routed', 'Completed', 'Returned', 'Pending'];
@@ -373,7 +372,7 @@ export default function SystemPerformanceDashboard({
                     </DashboardPanelCard>
                     <DashboardPanelCard
                         title="Account Role Distribution"
-                        description="See how administrator, HR, evaluator, and employee accounts are distributed."
+                        description="See how HR, evaluator, employee, and PMT accounts are distributed."
                         className="xl:col-span-5"
                         accentClassName="right-0 top-0 size-36 rounded-full bg-chart-3/10 blur-3xl"
                     >
@@ -388,8 +387,8 @@ export default function SystemPerformanceDashboard({
                                 className="mx-auto h-[14rem] max-w-[16rem] sm:h-[16rem] sm:max-w-[17rem] lg:h-[17rem]"
                             />
                             <p className="mt-5 text-center text-xs text-muted-foreground">
-                                Live role totals for administrators, HR
-                                personnel, evaluators, and employees.
+                                Live role totals for HR personnel,
+                                evaluators, employees, and PMT accounts.
                             </p>
                         </DashboardChartSurface>
                     </DashboardPanelCard>

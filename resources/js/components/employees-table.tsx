@@ -7,11 +7,13 @@ import {
     Plus,
     Search,
     Trash2,
+    UserCog,
     UserSearch,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import PageIntro from '@/components/page-intro';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -50,12 +52,18 @@ import employeeDirectoryRoutes from '@/routes/admin/employee-directory';
 import type { Auth } from '@/types';
 import PredictivePerformanceModule from './predict-performance-eval-modal';
 
+const CREATE_DEPARTMENT_VALUE = '__create_department__';
+
 type Employee = {
     id: number;
+    user_id: number;
     name: string;
     email: string;
     role: string;
     employee_id: string;
+    department_id: number | null;
+    department: string;
+    position_id: number | null;
     position: string;
     employment_status: string;
     date_hired: string;
@@ -63,6 +71,20 @@ type Employee = {
     performance_rating?: string | null;
     remarks?: string | null;
     notification?: string | null;
+    account_is_active: boolean;
+    account_two_factor_enabled: boolean;
+    account_created_at?: string | null;
+    account_links: {
+        update: string;
+        activate: string;
+        deactivate: string;
+        password_reset: string;
+    };
+};
+
+type Option = {
+    id: number;
+    name: string;
 };
 
 type PaginationMeta = {
@@ -72,8 +94,40 @@ type PaginationMeta = {
     total: number;
 };
 
-type EmployeeSortKey = 'employee_id' | 'name' | 'email' | 'position';
+type EmployeeSortKey =
+    | 'employee_id'
+    | 'name'
+    | 'email'
+    | 'department'
+    | 'position';
 type SortDirection = 'asc' | 'desc';
+
+type DepartmentMode = 'existing' | 'new';
+
+type StoreForm = {
+    name: string;
+    email: string;
+    department_mode: DepartmentMode;
+    department_id: string;
+    department_name: string;
+    position_id: string;
+    employment_status: string;
+    date_hired: string;
+};
+
+type UpdateForm = StoreForm & {
+    zkteco_pin: string;
+};
+
+type ManageAccountForm = {
+    name: string;
+    email: string;
+    role: string;
+    employee_id: string;
+    password: string;
+    password_confirmation: string;
+    is_active: boolean;
+};
 
 function formatStatus(status: string): string {
     return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
@@ -97,43 +151,190 @@ function StatusBadge({ status }: { status: string }) {
     );
 }
 
-type StoreForm = {
-    name: string;
-    email: string;
-    employee_id: string;
-    job_title: string;
-    employment_status: string;
-    date_hired: string;
-};
+function AccountStatusBadge({
+    isActive,
+}: {
+    isActive: boolean;
+}) {
+    return (
+        <span
+            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${isActive ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300'}`}
+        >
+            {isActive ? 'Active' : 'Inactive'}
+        </span>
+    );
+}
 
-type UpdateForm = {
-    name: string;
-    email: string;
-    job_title: string;
-    employment_status: string;
-    date_hired: string;
-    zkteco_pin: string;
-};
+function formatRoleLabel(role: string): string {
+    if (role === 'hr-personnel') {
+        return 'HR Personnel';
+    }
+
+    if (role === 'pmt') {
+        return 'PMT';
+    }
+
+    return role
+        .replace('-', ' ')
+        .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function DepartmentFields<TForm extends { department_mode: DepartmentMode; department_id: string; department_name: string }>({
+    departments,
+    data,
+    setData,
+    errors,
+    idPrefix,
+}: {
+    departments: Option[];
+    data: TForm;
+    setData: (key: keyof TForm, value: string) => void;
+    errors: Record<string, string>;
+    idPrefix: 'add' | 'edit';
+}) {
+    const isCreatingDepartment = data.department_mode === 'new';
+    const selectValue = isCreatingDepartment
+        ? CREATE_DEPARTMENT_VALUE
+        : data.department_id || '';
+
+    return (
+        <>
+            <div className="grid gap-1.5">
+                <Label htmlFor={`${idPrefix}-department`}>Department</Label>
+                <Select
+                    value={selectValue}
+                onValueChange={(value) => {
+                        if (value === CREATE_DEPARTMENT_VALUE) {
+                            setData('department_mode', 'new');
+                            setData('department_id', '');
+                            return;
+                        }
+
+                        setData('department_mode', 'existing');
+                        setData('department_id', value);
+                        setData('department_name', '');
+                    }}
+                >
+                    <SelectTrigger id={`${idPrefix}-department`}>
+                        <SelectValue placeholder="Select a department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectGroup>
+                            {departments.map((department) => (
+                                <SelectItem
+                                    key={department.id}
+                                    value={String(department.id)}
+                                >
+                                    {department.name}
+                                </SelectItem>
+                            ))}
+                            <SelectItem value={CREATE_DEPARTMENT_VALUE}>
+                                Add new department
+                            </SelectItem>
+                        </SelectGroup>
+                    </SelectContent>
+                </Select>
+                {errors.department_id && (
+                    <p className="text-xs text-destructive">
+                        {errors.department_id}
+                    </p>
+                )}
+            </div>
+
+            {isCreatingDepartment && (
+                <div className="grid gap-1.5">
+                    <Label htmlFor={`${idPrefix}-department-name`}>
+                        New Department Name
+                    </Label>
+                    <Input
+                        id={`${idPrefix}-department-name`}
+                        value={data.department_name}
+                        onChange={(event) => setData('department_name', event.target.value)}
+                        placeholder="Administrative Office"
+                    />
+                    {errors.department_name && (
+                        <p className="text-xs text-destructive">
+                            {errors.department_name}
+                        </p>
+                    )}
+                </div>
+            )}
+        </>
+    );
+}
+
+function PositionField<TForm extends { position_id: string }>({
+    positions,
+    data,
+    setData,
+    errors,
+    idPrefix,
+}: {
+    positions: Option[];
+    data: TForm;
+    setData: (key: keyof TForm, value: string) => void;
+    errors: Record<string, string>;
+    idPrefix: 'add' | 'edit';
+}) {
+    return (
+        <div className="grid gap-1.5">
+            <Label htmlFor={`${idPrefix}-position`}>Position</Label>
+            <Select
+                value={data.position_id}
+                onValueChange={(value) => setData('position_id', value)}
+            >
+                <SelectTrigger id={`${idPrefix}-position`}>
+                    <SelectValue placeholder="Select a position" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectGroup>
+                        {positions.map((position) => (
+                            <SelectItem
+                                key={position.id}
+                                value={String(position.id)}
+                            >
+                                {position.name}
+                            </SelectItem>
+                        ))}
+                    </SelectGroup>
+                </SelectContent>
+            </Select>
+            {errors.position_id && (
+                <p className="text-xs text-destructive">
+                    {errors.position_id}
+                </p>
+            )}
+        </div>
+    );
+}
 
 function AddEmployeeDialog({
     open,
     onOpenChange,
+    nextEmployeeId,
+    departments,
+    positions,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    nextEmployeeId: string;
+    departments: Option[];
+    positions: Option[];
 }) {
     const { data, setData, post, processing, errors, reset } =
         useForm<StoreForm>({
             name: '',
             email: '',
-            employee_id: '',
-            job_title: '',
+            department_mode: 'existing',
+            department_id: '',
+            department_name: '',
+            position_id: '',
             employment_status: 'regular',
             date_hired: '',
         });
 
-    const handleSubmit = (e: React.FormEvent): void => {
-        e.preventDefault();
+    const handleSubmit = (event: FormEvent): void => {
+        event.preventDefault();
         post(employeeDirectoryRoutes.store().url, {
             preserveScroll: true,
             onSuccess: () => {
@@ -144,7 +345,10 @@ function AddEmployeeDialog({
     };
 
     const handleOpenChange = (nextOpen: boolean): void => {
-        if (!nextOpen) reset();
+        if (!nextOpen) {
+            reset();
+        }
+
         onOpenChange(nextOpen);
     };
 
@@ -154,7 +358,8 @@ function AddEmployeeDialog({
                 <DialogHeader>
                     <DialogTitle>Add Employee</DialogTitle>
                     <DialogDescription>
-                        Create a new employee record and user account.
+                        Create a new employee record, provision a user account,
+                        and email the employee their temporary password.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
@@ -164,8 +369,8 @@ function AddEmployeeDialog({
                             <Input
                                 id="add-name"
                                 value={data.name}
-                                onChange={(e) =>
-                                    setData('name', e.target.value)
+                                onChange={(event) =>
+                                    setData('name', event.target.value)
                                 }
                                 placeholder="Juan Dela Cruz"
                             />
@@ -181,8 +386,8 @@ function AddEmployeeDialog({
                                 id="add-email"
                                 type="email"
                                 value={data.email}
-                                onChange={(e) =>
-                                    setData('email', e.target.value)
+                                onChange={(event) =>
+                                    setData('email', event.target.value)
                                 }
                                 placeholder="juan@example.com"
                             />
@@ -196,42 +401,40 @@ function AddEmployeeDialog({
                             <Label htmlFor="add-employee-id">Employee ID</Label>
                             <Input
                                 id="add-employee-id"
-                                value={data.employee_id}
-                                onChange={(e) =>
-                                    setData('employee_id', e.target.value)
-                                }
-                                placeholder="EMP-001"
+                                value={nextEmployeeId}
+                                readOnly
+                                className="bg-muted/35"
                             />
-                            {errors.employee_id && (
-                                <p className="text-xs text-destructive">
-                                    {errors.employee_id}
-                                </p>
-                            )}
+                            <p className="text-xs text-muted-foreground">
+                                Generated automatically when the employee is
+                                saved.
+                            </p>
                         </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="add-job-title">Position</Label>
-                            <Input
-                                id="add-job-title"
-                                value={data.job_title}
-                                onChange={(e) =>
-                                    setData('job_title', e.target.value)
-                                }
-                                placeholder="Administrative Aide"
-                            />
-                            {errors.job_title && (
-                                <p className="text-xs text-destructive">
-                                    {errors.job_title}
-                                </p>
-                            )}
-                        </div>
+
+                        <DepartmentFields
+                            departments={departments}
+                            data={data}
+                            setData={setData}
+                            errors={errors}
+                            idPrefix="add"
+                        />
+
+                        <PositionField
+                            positions={positions}
+                            data={data}
+                            setData={setData}
+                            errors={errors}
+                            idPrefix="add"
+                        />
+
                         <div className="grid gap-1.5">
                             <Label htmlFor="add-employment-status">
                                 Employment Status
                             </Label>
                             <Select
                                 value={data.employment_status}
-                                onValueChange={(v) =>
-                                    setData('employment_status', v)
+                                onValueChange={(value) =>
+                                    setData('employment_status', value)
                                 }
                             >
                                 <SelectTrigger id="add-employment-status">
@@ -263,8 +466,8 @@ function AddEmployeeDialog({
                                 id="add-date-hired"
                                 type="date"
                                 value={data.date_hired}
-                                onChange={(e) =>
-                                    setData('date_hired', e.target.value)
+                                onChange={(event) =>
+                                    setData('date_hired', event.target.value)
                                 }
                             />
                             {errors.date_hired && (
@@ -296,16 +499,23 @@ function EditEmployeeDialog({
     employee,
     open,
     onOpenChange,
+    departments,
+    positions,
 }: {
     employee: Employee | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    departments: Option[];
+    positions: Option[];
 }) {
     const { data, setData, put, processing, errors, reset } =
         useForm<UpdateForm>({
             name: '',
             email: '',
-            job_title: '',
+            department_mode: 'existing',
+            department_id: '',
+            department_name: '',
+            position_id: '',
             employment_status: 'regular',
             date_hired: '',
             zkteco_pin: '',
@@ -319,7 +529,12 @@ function EditEmployeeDialog({
         setData({
             name: employee.name,
             email: employee.email,
-            job_title: employee.position,
+            department_mode: employee.department_id ? 'existing' : 'new',
+            department_id: employee.department_id
+                ? String(employee.department_id)
+                : '',
+            department_name: employee.department_id ? '' : employee.department,
+            position_id: employee.position_id ? String(employee.position_id) : '',
             employment_status: employee.employment_status,
             date_hired: employee.date_hired,
             zkteco_pin: employee.zkteco_pin ?? '',
@@ -328,12 +543,16 @@ function EditEmployeeDialog({
     }, [open, employee?.employee_id]);
 
     const handleOpenChange = (nextOpen: boolean): void => {
-        if (!nextOpen) reset();
+        if (!nextOpen) {
+            reset();
+        }
+
         onOpenChange(nextOpen);
     };
 
-    const handleSubmit = (e: React.FormEvent): void => {
-        e.preventDefault();
+    const handleSubmit = (event: FormEvent): void => {
+        event.preventDefault();
+
         if (!employee) {
             return;
         }
@@ -367,8 +586,8 @@ function EditEmployeeDialog({
                             <Input
                                 id="edit-name"
                                 value={data.name}
-                                onChange={(e) =>
-                                    setData('name', e.target.value)
+                                onChange={(event) =>
+                                    setData('name', event.target.value)
                                 }
                             />
                             {errors.name && (
@@ -383,8 +602,8 @@ function EditEmployeeDialog({
                                 id="edit-email"
                                 type="email"
                                 value={data.email}
-                                onChange={(e) =>
-                                    setData('email', e.target.value)
+                                onChange={(event) =>
+                                    setData('email', event.target.value)
                                 }
                             />
                             {errors.email && (
@@ -393,29 +612,31 @@ function EditEmployeeDialog({
                                 </p>
                             )}
                         </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="edit-job-title">Position</Label>
-                            <Input
-                                id="edit-job-title"
-                                value={data.job_title}
-                                onChange={(e) =>
-                                    setData('job_title', e.target.value)
-                                }
-                            />
-                            {errors.job_title && (
-                                <p className="text-xs text-destructive">
-                                    {errors.job_title}
-                                </p>
-                            )}
-                        </div>
+
+                        <DepartmentFields
+                            departments={departments}
+                            data={data}
+                            setData={setData}
+                            errors={errors}
+                            idPrefix="edit"
+                        />
+
+                        <PositionField
+                            positions={positions}
+                            data={data}
+                            setData={setData}
+                            errors={errors}
+                            idPrefix="edit"
+                        />
+
                         <div className="grid gap-1.5">
                             <Label htmlFor="edit-employment-status">
                                 Employment Status
                             </Label>
                             <Select
                                 value={data.employment_status}
-                                onValueChange={(v) =>
-                                    setData('employment_status', v)
+                                onValueChange={(value) =>
+                                    setData('employment_status', value)
                                 }
                             >
                                 <SelectTrigger id="edit-employment-status">
@@ -447,8 +668,8 @@ function EditEmployeeDialog({
                                 id="edit-date-hired"
                                 type="date"
                                 value={data.date_hired}
-                                onChange={(e) =>
-                                    setData('date_hired', e.target.value)
+                                onChange={(event) =>
+                                    setData('date_hired', event.target.value)
                                 }
                             />
                             {errors.date_hired && (
@@ -469,8 +690,8 @@ function EditEmployeeDialog({
                                 type="text"
                                 placeholder="e.g. EMP002 or 229532"
                                 value={data.zkteco_pin}
-                                onChange={(e) =>
-                                    setData('zkteco_pin', e.target.value)
+                                onChange={(event) =>
+                                    setData('zkteco_pin', event.target.value)
                                 }
                             />
                             {errors.zkteco_pin && (
@@ -491,6 +712,219 @@ function EditEmployeeDialog({
                         <Button type="submit" disabled={processing}>
                             {processing ? 'Saving...' : 'Save Changes'}
                         </Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ManageEmployeeAccountDialog({
+    employee,
+    open,
+    onOpenChange,
+    accountRoles,
+}: {
+    employee: Employee | null;
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    accountRoles: string[];
+}) {
+    const { data, setData, put, processing, errors, reset } =
+        useForm<ManageAccountForm>({
+            name: '',
+            email: '',
+            role: 'employee',
+            employee_id: '',
+            password: '',
+            password_confirmation: '',
+            is_active: true,
+        });
+
+    useEffect(() => {
+        if (!open || employee === null) {
+            return;
+        }
+
+        setData({
+            name: employee.name,
+            email: employee.email,
+            role: employee.role,
+            employee_id: employee.employee_id,
+            password: '',
+            password_confirmation: '',
+            is_active: employee.account_is_active,
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, employee?.user_id]);
+
+    const handleOpenChange = (nextOpen: boolean): void => {
+        if (!nextOpen) {
+            reset();
+        }
+
+        onOpenChange(nextOpen);
+    };
+
+    const handleSubmit = (event: FormEvent): void => {
+        event.preventDefault();
+
+        if (!employee) {
+            return;
+        }
+
+        put(employee.account_links.update, {
+            preserveScroll: true,
+            onSuccess: () => {
+                onOpenChange(false);
+            },
+        });
+    };
+
+    const sendPasswordReset = (): void => {
+        if (!employee) {
+            return;
+        }
+
+        router.post(
+            employee.account_links.password_reset,
+            {},
+            {
+                preserveScroll: true,
+            },
+        );
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Manage Linked Account</DialogTitle>
+                    <DialogDescription>
+                        Update account access for {employee?.name ?? 'employee'}
+                        . If the role changes away from employee, the account
+                        will move to Operational Accounts after saving.
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="account-name">Name</Label>
+                            <Input
+                                id="account-name"
+                                value={data.name}
+                                readOnly
+                                className="bg-muted/35"
+                            />
+                        </div>
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="account-employee-id">
+                                Employee ID
+                            </Label>
+                            <Input
+                                id="account-employee-id"
+                                value={data.employee_id}
+                                readOnly
+                                className="bg-muted/35"
+                            />
+                        </div>
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="account-email">Email Address</Label>
+                            <Input
+                                id="account-email"
+                                type="email"
+                                value={data.email}
+                                onChange={(event) =>
+                                    setData('email', event.target.value)
+                                }
+                            />
+                            {errors.email && (
+                                <p className="text-xs text-destructive">
+                                    {errors.email}
+                                </p>
+                            )}
+                        </div>
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="account-role">Account Role</Label>
+                            <Select
+                                value={data.role}
+                                onValueChange={(value) =>
+                                    setData('role', value)
+                                }
+                            >
+                                <SelectTrigger id="account-role">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectGroup>
+                                        {accountRoles.map((role) => (
+                                            <SelectItem key={role} value={role}>
+                                                {formatRoleLabel(role)}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectGroup>
+                                </SelectContent>
+                            </Select>
+                            {errors.role && (
+                                <p className="text-xs text-destructive">
+                                    {errors.role}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/25 p-4 text-sm text-muted-foreground">
+                        <p>
+                            Two-factor authentication:{' '}
+                            <span className="font-semibold text-foreground">
+                                {employee?.account_two_factor_enabled
+                                    ? 'Enabled'
+                                    : 'Disabled'}
+                            </span>
+                        </p>
+                        <p>
+                            Account created:{' '}
+                            <span className="font-semibold text-foreground">
+                                {employee?.account_created_at ?? '-'}
+                            </span>
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <Checkbox
+                            checked={data.is_active}
+                            onCheckedChange={(checked) =>
+                                setData('is_active', checked === true)
+                            }
+                        />
+                        <Label>Account is active</Label>
+                    </div>
+                    {errors.is_active && (
+                        <p className="text-xs text-destructive">
+                            {errors.is_active}
+                        </p>
+                    )}
+
+                    <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={sendPasswordReset}
+                        >
+                            Send Password Reset
+                        </Button>
+                        <div className="flex gap-2">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => onOpenChange(false)}
+                            >
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={processing}>
+                                {processing ? 'Saving...' : 'Save Account'}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </form>
             </DialogContent>
@@ -568,18 +1002,24 @@ export function EmployeesTable({
     sort,
     direction,
     pagination,
+    nextEmployeeId,
+    departments,
     positions = [],
     statusFilter = '',
     positionFilter = '',
+    accountRoles = [],
 }: {
     employees: Employee[];
     search: string;
     sort: EmployeeSortKey;
     direction: SortDirection;
     pagination: PaginationMeta;
-    positions?: string[];
+    nextEmployeeId: string;
+    departments: Option[];
+    positions?: Option[];
     statusFilter?: string;
     positionFilter?: string;
+    accountRoles?: string[];
 }) {
     const { auth } = usePage<{ auth: Auth }>().props;
     const [searchTerm, setSearchTerm] = useState(search);
@@ -591,14 +1031,30 @@ export function EmployeesTable({
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
         null,
     );
-
-    // CRUD dialog state
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isManageAccountOpen, setIsManageAccountOpen] = useState(false);
     const [crudEmployee, setCrudEmployee] = useState<Employee | null>(null);
 
     const canManageEmployees = auth.user.role === 'hr-personnel';
+
+    const buildMergedQuery = (
+        overrides: Record<string, string | number>,
+    ): Record<string, string | number> => {
+        if (typeof window === 'undefined') {
+            return overrides;
+        }
+
+        const currentQuery = Object.fromEntries(
+            new URLSearchParams(window.location.search).entries(),
+        );
+
+        return {
+            ...currentQuery,
+            ...overrides,
+        };
+    };
 
     const visitEmployeesTable = (params: {
         search?: string;
@@ -611,7 +1067,7 @@ export function EmployeesTable({
     }): void => {
         router.get(
             admin.employeeDirectory().url,
-            {
+            buildMergedQuery({
                 search: params.search ?? searchTerm,
                 page: params.page ?? pagination.currentPage,
                 perPage: params.perPage ?? pagination.perPage,
@@ -619,7 +1075,7 @@ export function EmployeesTable({
                 direction: params.direction ?? direction,
                 statusFilter: params.statusFilter ?? currentStatusFilter,
                 positionFilter: params.positionFilter ?? currentPositionFilter,
-            },
+            }),
             {
                 preserveScroll: true,
                 preserveState: true,
@@ -633,6 +1089,9 @@ export function EmployeesTable({
                     'stats',
                     'statusFilter',
                     'positionFilter',
+                    'departments',
+                    'positions',
+                    'nextEmployeeId',
                 ],
             },
         );
@@ -653,6 +1112,7 @@ export function EmployeesTable({
     const handleSortChange = (column: EmployeeSortKey): void => {
         const nextDirection: SortDirection =
             sort === column && direction === 'asc' ? 'desc' : 'asc';
+
         visitEmployeesTable({
             page: 1,
             sort: column,
@@ -682,12 +1142,18 @@ export function EmployeesTable({
     };
 
     const goToPreviousPage = (): void => {
-        if (pagination.currentPage <= 1) return;
+        if (pagination.currentPage <= 1) {
+            return;
+        }
+
         visitEmployeesTable({ page: pagination.currentPage - 1 });
     };
 
     const goToNextPage = (): void => {
-        if (pagination.currentPage >= pagination.lastPage) return;
+        if (pagination.currentPage >= pagination.lastPage) {
+            return;
+        }
+
         visitEmployeesTable({ page: pagination.currentPage + 1 });
     };
 
@@ -706,15 +1172,19 @@ export function EmployeesTable({
         setIsDeleteOpen(true);
     };
 
-    // Determine column count for empty state colspan
-    const colSpan = canManageEmployees ? 8 : 7;
+    const openManageAccountDialog = (employee: Employee): void => {
+        setCrudEmployee(employee);
+        setIsManageAccountOpen(true);
+    };
+
+    const colSpan = canManageEmployees ? 10 : 8;
 
     return (
         <>
             <PageIntro
                 eyebrow={`${auth.user.role === 'hr-personnel' ? 'HR Personnel' : 'Evaluator'} · Employee Directory`}
                 title="Employee Data Management"
-                description="List of all employees working for the administrative office of the government."
+                description="Manage employee records, linked accounts, departments, and role-aligned position data."
                 className="animate-slide-in-down"
                 actions={
                     <div className="flex items-center gap-3">
@@ -788,9 +1258,12 @@ export function EmployeesTable({
                                     <SelectItem value="all">
                                         All Positions
                                     </SelectItem>
-                                    {positions.map((pos) => (
-                                        <SelectItem key={pos} value={pos}>
-                                            {pos}
+                                    {positions.map((position) => (
+                                        <SelectItem
+                                            key={position.id}
+                                            value={position.name}
+                                        >
+                                            {position.name}
                                         </SelectItem>
                                     ))}
                                 </SelectGroup>
@@ -798,7 +1271,7 @@ export function EmployeesTable({
                         </Select>
                     </div>
                 </div>
-                <Table className="w-full min-w-[72rem]">
+                <Table className="w-full min-w-[84rem]">
                     <TableHeader>
                         <TableRow className="app-table-head-row text-sm font-bold">
                             <TableHead>
@@ -844,6 +1317,20 @@ export function EmployeesTable({
                                     type="button"
                                     variant="ghost"
                                     size="sm"
+                                    onClick={() =>
+                                        handleSortChange('department')
+                                    }
+                                    className="h-auto px-0 text-white hover:bg-transparent hover:text-white"
+                                >
+                                    Department
+                                    {renderSortIcon('department')}
+                                </Button>
+                            </TableHead>
+                            <TableHead>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
                                     onClick={() => handleSortChange('position')}
                                     className="h-auto px-0 text-white hover:bg-transparent hover:text-white"
                                 >
@@ -875,6 +1362,7 @@ export function EmployeesTable({
                                 <TableCell>{employee.employee_id}</TableCell>
                                 <TableCell>{employee.name}</TableCell>
                                 <TableCell>{employee.email}</TableCell>
+                                <TableCell>{employee.department || '—'}</TableCell>
                                 <TableCell>{employee.position}</TableCell>
                                 <TableCell>
                                     <StatusBadge
@@ -896,6 +1384,23 @@ export function EmployeesTable({
                                 {canManageEmployees && (
                                     <TableCell className="text-center">
                                         <div className="flex items-center justify-center gap-1">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-8 gap-1.5 px-2"
+                                                onClick={() =>
+                                                    openManageAccountDialog(
+                                                        employee,
+                                                    )
+                                                }
+                                                title="Manage account"
+                                            >
+                                                <UserCog className="size-4" />
+                                                <span className="hidden sm:inline">
+                                                    Account
+                                                </span>
+                                            </Button>
                                             <Button
                                                 type="button"
                                                 variant="ghost"
@@ -977,11 +1482,6 @@ export function EmployeesTable({
                                             event.preventDefault();
                                             goToPreviousPage();
                                         }}
-                                        className={
-                                            pagination.currentPage === 1
-                                                ? 'pointer-events-none opacity-50'
-                                                : ''
-                                        }
                                     />
                                 </PaginationItem>
                                 <PaginationItem>
@@ -991,12 +1491,6 @@ export function EmployeesTable({
                                             event.preventDefault();
                                             goToNextPage();
                                         }}
-                                        className={
-                                            pagination.currentPage ===
-                                            pagination.lastPage
-                                                ? 'pointer-events-none opacity-50'
-                                                : ''
-                                        }
                                     />
                                 </PaginationItem>
                             </PaginationContent>
@@ -1004,24 +1498,69 @@ export function EmployeesTable({
                     </div>
                 </div>
             </div>
-            <PredictivePerformanceModule
-                isOpen={isPredictiveModalOpen}
-                onOpenChange={setIsPredictiveModalOpen}
-                employee={selectedEmployee}
-            />
+
             <AddEmployeeDialog
                 open={isAddOpen}
                 onOpenChange={setIsAddOpen}
+                nextEmployeeId={nextEmployeeId}
+                departments={departments}
+                positions={positions}
             />
             <EditEmployeeDialog
                 employee={crudEmployee}
                 open={isEditOpen}
-                onOpenChange={setIsEditOpen}
+                onOpenChange={(open) => {
+                    setIsEditOpen(open);
+                    if (!open) {
+                        setCrudEmployee(null);
+                    }
+                }}
+                departments={departments}
+                positions={positions}
+            />
+            <ManageEmployeeAccountDialog
+                employee={crudEmployee}
+                open={isManageAccountOpen}
+                onOpenChange={(open) => {
+                    setIsManageAccountOpen(open);
+                    if (!open) {
+                        setCrudEmployee(null);
+                    }
+                }}
+                accountRoles={accountRoles}
             />
             <DeleteEmployeeDialog
                 employee={crudEmployee}
                 open={isDeleteOpen}
-                onOpenChange={setIsDeleteOpen}
+                onOpenChange={(open) => {
+                    setIsDeleteOpen(open);
+                    if (!open) {
+                        setCrudEmployee(null);
+                    }
+                }}
+            />
+            <PredictivePerformanceModule
+                isOpen={isPredictiveModalOpen}
+                onOpenChange={(open) => {
+                    setIsPredictiveModalOpen(open);
+                    if (!open) {
+                        setSelectedEmployee(null);
+                    }
+                }}
+                employee={
+                    selectedEmployee
+                        ? {
+                              id: selectedEmployee.id,
+                              employee_id: selectedEmployee.employee_id,
+                              name: selectedEmployee.name,
+                              position: selectedEmployee.position,
+                              performance_rating:
+                                  selectedEmployee.performance_rating,
+                              remarks: selectedEmployee.remarks,
+                              notification: selectedEmployee.notification,
+                          }
+                        : null
+                }
             />
         </>
     );

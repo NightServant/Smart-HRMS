@@ -14,7 +14,9 @@ test('password update page is displayed', function () {
 });
 
 test('password can be updated', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->create([
+        'must_change_password' => true,
+    ]);
 
     $response = $this
         ->actingAs($user)
@@ -30,6 +32,7 @@ test('password can be updated', function () {
         ->assertRedirect(route('user-password.edit'));
 
     expect(Hash::check('new-password', $user->refresh()->password))->toBeTrue();
+    expect($user->must_change_password)->toBeFalse();
 });
 
 test('correct password must be provided to update password', function () {

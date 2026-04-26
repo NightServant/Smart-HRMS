@@ -27,10 +27,10 @@ class SystemDashboardController extends Controller
             'inactive' => (clone $users)->where('is_active', false)->count(),
             'twoFactorEnabled' => (clone $users)->whereNotNull('two_factor_confirmed_at')->count(),
             'byRole' => [
-                'administrators' => (clone $users)->where('role', User::ROLE_ADMINISTRATOR)->count(),
                 'hrPersonnel' => (clone $users)->where('role', User::ROLE_HR_PERSONNEL)->count(),
                 'evaluators' => (clone $users)->where('role', User::ROLE_EVALUATOR)->count(),
                 'employees' => (clone $users)->where('role', User::ROLE_EMPLOYEE)->count(),
+                'pmt' => (clone $users)->where('role', User::ROLE_PMT)->count(),
             ],
         ];
 

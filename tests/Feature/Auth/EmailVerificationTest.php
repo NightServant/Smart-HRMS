@@ -16,10 +16,10 @@ test('unverified users can access their dashboard', function () {
         ->assertOk();
 });
 
-test('unverified administrators can access the system dashboard', function () {
-    $user = User::factory()->asAdministrator()->unverified()->create();
+test('unverified hr personnel can access the hr dashboard', function () {
+    $user = User::factory()->asHrPersonnel()->unverified()->create();
 
     $this->actingAs($user)
-        ->get(route('admin.system-dashboard'))
+        ->get(route('admin.performance-dashboard'))
         ->assertOk();
 });

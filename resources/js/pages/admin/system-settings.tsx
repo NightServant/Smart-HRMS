@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import SystemSettingController from '@/actions/App/Http/Controllers/Admin/SystemSettingController';
 import { DashboardMetricCard, DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
 import { AdminSystemSettingsForm } from '@/components/admin-system-settings-form';
 import { Badge } from '@/components/ui/badge';
@@ -25,8 +24,10 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/layouts/app-layout';
-import * as admin from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types/navigation';
+
+const SYSTEM_SETTINGS_ROUTE = '/admin/system-settings';
+const SYSTEM_SETTINGS_DEVICES_ROUTE = '/admin/system-settings/devices';
 
 type Setting = {
     key: string;
@@ -57,7 +58,7 @@ type Props = {
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'System Settings',
-        href: admin.systemSettings().url,
+        href: SYSTEM_SETTINGS_ROUTE,
     },
 ];
 
@@ -130,7 +131,7 @@ function RegisterDeviceForm() {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        post(SystemSettingController.storeDevice.url(), {
+        post(SYSTEM_SETTINGS_DEVICES_ROUTE, {
             preserveScroll: true,
             onSuccess: () => {
                 reset();
@@ -215,7 +216,7 @@ export default function SystemSettings(props: Props) {
 
     const handleDeviceToggle = (device: BiometricDevice) => {
         router.put(
-            SystemSettingController.updateDevice.url(device.id),
+            `${SYSTEM_SETTINGS_DEVICES_ROUTE}/${device.id}`,
             {},
             { preserveScroll: true },
         );
@@ -223,7 +224,7 @@ export default function SystemSettings(props: Props) {
 
     const handleDeviceDelete = (device: BiometricDevice) => {
         if (!confirm(`Remove device "${device.name}"? This cannot be undone.`)) return;
-        router.delete(SystemSettingController.destroyDevice.url(device.id), {
+        router.delete(`${SYSTEM_SETTINGS_DEVICES_ROUTE}/${device.id}`, {
             preserveScroll: true,
             onSuccess: () => toast.success(`Device "${device.name}" removed.`),
             onError: (errs) => toast.error(errs.device ?? 'Failed to remove device.'),

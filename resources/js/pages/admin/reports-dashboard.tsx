@@ -19,7 +19,6 @@ import {
 } from '@/components/admin-system-dashboard-charts';
 import { Badge } from '@/components/ui/badge';
 import AppLayout from '@/layouts/app-layout';
-import * as admin from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types/navigation';
 
 type Props = {
@@ -61,7 +60,7 @@ type Props = {
 const breadcrumbs: BreadcrumbItem[] = [
     {
         title: 'Reports',
-        href: admin.reports().url,
+        href: '/admin/reports',
     },
 ];
 

@@ -25,7 +25,7 @@ class ProfileController extends Controller
 
         return Inertia::render('settings/profile', [
             'status' => $request->session()->get('status'),
-            'canEditProfile' => $user->isAdministrator(),
+            'canEditProfile' => $user->isHrPersonnel(),
             'accountProfile' => [
                 'name' => $user->name,
                 'email' => $user->email,

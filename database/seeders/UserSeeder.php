@@ -13,8 +13,6 @@ class UserSeeder extends Seeder
         $password = Hash::make('password');
 
         $users = [
-            ['name' => 'System Administrator', 'email' => 'admin@shrms.test', 'password' => $password, 'role' => User::ROLE_ADMINISTRATOR, 'employee_id' => null, 'email_verified_at' => now(), 'is_active' => true],
-
             // Department Head → evaluator role
             ['name' => 'John Reyes', 'email' => 'john.reyes@shrms.test', 'password' => $password, 'role' => User::ROLE_EVALUATOR, 'employee_id' => 'EMP-001', 'email_verified_at' => now(), 'is_active' => true],
 

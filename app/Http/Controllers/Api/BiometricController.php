@@ -101,7 +101,7 @@ class BiometricController extends Controller
             throw new AccessDeniedHttpException;
         }
 
-        if (in_array($user->role, ['administrator', 'hr-personnel', 'evaluator'], true)) {
+        if (in_array($user->role, ['hr-personnel', 'evaluator'], true)) {
             return;
         }
 

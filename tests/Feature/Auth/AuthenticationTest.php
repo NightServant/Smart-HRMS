@@ -2,12 +2,15 @@
 
 use App\Models\User;
 use Illuminate\Support\Facades\RateLimiter;
+use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
 
 test('login screen can be rendered', function () {
-    $response = $this->get(route('login'));
-
-    $response->assertOk();
+    $this->get(route('login'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/login')
+            ->where('passwordChangeRecommendation', 'If HR gave you a temporary password, sign in first, then change it from Password Settings using your old password, your new password, and the confirmation field.'));
 });
 
 test('users can authenticate using the login screen', function () {
@@ -34,8 +37,8 @@ test('hr personnel are redirected to hr dashboard after login', function () {
     $response->assertRedirect(route('admin.performance-dashboard', absolute: false));
 });
 
-test('administrators are redirected to system dashboard after login', function () {
-    $user = User::factory()->asAdministrator()->create();
+test('pmt users are redirected to pmt review after login', function () {
+    $user = User::factory()->asPmt()->create();
 
     $response = $this->post(route('login.store'), [
         'email' => $user->email,
@@ -43,7 +46,7 @@ test('administrators are redirected to system dashboard after login', function (
     ]);
 
     $this->assertAuthenticated();
-    $response->assertRedirect(route('admin.system-dashboard', absolute: false));
+    $response->assertRedirect(route('admin.pmt-review', absolute: false));
 });
 
 test('deactivated users cannot authenticate', function () {

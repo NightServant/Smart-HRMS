@@ -5,10 +5,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['web', 'auth', 'throttle:60,1'])->prefix('biometrics')->group(function (): void {
     Route::post('sync', [BiometricController::class, 'sync'])
-        ->middleware('role:administrator')
+        ->middleware('role:hr-personnel')
         ->name('api.biometrics.sync');
     Route::post('enroll', [BiometricController::class, 'enroll'])
-        ->middleware('role:administrator,hr-personnel')
+        ->middleware('role:hr-personnel')
         ->name('api.biometrics.enroll');
     Route::post('self-enroll', [BiometricController::class, 'selfEnroll'])
         ->middleware('role:employee')

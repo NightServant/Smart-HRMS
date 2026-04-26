@@ -1,7 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Download } from 'lucide-react';
 import { useState } from 'react';
-import ReportsDashboardController from '@/actions/App/Http/Controllers/Admin/ReportsDashboardController';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -12,7 +11,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import * as admin from '@/routes/admin';
+
+const REPORTS_ROUTE = '/admin/reports';
+const REPORTS_EXPORT_ROUTE = '/admin/reports/export';
 
 type Props = {
     period: string;
@@ -35,7 +36,7 @@ export function AdminReportsPeriodSelector({ period, dateFrom, dateTo }: Props) 
 
     const navigate = (params: { period?: string; dateFrom?: string; dateTo?: string }) => {
         router.get(
-            admin.reports().url,
+            REPORTS_ROUTE,
             {
                 period: params.period ?? selectedPeriod,
                 dateFrom: params.dateFrom ?? fromDate,
@@ -60,13 +61,11 @@ export function AdminReportsPeriodSelector({ period, dateFrom, dateTo }: Props) 
         navigate({ dateTo: value });
     };
 
-    const exportUrl = ReportsDashboardController.export.url({
-        query: {
-            period: selectedPeriod,
-            dateFrom: fromDate,
-            dateTo: toDate,
-        },
-    });
+    const exportUrl = `${REPORTS_EXPORT_ROUTE}?${new URLSearchParams({
+        period: selectedPeriod,
+        dateFrom: fromDate,
+        dateTo: toDate,
+    }).toString()}`;
 
     return (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-brand-300 bg-white/75 p-4 shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">

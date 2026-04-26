@@ -7,12 +7,10 @@ import {
     Plus,
     Power,
     Search,
-    ShieldPlus,
     UserCog,
 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
-import PageIntro from '@/components/page-intro';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -49,8 +47,10 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import * as admin from '@/routes/admin';
+import * as userManagementRoutes from '@/routes/admin/user-management';
 
-type ManagedUser = {
+type OperationalAccount = {
+    id: number;
     name: string;
     email: string;
     role: string;
@@ -63,6 +63,7 @@ type ManagedUser = {
         update: string;
         activate: string;
         deactivate: string;
+        passwordReset: string;
     };
 };
 
@@ -91,7 +92,7 @@ type PageProps = {
     errors: Record<string, string>;
 };
 
-type UserFormState = {
+type AccountFormState = {
     name: string;
     email: string;
     role: string;
@@ -101,23 +102,25 @@ type UserFormState = {
     is_active: boolean;
 };
 
-const emptyForm: UserFormState = {
-    name: '',
-    email: '',
-    role: 'employee',
-    employee_id: '',
-    password: '',
-    password_confirmation: '',
-    is_active: true,
-};
+function formatRoleLabel(role: string): string {
+    if (role === 'hr-personnel') {
+        return 'HR Personnel';
+    }
 
-export function AdminUserManagementTable({
-    users,
+    if (role === 'pmt') {
+        return 'PMT';
+    }
+
+    return role.charAt(0).toUpperCase() + role.slice(1);
+}
+
+export function OperationalAccountsPanel({
+    accounts,
     roles,
     filters,
     pagination,
 }: {
-    users: ManagedUser[];
+    accounts: OperationalAccount[];
     roles: string[];
     filters: Filters;
     pagination: PaginationMeta;
@@ -131,39 +134,78 @@ export function AdminUserManagementTable({
     );
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
-    const [createForm, setCreateForm] = useState<UserFormState>(emptyForm);
-    const [editForm, setEditForm] = useState<UserFormState>(emptyForm);
-    const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
+    const [selectedAccount, setSelectedAccount] =
+        useState<OperationalAccount | null>(null);
+    const [createForm, setCreateForm] = useState<AccountFormState>({
+        name: '',
+        email: '',
+        role: roles[0] ?? 'evaluator',
+        employee_id: '',
+        password: '',
+        password_confirmation: '',
+        is_active: true,
+    });
+    const [editForm, setEditForm] = useState<AccountFormState>({
+        name: '',
+        email: '',
+        role: roles[0] ?? 'evaluator',
+        employee_id: '',
+        password: '',
+        password_confirmation: '',
+        is_active: true,
+    });
+
+    const buildMergedQuery = (
+        overrides: Record<string, string | number>,
+    ): Record<string, string | number> => {
+        if (typeof window === 'undefined') {
+            return overrides;
+        }
+
+        const currentQuery = Object.fromEntries(
+            new URLSearchParams(window.location.search).entries(),
+        );
+
+        return {
+            ...currentQuery,
+            ...overrides,
+        };
+    };
 
     const visit = (
         params: Partial<Filters> & { page?: number; perPage?: number },
     ): void => {
         router.get(
-            admin.userManagement().url,
-            {
-                search: params.search ?? searchTerm,
-                role:
+            admin.employeeDirectory().url,
+            buildMergedQuery({
+                accountSearch: params.search ?? searchTerm,
+                accountRole:
                     (params.role ?? roleFilter) === 'all'
                         ? ''
                         : (params.role ?? roleFilter),
-                status:
+                accountStatus:
                     (params.status ?? statusFilter) === 'all'
                         ? ''
                         : (params.status ?? statusFilter),
-                twoFactor:
+                accountTwoFactor:
                     (params.twoFactor ?? twoFactorFilter) === 'all'
                         ? ''
                         : (params.twoFactor ?? twoFactorFilter),
-                sort: params.sort ?? filters.sort,
-                direction: params.direction ?? filters.direction,
-                page: params.page ?? pagination.currentPage,
-                perPage: params.perPage ?? pagination.perPage,
-            },
+                accountSort: params.sort ?? filters.sort,
+                accountDirection: params.direction ?? filters.direction,
+                accountPage: params.page ?? pagination.currentPage,
+                accountPerPage: params.perPage ?? pagination.perPage,
+            }),
             {
                 preserveScroll: true,
                 preserveState: true,
                 replace: true,
-                only: ['users', 'filters', 'pagination', 'roles'],
+                only: [
+                    'operationalAccounts',
+                    'operationalFilters',
+                    'operationalPagination',
+                    'operationalRoles',
+                ],
             },
         );
     };
@@ -189,21 +231,28 @@ export function AdminUserManagementTable({
         );
     };
 
-    const openCreateDialog = (): void => {
-        setCreateForm(emptyForm);
-        setIsCreateOpen(true);
-    };
-
-    const openEditDialog = (user: ManagedUser): void => {
-        setSelectedUser(user);
-        setEditForm({
-            name: user.name,
-            email: user.email,
-            role: user.role,
-            employee_id: user.employeeId ?? '',
+    const resetCreateForm = (): void => {
+        setCreateForm({
+            name: '',
+            email: '',
+            role: roles[0] ?? 'evaluator',
+            employee_id: '',
             password: '',
             password_confirmation: '',
-            is_active: user.isActive,
+            is_active: true,
+        });
+    };
+
+    const openEditDialog = (account: OperationalAccount): void => {
+        setSelectedAccount(account);
+        setEditForm({
+            name: account.name,
+            email: account.email,
+            role: account.role,
+            employee_id: account.employeeId ?? '',
+            password: '',
+            password_confirmation: '',
+            is_active: account.isActive,
         });
         setIsEditOpen(true);
     };
@@ -211,13 +260,13 @@ export function AdminUserManagementTable({
     const submitCreate = (event: FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
 
-        router.post('/admin/user-management', createForm, {
+        router.post(userManagementRoutes.store().url, createForm, {
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => {
-                toast.success('User account created successfully.');
+                toast.success('Operational account created successfully.');
+                resetCreateForm();
                 setIsCreateOpen(false);
-                setCreateForm(emptyForm);
             },
         });
     };
@@ -225,17 +274,17 @@ export function AdminUserManagementTable({
     const submitUpdate = (event: FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
 
-        if (!selectedUser) {
+        if (!selectedAccount) {
             return;
         }
 
-        router.put(selectedUser.links.update, editForm, {
+        router.put(selectedAccount.links.update, editForm, {
             preserveScroll: true,
             preserveState: true,
             onSuccess: () => {
-                toast.success('User account updated successfully.');
+                toast.success('Operational account updated successfully.');
+                setSelectedAccount(null);
                 setIsEditOpen(false);
-                setSelectedUser(null);
             },
         });
     };
@@ -251,22 +300,39 @@ export function AdminUserManagementTable({
         );
     };
 
+    const sendPasswordReset = (): void => {
+        if (!selectedAccount) {
+            return;
+        }
+
+        triggerAccountAction(
+            selectedAccount.links.passwordReset,
+            'Password reset link sent successfully.',
+        );
+    };
+
     return (
         <>
-            <PageIntro
-                eyebrow="HR Personnel · User Management"
-                title="User Management"
-                description="Manage Smart HRMS accounts, roles, and account access from one HR-managed workspace."
-                className="animate-slide-in-down"
-                actions={
-                    <Button type="button" onClick={openCreateDialog}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Account
+            <section className="glass-card app-data-shell mx-auto flex w-full flex-col gap-5 bg-card px-4 py-5 shadow-sm sm:px-6">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="space-y-1">
+                        <p className="text-xs font-semibold tracking-[0.2em] text-muted-foreground uppercase">
+                            Operational Accounts
+                        </p>
+                        <h2 className="text-xl font-semibold text-foreground">
+                            Non-employee account management
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                            Manage HR, evaluator, and PMT accounts without
+                            mixing them into the employee records table.
+                        </p>
+                    </div>
+                    <Button type="button" onClick={() => setIsCreateOpen(true)}>
+                        <Plus className="mr-2 size-4" />
+                        Create Operational Account
                     </Button>
-                }
-            />
+                </div>
 
-            <div className="glass-card app-data-shell mx-auto w-full animate-zoom-in-soft bg-card shadow-sm">
                 <div className="grid gap-4 py-2 lg:grid-cols-3 xl:grid-cols-[minmax(0,1fr)_repeat(3,11rem)]">
                     <div className="relative w-full lg:col-span-3 xl:col-span-1 xl:max-w-md">
                         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -295,7 +361,7 @@ export function AdminUserManagementTable({
                                 <SelectItem value="all">All roles</SelectItem>
                                 {roles.map((role) => (
                                     <SelectItem key={role} value={role}>
-                                        {role}
+                                        {formatRoleLabel(role)}
                                     </SelectItem>
                                 ))}
                             </SelectGroup>
@@ -315,9 +381,7 @@ export function AdminUserManagementTable({
                             <SelectGroup>
                                 <SelectItem value="all">All status</SelectItem>
                                 <SelectItem value="active">Active</SelectItem>
-                                <SelectItem value="inactive">
-                                    Inactive
-                                </SelectItem>
+                                <SelectItem value="inactive">Inactive</SelectItem>
                             </SelectGroup>
                         </SelectContent>
                     </Select>
@@ -335,9 +399,7 @@ export function AdminUserManagementTable({
                             <SelectGroup>
                                 <SelectItem value="all">All 2FA</SelectItem>
                                 <SelectItem value="enabled">Enabled</SelectItem>
-                                <SelectItem value="disabled">
-                                    Disabled
-                                </SelectItem>
+                                <SelectItem value="disabled">Disabled</SelectItem>
                             </SelectGroup>
                         </SelectContent>
                     </Select>
@@ -390,9 +452,7 @@ export function AdminUserManagementTable({
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() =>
-                                        handleSortChange('created_at')
-                                    }
+                                    onClick={() => handleSortChange('created_at')}
                                     className="h-auto px-0 text-white hover:bg-transparent hover:text-white"
                                 >
                                     Created
@@ -405,45 +465,45 @@ export function AdminUserManagementTable({
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {users.map((user, index) => (
+                        {accounts.map((account, index) => (
                             <TableRow
-                                key={`${user.email}-${index}`}
+                                key={`${account.id}-${account.email}`}
                                 style={{ animationDelay: `${index * 24}ms` }}
                                 className={`animate-fade-in-up text-sm font-semibold text-foreground ${index % 2 === 0 ? 'app-table-row-even' : 'app-table-row-odd'}`}
                             >
                                 <TableCell>
                                     <div className="flex flex-col">
-                                        <span>{user.name}</span>
-                                        {user.position && (
+                                        <span>{account.name}</span>
+                                        {account.position && (
                                             <span className="text-xs font-normal text-muted-foreground">
-                                                {user.position}
+                                                {account.position}
                                             </span>
                                         )}
                                     </div>
                                 </TableCell>
-                                <TableCell>{user.email}</TableCell>
-                                <TableCell className="capitalize">
-                                    {user.role.replace('-', ' ')}
+                                <TableCell>{account.email}</TableCell>
+                                <TableCell>
+                                    {formatRoleLabel(account.role)}
                                 </TableCell>
                                 <TableCell>
-                                    {user.employeeId ?? 'Not linked'}
+                                    {account.employeeId ?? 'Not linked'}
                                 </TableCell>
                                 <TableCell>
-                                    {user.twoFactorEnabled
+                                    {account.twoFactorEnabled
                                         ? 'Enabled'
                                         : 'Disabled'}
                                 </TableCell>
                                 <TableCell>
-                                    {user.isActive ? 'Active' : 'Inactive'}
+                                    {account.isActive ? 'Active' : 'Inactive'}
                                 </TableCell>
-                                <TableCell>{user.createdAt ?? '-'}</TableCell>
+                                <TableCell>{account.createdAt ?? '-'}</TableCell>
                                 <TableCell>
                                     <div className="flex justify-end gap-2">
                                         <Button
                                             type="button"
                                             size="sm"
                                             variant="outline"
-                                            onClick={() => openEditDialog(user)}
+                                            onClick={() => openEditDialog(account)}
                                         >
                                             <Pencil className="mr-2 size-4" />
                                             Edit
@@ -452,28 +512,27 @@ export function AdminUserManagementTable({
                                             type="button"
                                             size="sm"
                                             variant={
-                                                user.isActive
+                                                account.isActive
                                                     ? 'destructive'
                                                     : 'outline'
                                             }
                                             onClick={() =>
                                                 triggerAccountAction(
-                                                    user.isActive
-                                                        ? user.links.deactivate
-                                                        : user.links.activate,
-                                                    user.isActive
-                                                        ? 'User account deactivated successfully.'
-                                                        : 'User account activated successfully.',
+                                                    account.isActive
+                                                        ? account.links.deactivate
+                                                        : account.links.activate,
+                                                    account.isActive
+                                                        ? 'Operational account deactivated successfully.'
+                                                        : 'Operational account activated successfully.',
                                                 )
                                             }
                                             disabled={
-                                                user.email ===
-                                                    auth.user.email &&
-                                                user.isActive
+                                                account.email === auth.user.email &&
+                                                account.isActive
                                             }
                                         >
                                             <Power className="mr-2 size-4" />
-                                            {user.isActive
+                                            {account.isActive
                                                 ? 'Deactivate'
                                                 : 'Activate'}
                                         </Button>
@@ -481,130 +540,128 @@ export function AdminUserManagementTable({
                                 </TableCell>
                             </TableRow>
                         ))}
-                        {users.length === 0 && (
+                        {accounts.length === 0 && (
                             <TableRow>
                                 <TableCell
                                     colSpan={8}
                                     className="bg-[#DDEFD7] text-center dark:bg-[#345A34]/80"
                                 >
-                                    No matching accounts found.
+                                    No matching operational accounts found.
                                 </TableCell>
                             </TableRow>
                         )}
                     </TableBody>
                 </Table>
-            </div>
-            <div className="app-table-pagination-bar">
-                <div className="app-table-pagination-shell">
-                    <div className="app-table-pagination-page-size">
-                        <span>Rows per page</span>
-                        <Select
-                            value={String(pagination.perPage)}
-                            onValueChange={(value) =>
-                                visit({
-                                    perPage: Number(value),
-                                    page: 1,
-                                })
-                            }
-                        >
-                            <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent align="start">
-                                <SelectGroup>
-                                    <SelectItem value="5">
-                                        5
-                                    </SelectItem>
-                                    <SelectItem value="10">
-                                        10
-                                    </SelectItem>
-                                    <SelectItem value="25">
-                                        25
-                                    </SelectItem>
-                                    <SelectItem value="50">
-                                        50
-                                    </SelectItem>
-                                </SelectGroup>
-                            </SelectContent>
-                        </Select>
-                    </div>
 
-                    <div className="app-table-pagination-controls">
-                        <span className="app-table-pagination-status">
-                            Page {pagination.currentPage} of{' '}
-                            {pagination.lastPage}
-                        </span>
-                        <Pagination className="app-table-pagination-nav">
-                            <PaginationContent>
-                                <PaginationItem>
-                                    <PaginationPrevious
-                                        href="#"
-                                        onClick={(event) => {
-                                            event.preventDefault();
-                                            if (
-                                                pagination.currentPage >
-                                                1
-                                            ) {
-                                                visit({
-                                                    page:
-                                                        pagination.currentPage -
-                                                        1,
-                                                });
+                <div className="app-table-pagination-bar">
+                    <div className="app-table-pagination-shell">
+                        <div className="app-table-pagination-page-size">
+                            <span>Rows per page</span>
+                            <Select
+                                value={String(pagination.perPage)}
+                                onValueChange={(value) =>
+                                    visit({
+                                        perPage: Number(value),
+                                        page: 1,
+                                    })
+                                }
+                            >
+                                <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent align="start">
+                                    <SelectGroup>
+                                        <SelectItem value="5">5</SelectItem>
+                                        <SelectItem value="10">10</SelectItem>
+                                        <SelectItem value="25">25</SelectItem>
+                                        <SelectItem value="50">50</SelectItem>
+                                    </SelectGroup>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="app-table-pagination-controls">
+                            <span className="app-table-pagination-status">
+                                Page {pagination.currentPage} of{' '}
+                                {pagination.lastPage}
+                            </span>
+                            <Pagination className="app-table-pagination-nav">
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious
+                                            href="#"
+                                            onClick={(event) => {
+                                                event.preventDefault();
+                                                if (pagination.currentPage > 1) {
+                                                    visit({
+                                                        page:
+                                                            pagination.currentPage -
+                                                            1,
+                                                    });
+                                                }
+                                            }}
+                                            className={
+                                                pagination.currentPage === 1
+                                                    ? 'pointer-events-none opacity-50'
+                                                    : ''
                                             }
-                                        }}
-                                        className={
-                                            pagination.currentPage ===
-                                            1
-                                                ? 'pointer-events-none opacity-50'
-                                                : ''
-                                        }
-                                    />
-                                </PaginationItem>
-                                <PaginationItem>
-                                    <PaginationNext
-                                        href="#"
-                                        onClick={(event) => {
-                                            event.preventDefault();
-                                            if (
-                                                pagination.currentPage <
+                                        />
+                                    </PaginationItem>
+                                    <PaginationItem>
+                                        <PaginationNext
+                                            href="#"
+                                            onClick={(event) => {
+                                                event.preventDefault();
+                                                if (
+                                                    pagination.currentPage <
+                                                    pagination.lastPage
+                                                ) {
+                                                    visit({
+                                                        page:
+                                                            pagination.currentPage +
+                                                            1,
+                                                    });
+                                                }
+                                            }}
+                                            className={
+                                                pagination.currentPage ===
                                                 pagination.lastPage
-                                            ) {
-                                                visit({
-                                                    page:
-                                                        pagination.currentPage +
-                                                        1,
-                                                });
+                                                    ? 'pointer-events-none opacity-50'
+                                                    : ''
                                             }
-                                        }}
-                                        className={
-                                            pagination.currentPage ===
-                                            pagination.lastPage
-                                                ? 'pointer-events-none opacity-50'
-                                                : ''
-                                        }
-                                    />
-                                </PaginationItem>
-                            </PaginationContent>
-                        </Pagination>
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
+                        </div>
                     </div>
                 </div>
-            </div>
+            </section>
 
-            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <Dialog
+                open={isCreateOpen}
+                onOpenChange={(open) => {
+                    setIsCreateOpen(open);
+
+                    if (!open) {
+                        resetCreateForm();
+                    }
+                }}
+            >
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Create Account</DialogTitle>
+                        <DialogTitle>Create operational account</DialogTitle>
                         <DialogDescription>
-                            Create a new Smart HRMS account and assign its role
-                            and access state.
+                            Create a new non-employee account for HR,
+                            evaluator, or PMT access.
                         </DialogDescription>
                     </DialogHeader>
                     <form className="grid gap-4" onSubmit={submitCreate}>
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="grid gap-2">
-                                <Label htmlFor="create-name">Name</Label>
+                                <Label htmlFor="create-ops-name">Name</Label>
                                 <Input
-                                    id="create-name"
+                                    id="create-ops-name"
                                     value={createForm.name}
                                     onChange={(event) =>
                                         setCreateForm((current) => ({
@@ -620,9 +677,9 @@ export function AdminUserManagementTable({
                                 )}
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="create-email">Email</Label>
+                                <Label htmlFor="create-ops-email">Email</Label>
                                 <Input
-                                    id="create-email"
+                                    id="create-ops-email"
                                     type="email"
                                     value={createForm.email}
                                     onChange={(event) =>
@@ -639,7 +696,7 @@ export function AdminUserManagementTable({
                                 )}
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="create-role">Role</Label>
+                                <Label htmlFor="create-ops-role">Role</Label>
                                 <Select
                                     value={createForm.role}
                                     onValueChange={(value) =>
@@ -649,7 +706,7 @@ export function AdminUserManagementTable({
                                         }))
                                     }
                                 >
-                                    <SelectTrigger id="create-role">
+                                    <SelectTrigger id="create-ops-role">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -659,7 +716,7 @@ export function AdminUserManagementTable({
                                                     key={role}
                                                     value={role}
                                                 >
-                                                    {role}
+                                                    {formatRoleLabel(role)}
                                                 </SelectItem>
                                             ))}
                                         </SelectGroup>
@@ -672,11 +729,11 @@ export function AdminUserManagementTable({
                                 )}
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="create-employee-id">
+                                <Label htmlFor="create-ops-employee-id">
                                     Employee ID
                                 </Label>
                                 <Input
-                                    id="create-employee-id"
+                                    id="create-ops-employee-id"
                                     value={createForm.employee_id}
                                     onChange={(event) =>
                                         setCreateForm((current) => ({
@@ -693,11 +750,11 @@ export function AdminUserManagementTable({
                                 )}
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="create-password">
+                                <Label htmlFor="create-ops-password">
                                     Password
                                 </Label>
                                 <Input
-                                    id="create-password"
+                                    id="create-ops-password"
                                     type="password"
                                     value={createForm.password}
                                     onChange={(event) =>
@@ -714,11 +771,11 @@ export function AdminUserManagementTable({
                                 )}
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="create-password-confirmation">
+                                <Label htmlFor="create-ops-password-confirmation">
                                     Confirm Password
                                 </Label>
                                 <Input
-                                    id="create-password-confirmation"
+                                    id="create-ops-password-confirmation"
                                     type="password"
                                     value={createForm.password_confirmation}
                                     onChange={(event) =>
@@ -760,21 +817,30 @@ export function AdminUserManagementTable({
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+            <Dialog
+                open={isEditOpen}
+                onOpenChange={(open) => {
+                    setIsEditOpen(open);
+
+                    if (!open) {
+                        setSelectedAccount(null);
+                    }
+                }}
+            >
                 <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>Edit Account</DialogTitle>
+                        <DialogTitle>Edit operational account</DialogTitle>
                         <DialogDescription>
-                            Update role, employee link, and account state
-                            without exposing the internal user ID.
+                            Update role, employee link, and account state from
+                            the shared HR workspace.
                         </DialogDescription>
                     </DialogHeader>
                     <form className="grid gap-4" onSubmit={submitUpdate}>
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="grid gap-2">
-                                <Label htmlFor="edit-name">Name</Label>
+                                <Label htmlFor="edit-ops-name">Name</Label>
                                 <Input
-                                    id="edit-name"
+                                    id="edit-ops-name"
                                     value={editForm.name}
                                     onChange={(event) =>
                                         setEditForm((current) => ({
@@ -790,9 +856,9 @@ export function AdminUserManagementTable({
                                 )}
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="edit-email">Email</Label>
+                                <Label htmlFor="edit-ops-email">Email</Label>
                                 <Input
-                                    id="edit-email"
+                                    id="edit-ops-email"
                                     type="email"
                                     value={editForm.email}
                                     onChange={(event) =>
@@ -809,7 +875,7 @@ export function AdminUserManagementTable({
                                 )}
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="edit-role">Role</Label>
+                                <Label htmlFor="edit-ops-role">Role</Label>
                                 <Select
                                     value={editForm.role}
                                     onValueChange={(value) =>
@@ -819,7 +885,7 @@ export function AdminUserManagementTable({
                                         }))
                                     }
                                 >
-                                    <SelectTrigger id="edit-role">
+                                    <SelectTrigger id="edit-ops-role">
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -829,7 +895,7 @@ export function AdminUserManagementTable({
                                                     key={role}
                                                     value={role}
                                                 >
-                                                    {role}
+                                                    {formatRoleLabel(role)}
                                                 </SelectItem>
                                             ))}
                                         </SelectGroup>
@@ -842,11 +908,11 @@ export function AdminUserManagementTable({
                                 )}
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="edit-employee-id">
+                                <Label htmlFor="edit-ops-employee-id">
                                     Employee ID
                                 </Label>
                                 <Input
-                                    id="edit-employee-id"
+                                    id="edit-ops-employee-id"
                                     value={editForm.employee_id}
                                     onChange={(event) =>
                                         setEditForm((current) => ({
@@ -861,6 +927,22 @@ export function AdminUserManagementTable({
                                     </p>
                                 )}
                             </div>
+                        </div>
+                        <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/25 p-4 text-sm text-muted-foreground">
+                            <p>
+                                Two-factor authentication:{' '}
+                                <span className="font-semibold text-foreground">
+                                    {selectedAccount?.twoFactorEnabled
+                                        ? 'Enabled'
+                                        : 'Disabled'}
+                                </span>
+                            </p>
+                            <p>
+                                Created:{' '}
+                                <span className="font-semibold text-foreground">
+                                    {selectedAccount?.createdAt ?? '-'}
+                                </span>
+                            </p>
                         </div>
                         <div className="flex items-center gap-3">
                             <Checkbox
@@ -879,18 +961,27 @@ export function AdminUserManagementTable({
                                 {errors.is_active}
                             </p>
                         )}
-                        <DialogFooter>
+                        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
                             <Button
                                 type="button"
-                                variant="secondary"
-                                onClick={() => setIsEditOpen(false)}
+                                variant="outline"
+                                onClick={sendPasswordReset}
                             >
-                                Cancel
+                                Send Password Reset
                             </Button>
-                            <Button type="submit">
-                                <Pencil className="mr-2 size-4" />
-                                Save Changes
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={() => setIsEditOpen(false)}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button type="submit">
+                                    <Pencil className="mr-2 size-4" />
+                                    Save Changes
+                                </Button>
+                            </div>
                         </DialogFooter>
                     </form>
                 </DialogContent>

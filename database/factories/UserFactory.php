@@ -31,6 +31,7 @@ class UserFactory extends Factory
             'password' => static::$password ??= Hash::make('password'),
             'role' => User::ROLE_EMPLOYEE,
             'is_active' => true,
+            'must_change_password' => false,
             'remember_token' => Str::random(10),
             'two_factor_secret' => null,
             'two_factor_recovery_codes' => null,
@@ -64,13 +65,6 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'role' => User::ROLE_EVALUATOR,
-        ]);
-    }
-
-    public function asAdministrator(): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'role' => User::ROLE_ADMINISTRATOR,
         ]);
     }
 
