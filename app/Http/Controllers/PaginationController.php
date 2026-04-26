@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateEmployeeEmploymentStatusRequest;
-use App\Models\AttendanceRecord;
 use App\Models\BiometricSyncIssue;
+use App\Models\DailyAttendance;
 use App\Models\Employee;
 use App\Models\HistoricalDataRecord;
 use App\Models\LeaveRequest;
@@ -133,7 +133,7 @@ class PaginationController extends Controller
         $search = trim((string) $request->string('search'));
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
 
-        $attendances = AttendanceRecord::query()
+        $attendances = DailyAttendance::query()
             ->with('employee')
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
@@ -144,26 +144,29 @@ class PaginationController extends Controller
                 });
             })
             ->orderByDesc('date')
-            ->orderByDesc('punch_time')
             ->orderByDesc('id')
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn (AttendanceRecord $record): array => [
+            ->through(fn (DailyAttendance $record): array => [
                 'id' => $record->id,
+                'employee_id' => $record->employee_id,
                 'employee_name' => $record->employee?->name ?? 'Unknown',
                 'date' => $record->date?->format('Y-m-d') ?? '-',
-                'punch_time' => $record->punch_time?->format('H:i:s') ?? '-',
+                'time_in' => $record->time_in ?? null,
+                'time_out' => $record->time_out ?? null,
                 'status' => $record->status,
-                'source' => $record->source ?? 'import',
+                'late_minutes' => (int) $record->late_minutes,
+                'source' => $record->source ?? 'biometric',
             ]);
 
-        $totalRecords = AttendanceRecord::query()->count();
-        $presentCount = AttendanceRecord::query()->where('status', 'Present')->count();
-        $lateCount = AttendanceRecord::query()->where('status', 'Late')->count();
-        $absentCount = max(0, $totalRecords - $presentCount - $lateCount);
-        $biometricCount = AttendanceRecord::query()->where('source', 'biometric')->count();
-        $manualCount = AttendanceRecord::query()->where('source', 'manual')->count();
-        $importCount = AttendanceRecord::query()->where('source', 'import')->count();
+        $totalRecords = DailyAttendance::query()->count();
+        $onTimeCount = DailyAttendance::query()->where('status', 'on_time')->count();
+        $lateCount = DailyAttendance::query()->where('status', 'late')->count();
+        $incompleteCount = DailyAttendance::query()->where('status', 'incomplete')->count();
+        $biometricCount = DailyAttendance::query()->where('source', 'biometric')->count();
+        $manualCount = DailyAttendance::query()->where('source', 'manual')->count();
+        $importCount = DailyAttendance::query()->where('source', 'import')->count();
+        $mixedCount = DailyAttendance::query()->where('source', 'mixed')->count();
         $syncIssues = BiometricSyncIssue::query()
             ->with('device')
             ->latest('occurred_at')
@@ -192,12 +195,13 @@ class PaginationController extends Controller
             ],
             'stats' => [
                 'totalRecords' => $totalRecords,
-                'presentCount' => $presentCount,
+                'onTimeCount' => $onTimeCount,
                 'lateCount' => $lateCount,
-                'absentCount' => $absentCount,
+                'incompleteCount' => $incompleteCount,
                 'biometricCount' => $biometricCount,
                 'manualCount' => $manualCount,
                 'importCount' => $importCount,
+                'mixedCount' => $mixedCount,
             ],
             'syncIssues' => $syncIssues,
         ]);
@@ -373,7 +377,7 @@ class PaginationController extends Controller
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
         $evaluatorEmployeeId = $request->user()->employee_id;
 
-        $attendances = AttendanceRecord::query()
+        $attendances = DailyAttendance::query()
             ->with('employee')
             ->whereHas('employee', fn ($q) => $q->where('supervisor_id', $evaluatorEmployeeId))
             ->when($search !== '', function ($query) use ($search): void {
@@ -385,27 +389,29 @@ class PaginationController extends Controller
                 });
             })
             ->orderByDesc('date')
-            ->orderByDesc('punch_time')
             ->orderByDesc('id')
             ->paginate($perPage)
             ->withQueryString()
-            ->through(fn (AttendanceRecord $record): array => [
+            ->through(fn (DailyAttendance $record): array => [
                 'id' => $record->id,
                 'employee_name' => $record->employee?->name ?? 'Unknown',
                 'employee_id' => $record->employee_id,
                 'date' => $record->date?->format('Y-m-d') ?? '-',
-                'punch_time' => $record->punch_time?->format('H:i:s') ?? '-',
+                'time_in' => $record->time_in ?? null,
+                'time_out' => $record->time_out ?? null,
                 'status' => $record->status,
-                'source' => $record->source ?? 'import',
+                'late_minutes' => (int) $record->late_minutes,
+                'source' => $record->source ?? 'biometric',
             ]);
 
         $subordinateIds = \App\Models\Employee::query()
             ->where('supervisor_id', $evaluatorEmployeeId)
             ->pluck('employee_id');
 
-        $totalRecords = AttendanceRecord::query()->whereIn('employee_id', $subordinateIds)->count();
-        $presentCount = AttendanceRecord::query()->whereIn('employee_id', $subordinateIds)->where('status', 'Present')->count();
-        $lateCount = AttendanceRecord::query()->whereIn('employee_id', $subordinateIds)->where('status', 'Late')->count();
+        $totalRecords = DailyAttendance::query()->whereIn('employee_id', $subordinateIds)->count();
+        $onTimeCount = DailyAttendance::query()->whereIn('employee_id', $subordinateIds)->where('status', 'on_time')->count();
+        $lateCount = DailyAttendance::query()->whereIn('employee_id', $subordinateIds)->where('status', 'late')->count();
+        $incompleteCount = DailyAttendance::query()->whereIn('employee_id', $subordinateIds)->where('status', 'incomplete')->count();
 
         $subordinates = \App\Models\Employee::query()
             ->where('supervisor_id', $evaluatorEmployeeId)
@@ -434,9 +440,9 @@ class PaginationController extends Controller
             ],
             'stats' => [
                 'totalRecords' => $totalRecords,
-                'presentCount' => $presentCount,
+                'onTimeCount' => $onTimeCount,
                 'lateCount' => $lateCount,
-                'absentCount' => max(0, $totalRecords - $presentCount - $lateCount),
+                'incompleteCount' => $incompleteCount,
             ],
             'subordinates' => $subordinates,
         ]);

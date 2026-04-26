@@ -22,11 +22,28 @@ import {
     TableRow,
 } from '@/components/ui/table';
 
-type AttendanceRecord = {
+type DailyAttendanceRecord = {
     id: number;
     date: string;
-    punchTime: string;
-    status: string;
+    time_in: string | null;
+    time_out: string | null;
+    status: 'on_time' | 'late' | 'incomplete';
+    late_minutes: number;
+    source: string;
+};
+
+const STATUS_LABELS: Record<DailyAttendanceRecord['status'], string> = {
+    on_time: 'On Time',
+    late: 'Late',
+    incomplete: 'Incomplete',
+};
+
+const STATUS_CLASSES: Record<DailyAttendanceRecord['status'], string> = {
+    on_time:
+        'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+    late: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    incomplete:
+        'bg-zinc-100 text-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300',
 };
 
 export default function AttendanceScanner({
@@ -35,7 +52,7 @@ export default function AttendanceScanner({
     hasDevice,
     manualPunchEnabled = false,
 }: {
-    records: AttendanceRecord[];
+    records: DailyAttendanceRecord[];
     employeeId: string;
     hasDevice: boolean;
     manualPunchEnabled?: boolean;
@@ -147,20 +164,20 @@ export default function AttendanceScanner({
                                         <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
                                     </span>
                                     <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                                        Active — Syncing
+                                        Active — Synced via ZKBio Time
                                     </span>
                                 </div>
 
                                 <p className="text-sm text-foreground/80">
-                                    Your fingerprint scans at the ZKBio Zlink
-                                    terminal are recorded automatically.
+                                    Your fingerprint scans are pulled from
+                                    ZKBio Time when this page is opened.
                                 </p>
 
                                 <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/50 px-3 py-2">
                                     <RefreshCw className="size-3.5 shrink-0 text-muted-foreground" />
                                     <p className="text-xs text-muted-foreground">
-                                        Records update automatically within
-                                        seconds.
+                                        Reload this page to fetch the latest
+                                        records.
                                     </p>
                                 </div>
                             </div>
@@ -238,19 +255,22 @@ export default function AttendanceScanner({
                 <div className="py-4">
                     <h2 className="flex items-center gap-2 text-lg font-bold">
                         <Clock className="size-5" />
-                        Recent Attendance Records
+                        Recent Attendance
                     </h2>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Your most recent attendance punches.
+                        Daily attendance summary based on biometric and manual
+                        punches.
                     </p>
                 </div>
                 <Separator className="mb-4" />
                 <div className="overflow-x-auto">
-                    <Table className="w-full min-w-[30rem] sm:min-w-[34rem]">
+                    <Table className="w-full min-w-[34rem]">
                         <TableHeader>
                             <TableRow className="app-table-head-row text-sm font-bold">
                                 <TableHead>Date</TableHead>
-                                <TableHead>Punch Time</TableHead>
+                                <TableHead>Time In</TableHead>
+                                <TableHead>Time Out</TableHead>
+                                <TableHead>Late (min)</TableHead>
                                 <TableHead>Status</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -265,17 +285,21 @@ export default function AttendanceScanner({
                                 >
                                     <TableCell>{record.date}</TableCell>
                                     <TableCell className="font-mono">
-                                        {record.punchTime}
+                                        {record.time_in ?? '—'}
+                                    </TableCell>
+                                    <TableCell className="font-mono">
+                                        {record.time_out ?? '—'}
+                                    </TableCell>
+                                    <TableCell>
+                                        {record.late_minutes > 0
+                                            ? record.late_minutes
+                                            : '—'}
                                     </TableCell>
                                     <TableCell>
                                         <span
-                                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                                record.status === 'Present'
-                                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                                            }`}
+                                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_CLASSES[record.status]}`}
                                         >
-                                            {record.status}
+                                            {STATUS_LABELS[record.status]}
                                         </span>
                                     </TableCell>
                                 </TableRow>
@@ -283,7 +307,7 @@ export default function AttendanceScanner({
                             {records.length === 0 && (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={3}
+                                        colSpan={5}
                                         className="app-table-empty px-4 py-6"
                                     >
                                         No attendance records found.

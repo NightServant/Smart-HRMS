@@ -1,8 +1,8 @@
 <?php
 
-use App\Models\AttendanceRecord;
 use App\Models\BiometricDevice;
 use App\Models\BiometricSyncIssue;
+use App\Models\DailyAttendance;
 use App\Models\Employee;
 use App\Models\HistoricalDataRecord;
 use App\Models\LeaveRequest;
@@ -43,25 +43,31 @@ test('attendance management exposes summary counts for hr stat cards', function 
         'job_title' => 'Assistant',
     ]);
 
-    AttendanceRecord::query()->create([
+    DailyAttendance::query()->create([
         'employee_id' => 'EMP-301',
         'date' => '2026-04-01',
-        'punch_time' => '2026-04-01 08:00:00',
-        'status' => 'Present',
+        'time_in' => '08:00:00',
+        'time_out' => '17:00:00',
+        'status' => 'on_time',
+        'late_minutes' => 0,
         'source' => 'biometric',
     ]);
-    AttendanceRecord::query()->create([
+    DailyAttendance::query()->create([
         'employee_id' => 'EMP-302',
         'date' => '2026-04-01',
-        'punch_time' => '2026-04-01 08:15:00',
-        'status' => 'Late',
+        'time_in' => '09:15:00',
+        'time_out' => '17:30:00',
+        'status' => 'late',
+        'late_minutes' => 15,
         'source' => 'manual',
     ]);
-    AttendanceRecord::query()->create([
+    DailyAttendance::query()->create([
         'employee_id' => 'EMP-303',
         'date' => '2026-04-01',
-        'punch_time' => '2026-04-01 09:00:00',
-        'status' => 'Absent',
+        'time_in' => '08:00:00',
+        'time_out' => null,
+        'status' => 'incomplete',
+        'late_minutes' => 0,
         'source' => 'import',
     ]);
 
@@ -70,12 +76,13 @@ test('attendance management exposes summary counts for hr stat cards', function 
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/attendance-management')
             ->where('stats.totalRecords', 3)
-            ->where('stats.presentCount', 1)
+            ->where('stats.onTimeCount', 1)
             ->where('stats.lateCount', 1)
-            ->where('stats.absentCount', 1)
+            ->where('stats.incompleteCount', 1)
             ->where('stats.biometricCount', 1)
             ->where('stats.manualCount', 1)
-            ->where('stats.importCount', 1));
+            ->where('stats.importCount', 1)
+            ->where('stats.mixedCount', 0));
 });
 
 test('attendance management exposes recent biometric sync issues for live monitoring', function () {

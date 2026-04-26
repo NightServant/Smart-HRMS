@@ -7,9 +7,10 @@ use App\Http\Controllers\Admin\ReportsDashboardController;
 use App\Http\Controllers\Admin\SystemDashboardController;
 use App\Http\Controllers\Admin\SystemSettingController;
 use App\Http\Controllers\Admin\UserManagementController;
-use App\Http\Controllers\Api\AdmsController;
 use App\Http\Controllers\AttendanceImportController;
 use App\Http\Controllers\AttendanceRecordController;
+use App\Http\Controllers\BiometricEnrollmentController;
+use App\Http\Controllers\BiometricSimulatorController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Export_CSV_Controller;
 use App\Http\Controllers\FlatFatController;
@@ -76,14 +77,18 @@ Route::post('ipcr/target', [IwrController::class, 'saveIpcrTarget'])
     ->name('ipcr.target.save');
 
 Route::get('attendance', [AttendanceRecordController::class, 'index'])
-    ->middleware(['auth', 'role:employee'])
+    ->middleware(['auth', 'role:employee', 'biometric.sync'])
     ->name('attendance');
 Route::post('attendance/punch', [AttendanceRecordController::class, 'punch'])
     ->middleware(['auth', 'role:employee'])
     ->name('attendance.punch');
-Route::post('attendance/biometric-punch', [AdmsController::class, 'simulate'])
+Route::post('attendance/biometric-punch', [BiometricSimulatorController::class, 'store'])
     ->middleware(['auth', 'role:employee'])
     ->name('attendance.biometric-punch');
+
+Route::get('biometric-enrollment', [BiometricEnrollmentController::class, 'show'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('biometric.enrollment');
 
 Route::get('notifications', [NotificationController::class, 'index'])
     ->middleware(['auth', 'role:employee,evaluator,hr-personnel,pmt'])
@@ -137,7 +142,7 @@ Route::delete('admin/historical-data/clear-imported', [Import_CSV_Controller::cl
     ->name('admin.historical-data.clear-imported');
 
 Route::get('admin/attendance-management', [PaginationController::class, 'attendanceManagement'])
-    ->middleware(['auth', 'role:hr-personnel'])
+    ->middleware(['auth', 'role:hr-personnel', 'biometric.sync'])
     ->name('admin.attendance-management');
 
 Route::get('admin/evaluator-attendance', [PaginationController::class, 'evaluatorAttendanceManagement'])

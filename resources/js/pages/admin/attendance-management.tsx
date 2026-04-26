@@ -1,4 +1,4 @@
-import { Head, usePoll } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { ArcElement, Chart as ChartJS, Legend, Tooltip } from 'chart.js';
 import {
     Activity,
@@ -6,7 +6,7 @@ import {
     CheckCircle2,
     Clock3,
     Database,
-    XCircle,
+    HelpCircle,
 } from 'lucide-react';
 import { Doughnut } from 'react-chartjs-2';
 import { AttendanceTable } from '@/components/attendance-table';
@@ -16,12 +16,15 @@ import type { BreadcrumbItem } from '@/types';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-type AttendanceRecord = {
+type DailyAttendanceRow = {
     id: number;
+    employee_id: string;
     employee_name: string;
     date: string;
-    punch_time: string;
-    status: string;
+    time_in: string | null;
+    time_out: string | null;
+    status: 'on_time' | 'late' | 'incomplete';
+    late_minutes: number;
     source: string;
 };
 
@@ -34,12 +37,13 @@ type PaginationMeta = {
 
 type Stats = {
     totalRecords: number;
-    presentCount: number;
+    onTimeCount: number;
     lateCount: number;
-    absentCount: number;
+    incompleteCount: number;
     biometricCount: number;
     manualCount: number;
     importCount: number;
+    mixedCount: number;
 };
 
 type SyncIssue = {
@@ -80,13 +84,13 @@ function StatCard({
         emerald:
             'border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/20',
         amber: 'border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-950/20',
-        red: 'border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/20',
+        zinc: 'border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950/40',
         blue: 'border-blue-200 bg-blue-50 dark:border-blue-900/40 dark:bg-blue-950/20',
     };
     const iconColorMap: Record<string, string> = {
         emerald: 'text-emerald-600 dark:text-emerald-400',
         amber: 'text-amber-600 dark:text-amber-400',
-        red: 'text-red-600 dark:text-red-400',
+        zinc: 'text-zinc-600 dark:text-zinc-400',
         blue: 'text-blue-600 dark:text-blue-400',
     };
 
@@ -126,7 +130,7 @@ function shareText(value: number, total: number): string {
 
     const percentage = Math.round((value / total) * 100);
 
-    return `${percentage}% of all logged attendance records.`;
+    return `${percentage}% of all daily attendance records.`;
 }
 
 function issueLabel(issueType: string): string {
@@ -143,40 +147,33 @@ export default function AttendanceManagement({
     stats,
     syncIssues,
 }: {
-    attendances: AttendanceRecord[];
+    attendances: DailyAttendanceRow[];
     search: string;
     pagination: PaginationMeta;
     stats: Stats;
     syncIssues: SyncIssue[];
 }) {
-    usePoll(
-        1000,
-        {
-            only: ['attendances', 'pagination', 'stats', 'syncIssues'],
-        },
-        {
-            keepAlive: true,
-        },
-    );
-
     const sourceData = {
-        labels: ['Biometric', 'Manual', 'Import'],
+        labels: ['Biometric', 'Manual', 'Import', 'Mixed'],
         datasets: [
             {
                 data: [
                     stats.biometricCount,
                     stats.manualCount,
                     stats.importCount,
+                    stats.mixedCount,
                 ],
                 backgroundColor: [
                     'rgba(147, 51, 234, 0.7)',
                     'rgba(59, 130, 246, 0.7)',
                     'rgba(156, 163, 175, 0.7)',
+                    'rgba(20, 184, 166, 0.7)',
                 ],
                 borderColor: [
                     'rgb(147, 51, 234)',
                     'rgb(59, 130, 246)',
                     'rgb(156, 163, 175)',
+                    'rgb(20, 184, 166)',
                 ],
                 borderWidth: 1,
             },
@@ -187,12 +184,14 @@ export default function AttendanceManagement({
         `Biometric ${stats.biometricCount}`,
         `Manual ${stats.manualCount}`,
         `Import ${stats.importCount}`,
+        `Mixed ${stats.mixedCount}`,
     ].join(' • ');
 
     const dominantSource = [
         { label: 'Biometric', count: stats.biometricCount },
         { label: 'Manual', count: stats.manualCount },
         { label: 'Import', count: stats.importCount },
+        { label: 'Mixed', count: stats.mixedCount },
     ].sort((a, b) => b.count - a.count)[0];
 
     return (
@@ -202,29 +201,29 @@ export default function AttendanceManagement({
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-stretch">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <StatCard
-                            title="Total Records"
+                            title="Total Days"
                             value={stats.totalRecords}
                             icon={Database}
                             color="blue"
-                            description="Combined attendance logs"
+                            description="Daily attendance summaries"
                             meta={sourceBreakdown}
                             footer={
                                 stats.totalRecords > 0
-                                    ? `${dominantSource.label} is currently the main source of captured logs.`
-                                    : 'Upload or capture logs to populate the attendance summary.'
+                                    ? `${dominantSource.label} is currently the dominant source for daily summaries.`
+                                    : 'Daily summaries appear once attendance is captured.'
                             }
                         />
                         <StatCard
-                            title="Present"
-                            value={stats.presentCount}
+                            title="On Time"
+                            value={stats.onTimeCount}
                             icon={CheckCircle2}
                             color="emerald"
-                            description="Verified attendance entries"
+                            description="Days with on-time check-in"
                             meta={shareText(
-                                stats.presentCount,
+                                stats.onTimeCount,
                                 stats.totalRecords,
                             )}
-                            footer="Use this card to compare healthy attendance against late and absent logs."
+                            footer="Use this card to compare healthy attendance against late and incomplete days."
                         />
                         <StatCard
                             title="Late"
@@ -236,19 +235,19 @@ export default function AttendanceManagement({
                                 stats.lateCount,
                                 stats.totalRecords,
                             )}
-                            footer="Recurring late logs are the quickest indicator for schedule follow-up."
+                            footer="Recurring late days are the quickest indicator for schedule follow-up."
                         />
                         <StatCard
-                            title="Absent"
-                            value={stats.absentCount}
-                            icon={XCircle}
-                            color="red"
-                            description="Missing or unresolved attendance"
+                            title="Incomplete"
+                            value={stats.incompleteCount}
+                            icon={HelpCircle}
+                            color="zinc"
+                            description="Days missing time-out"
                             meta={shareText(
-                                stats.absentCount,
+                                stats.incompleteCount,
                                 stats.totalRecords,
                             )}
-                            footer="Review these records first when reconciling attendance exceptions."
+                            footer="Review these days first when reconciling attendance exceptions."
                         />
                     </div>
 
@@ -287,11 +286,12 @@ export default function AttendanceManagement({
                             <div className="flex items-center gap-2">
                                 <AlertTriangle className="size-4 text-amber-500" />
                                 <h3 className="text-sm font-semibold text-foreground">
-                                    Live Sync Exceptions
+                                    Sync Exceptions
                                 </h3>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                                Latest biometric records that were skipped during sync. This panel refreshes every 2 seconds.
+                                Latest biometric records that were skipped
+                                during the most recent ZKBio Time sync.
                             </p>
                         </div>
                         <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">

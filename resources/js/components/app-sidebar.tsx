@@ -76,6 +76,11 @@ const employeeNavItems: NavItem[] = [
         icon: Fingerprint,
     },
     {
+        title: 'Biometric Enrollment',
+        href: '/biometric-enrollment',
+        icon: ShieldPlus,
+    },
+    {
         title: 'Notifications',
         href: notifications(),
         icon: Bell,

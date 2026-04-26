@@ -1,4 +1,4 @@
-import { Head, router, useForm, usePoll } from '@inertiajs/react';
+import { Head, router, useForm } from '@inertiajs/react';
 import { format, parseISO } from 'date-fns';
 import {
     CalendarRange,
@@ -6,6 +6,7 @@ import {
     Clock3,
     Database,
     FileText,
+    HelpCircle,
     Search,
     ToggleLeft,
     ToggleRight,
@@ -50,9 +51,40 @@ type Attendance = {
     employee_name: string;
     employee_id: string;
     date: string;
-    punch_time: string;
-    status: string;
+    time_in: string | null;
+    time_out: string | null;
+    status: 'on_time' | 'late' | 'incomplete' | string;
+    late_minutes?: number;
     source: string;
+};
+
+const STATUS_LABELS: Record<string, string> = {
+    on_time: 'On Time',
+    late: 'Late',
+    incomplete: 'Incomplete',
+};
+
+const STATUS_CLASSES: Record<string, string> = {
+    on_time:
+        'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+    late: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    incomplete:
+        'bg-zinc-100 text-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300',
+};
+
+const SOURCE_CLASSES: Record<string, string> = {
+    biometric:
+        'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+    manual: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    import: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
+    mixed: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+    biometric: 'Biometric',
+    manual: 'Manual',
+    import: 'Import',
+    mixed: 'Mixed',
 };
 
 type PaginationMeta = {
@@ -64,9 +96,9 @@ type PaginationMeta = {
 
 type Stats = {
     totalRecords: number;
-    presentCount: number;
+    onTimeCount: number;
     lateCount: number;
-    absentCount: number;
+    incompleteCount: number;
 };
 
 type Subordinate = {
@@ -433,16 +465,6 @@ export default function EvaluatorAttendance({
         subordinates[0]?.employee_id ?? '',
     );
 
-    usePoll(
-        1000,
-        {
-            only: ['attendances', 'pagination', 'stats', 'subordinates'],
-        },
-        {
-            keepAlive: true,
-        },
-    );
-
     const navigate = (params: {
         search?: string;
         page?: number;
@@ -533,14 +555,14 @@ export default function EvaluatorAttendance({
                 {/* Stat Cards */}
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                     <StatCard
-                        title="Total Records"
+                        title="Total Days"
                         value={stats.totalRecords}
                         icon={Database}
                         color="blue"
                     />
                     <StatCard
-                        title="Present"
-                        value={stats.presentCount}
+                        title="On Time"
+                        value={stats.onTimeCount}
                         icon={CheckCircle2}
                         color="emerald"
                     />
@@ -551,9 +573,9 @@ export default function EvaluatorAttendance({
                         color="amber"
                     />
                     <StatCard
-                        title="Absent"
-                        value={stats.absentCount}
-                        icon={XCircle}
+                        title="Incomplete"
+                        value={stats.incompleteCount}
+                        icon={HelpCircle}
                         color="red"
                     />
                 </div>
@@ -685,7 +707,9 @@ export default function EvaluatorAttendance({
                             <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
                                 <TableHead className="px-4 py-3">Employee</TableHead>
                                 <TableHead className="px-4 py-3">Date</TableHead>
-                                <TableHead className="px-4 py-3">Punch Time</TableHead>
+                                <TableHead className="px-4 py-3">Time In</TableHead>
+                                <TableHead className="px-4 py-3">Time Out</TableHead>
+                                <TableHead className="px-4 py-3">Late (min)</TableHead>
                                 <TableHead className="px-4 py-3">Status</TableHead>
                                 <TableHead className="px-4 py-3">Source</TableHead>
                             </TableRow>
@@ -703,35 +727,38 @@ export default function EvaluatorAttendance({
                                     <TableCell className="px-4 py-2">
                                         {attendance.date}
                                     </TableCell>
+                                    <TableCell className="px-4 py-2 font-mono">
+                                        {attendance.time_in ?? '—'}
+                                    </TableCell>
+                                    <TableCell className="px-4 py-2 font-mono">
+                                        {attendance.time_out ?? '—'}
+                                    </TableCell>
                                     <TableCell className="px-4 py-2">
-                                        {attendance.punch_time}
+                                        {attendance.late_minutes &&
+                                        attendance.late_minutes > 0
+                                            ? attendance.late_minutes
+                                            : '—'}
                                     </TableCell>
                                     <TableCell className="px-4 py-2">
                                         <span
                                             className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                                attendance.status === 'Present'
-                                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                                                STATUS_CLASSES[attendance.status] ??
+                                                STATUS_CLASSES.incomplete
                                             }`}
                                         >
-                                            {attendance.status}
+                                            {STATUS_LABELS[attendance.status] ??
+                                                attendance.status}
                                         </span>
                                     </TableCell>
                                     <TableCell className="px-4 py-2">
                                         <span
                                             className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                                attendance.source === 'biometric'
-                                                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-                                                    : attendance.source === 'manual'
-                                                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                                                      : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+                                                SOURCE_CLASSES[attendance.source] ??
+                                                SOURCE_CLASSES.import
                                             }`}
                                         >
-                                            {attendance.source === 'biometric'
-                                                ? 'Biometric'
-                                                : attendance.source === 'manual'
-                                                  ? 'Manual'
-                                                  : 'Import'}
+                                            {SOURCE_LABELS[attendance.source] ??
+                                                attendance.source}
                                         </span>
                                     </TableCell>
                                 </TableRow>
@@ -739,7 +766,7 @@ export default function EvaluatorAttendance({
                             {attendances.length === 0 && (
                                 <TableRow>
                                     <TableCell
-                                        colSpan={5}
+                                        colSpan={7}
                                         className="bg-[#DDEFD7] px-4 py-3 text-center dark:bg-[#345A34]/80"
                                     >
                                         No attendance records found.

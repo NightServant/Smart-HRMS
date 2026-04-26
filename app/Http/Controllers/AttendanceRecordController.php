@@ -5,8 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Requests\UpdateManualPunchStatusRequest;
 use App\Models\AttendanceRecord;
 use App\Models\BiometricDevice;
+use App\Models\DailyAttendance;
 use App\Models\Employee;
+use App\Services\Biometric\AttendanceAggregator;
 use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -14,30 +17,51 @@ use Inertia\Response;
 
 class AttendanceRecordController extends Controller
 {
+    public function __construct(
+        private readonly AttendanceAggregator $aggregator,
+    ) {}
+
     public function index(Request $request): Response
     {
         $employeeId = $request->user()->employee_id;
 
-        $records = AttendanceRecord::query()
+        $records = DailyAttendance::query()
             ->where('employee_id', $employeeId)
-            ->orderBy('punch_time', 'desc')
+            ->orderByDesc('date')
             ->take(50)
             ->get()
-            ->map(fn (AttendanceRecord $record) => [
+            ->map(fn (DailyAttendance $record): array => [
                 'id' => $record->id,
-                'date' => $record->date,
-                'punchTime' => $record->punch_time?->format('Y-m-d H:i:s') ?? $record->punch_time,
+                'date' => $record->date?->format('Y-m-d'),
+                'time_in' => $record->time_in,
+                'time_out' => $record->time_out,
                 'status' => $record->status,
+                'late_minutes' => (int) $record->late_minutes,
+                'source' => $record->source,
+            ]);
+
+        $rawPunches = AttendanceRecord::query()
+            ->where('employee_id', $employeeId)
+            ->orderByDesc('punch_time')
+            ->take(50)
+            ->get()
+            ->map(fn (AttendanceRecord $record): array => [
+                'id' => $record->id,
+                'date' => $record->date?->format('Y-m-d'),
+                'punch_time' => $record->punch_time?->format('Y-m-d H:i:s'),
+                'source' => $record->source,
             ]);
 
         $hasDevice = BiometricDevice::query()->where('is_active', true)->exists();
 
-        $employee = \App\Models\Employee::find($employeeId);
+        $employee = Employee::find($employeeId);
 
         return Inertia::render('attendance', [
             'records' => $records,
+            'rawPunches' => $rawPunches,
             'employeeId' => $employeeId ?? '',
             'hasDevice' => $hasDevice,
+            'enrolledInBiometric' => ! empty($employee?->zkteco_pin),
             'manualPunchEnabled' => (bool) ($employee?->manual_punch_enabled ?? false),
         ]);
     }
@@ -92,9 +116,14 @@ class AttendanceRecordController extends Controller
             'employee_id' => $inputEmployeeId,
             'date' => $now->toDateString(),
             'punch_time' => $now,
-            'status' => 'Present',
+            'status' => null,
             'source' => 'manual',
         ]);
+
+        $this->aggregator->recomputeForEmployeeDate(
+            $inputEmployeeId,
+            CarbonImmutable::parse($now->toDateString()),
+        );
 
         return back()->with('success', 'Attendance recorded successfully at '.$now->format('h:i A').'.');
     }

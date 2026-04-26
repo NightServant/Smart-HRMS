@@ -1,4 +1,0 @@
-requests
-python-dotenv
-playwright==1.49.0
-tzdata

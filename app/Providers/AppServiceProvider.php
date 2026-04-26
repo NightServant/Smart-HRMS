@@ -7,6 +7,7 @@ use App\Http\Responses\RedirectAsIntended;
 use App\Http\Responses\RegisterResponse;
 use App\Models\IpcrSubmission;
 use App\Models\LeaveRequest;
+use App\Services\Biometric\ZkBioTimeClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Date;
@@ -28,6 +29,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
         $this->app->singleton(RegisterResponseContract::class, RegisterResponse::class);
         $this->app->bind(FortifyRedirectAsIntended::class, RedirectAsIntended::class);
+
+        $this->app->singleton(ZkBioTimeClient::class, fn (): ZkBioTimeClient => ZkBioTimeClient::fromConfig());
     }
 
     /**

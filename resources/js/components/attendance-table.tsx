@@ -32,11 +32,43 @@ import type { Auth } from '@/types';
 
 type Attendance = {
     id: number;
+    employee_id?: string;
     employee_name: string;
     date: string;
-    punch_time: string;
-    status: string;
+    time_in: string | null;
+    time_out: string | null;
+    status: 'on_time' | 'late' | 'incomplete' | string;
+    late_minutes?: number;
     source: string;
+};
+
+const STATUS_LABELS: Record<string, string> = {
+    on_time: 'On Time',
+    late: 'Late',
+    incomplete: 'Incomplete',
+};
+
+const STATUS_CLASSES: Record<string, string> = {
+    on_time:
+        'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
+    late: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    incomplete:
+        'bg-zinc-100 text-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300',
+};
+
+const SOURCE_CLASSES: Record<string, string> = {
+    biometric:
+        'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+    manual: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+    import: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400',
+    mixed: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-400',
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+    biometric: 'Biometric',
+    manual: 'Manual',
+    import: 'Import',
+    mixed: 'Mixed',
 };
 
 type PaginationMeta = {
@@ -239,12 +271,14 @@ export function AttendanceTable({
                     )}
                 </div>
 
-                <Table className="w-full min-w-[58rem]">
+                <Table className="w-full min-w-[64rem]">
                     <TableHeader>
                         <TableRow className="app-table-head-row text-sm font-bold">
                             <TableHead>Employee Name</TableHead>
                             <TableHead>Date</TableHead>
-                            <TableHead>Punch Time</TableHead>
+                            <TableHead>Time In</TableHead>
+                            <TableHead>Time Out</TableHead>
+                            <TableHead>Late (min)</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Source</TableHead>
                         </TableRow>
@@ -260,33 +294,38 @@ export function AttendanceTable({
                                     {attendance.employee_name}
                                 </TableCell>
                                 <TableCell>{attendance.date}</TableCell>
-                                <TableCell>{attendance.punch_time}</TableCell>
+                                <TableCell className="font-mono">
+                                    {attendance.time_in ?? '—'}
+                                </TableCell>
+                                <TableCell className="font-mono">
+                                    {attendance.time_out ?? '—'}
+                                </TableCell>
+                                <TableCell>
+                                    {attendance.late_minutes &&
+                                    attendance.late_minutes > 0
+                                        ? attendance.late_minutes
+                                        : '—'}
+                                </TableCell>
                                 <TableCell>
                                     <span
                                         className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                            attendance.status === 'Present'
-                                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                                : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                                            STATUS_CLASSES[attendance.status] ??
+                                            STATUS_CLASSES.incomplete
                                         }`}
                                     >
-                                        {attendance.status}
+                                        {STATUS_LABELS[attendance.status] ??
+                                            attendance.status}
                                     </span>
                                 </TableCell>
                                 <TableCell>
                                     <span
                                         className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-                                            attendance.source === 'biometric'
-                                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-                                                : attendance.source === 'manual'
-                                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                                                  : 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+                                            SOURCE_CLASSES[attendance.source] ??
+                                            SOURCE_CLASSES.import
                                         }`}
                                     >
-                                        {attendance.source === 'biometric'
-                                            ? 'Biometric'
-                                            : attendance.source === 'manual'
-                                              ? 'Manual'
-                                              : 'Import'}
+                                        {SOURCE_LABELS[attendance.source] ??
+                                            attendance.source}
                                     </span>
                                 </TableCell>
                             </TableRow>
@@ -294,7 +333,7 @@ export function AttendanceTable({
                         {attendances.length === 0 && (
                             <TableRow>
                                 <TableCell
-                                    colSpan={5}
+                                    colSpan={7}
                                     className="app-table-empty px-4 py-8"
                                 >
                                     No matching attendance records found.

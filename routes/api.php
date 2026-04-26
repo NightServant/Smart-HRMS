@@ -1,16 +1,23 @@
 <?php
 
-use App\Http\Controllers\Api\AdmsController;
+use App\Http\Controllers\Api\BiometricController;
 use Illuminate\Support\Facades\Route;
 
-// ZKTeco ADMS device endpoints (unauthenticated — device sends raw HTTP)
-// API key auth is enforced per-device if the device has an api_key configured.
-Route::middleware('throttle:120,1')->group(function (): void {
-    Route::match(['get', 'post'], '/iclock/cdata', [AdmsController::class, 'cdata']);
-    Route::get('/iclock/getrequest', [AdmsController::class, 'getRequest']);
-    Route::post('/iclock/devicecmd', [AdmsController::class, 'deviceCmd']);
+Route::middleware(['web', 'auth', 'throttle:60,1'])->prefix('biometrics')->group(function (): void {
+    Route::post('sync', [BiometricController::class, 'sync'])
+        ->middleware('role:administrator')
+        ->name('api.biometrics.sync');
+    Route::post('enroll', [BiometricController::class, 'enroll'])
+        ->middleware('role:administrator,hr-personnel')
+        ->name('api.biometrics.enroll');
+    Route::post('self-enroll', [BiometricController::class, 'selfEnroll'])
+        ->middleware('role:employee')
+        ->name('api.biometrics.self-enroll');
+    Route::get('enrollment-status', [BiometricController::class, 'enrollmentStatus'])
+        ->middleware('role:employee')
+        ->name('api.biometrics.enrollment-status');
+    Route::get('terminals', [BiometricController::class, 'terminals'])
+        ->name('api.biometrics.terminals');
+    Route::get('attendance/{employee:employee_id}', [BiometricController::class, 'attendance'])
+        ->name('api.biometrics.attendance');
 });
-
-// Local middleware bridge endpoint (Mode 2 — Node.js bridge posts JSON from client LAN)
-Route::post('/iclock/middleware-push', [AdmsController::class, 'middlewarePush'])
-    ->middleware('throttle:60,1');
