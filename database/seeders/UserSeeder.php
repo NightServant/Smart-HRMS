@@ -43,8 +43,8 @@ class UserSeeder extends Seeder
             // HR Personnel (not in org chart, required for leave workflow Stage 2)
             ['name' => 'Grace Tan', 'email' => 'grace.tan@shrms.test', 'password' => $password, 'role' => User::ROLE_HR_PERSONNEL, 'employee_id' => null, 'email_verified_at' => now(), 'is_active' => true],
 
-            // PMT reviewer
-            ['name' => 'Mark Reyes', 'email' => 'mark.reyes@shrms.test', 'password' => $password, 'role' => User::ROLE_PMT, 'employee_id' => null, 'email_verified_at' => now(), 'is_active' => true],
+            // PMT reviewer (linked in employee directory)
+            ['name' => 'Mark Reyes', 'email' => 'mark.reyes@shrms.test', 'password' => $password, 'role' => User::ROLE_PMT, 'employee_id' => 'PMT-001', 'email_verified_at' => now(), 'is_active' => true],
         ];
 
         foreach ($users as $user) {

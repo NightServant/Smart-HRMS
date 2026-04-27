@@ -17,6 +17,26 @@ class EmployeePosition extends Model
         'name',
     ];
 
+    public function linkedAccountRole(): string
+    {
+        return self::linkedAccountRoleForName($this->name);
+    }
+
+    public static function linkedAccountRoleForName(?string $positionName): string
+    {
+        $normalizedName = strtolower(trim((string) $positionName));
+
+        return match ($normalizedName) {
+            'department head' => User::ROLE_EVALUATOR,
+            'representative',
+            'pmt chair' => User::ROLE_PMT,
+            'administrative officer ii',
+            'administrative office ii',
+            'administrative aide i' => User::ROLE_EMPLOYEE,
+            default => User::ROLE_EMPLOYEE,
+        };
+    }
+
     public function employees(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Employee::class, 'position_id');

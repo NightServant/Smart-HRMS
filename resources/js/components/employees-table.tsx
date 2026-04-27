@@ -4,10 +4,11 @@ import {
     ArrowUp,
     ArrowUpDown,
     Plus,
+    Power,
     Search,
-    Trash2,
     UserCog,
     UserSearch,
+    UserX,
 } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import PageIntro from '@/components/page-intro';
@@ -76,12 +77,14 @@ type Employee = {
     account_created_at?: string | null;
     account_links: {
         password_reset: string;
+        deactivate: string;
     };
 };
 
 type Option = {
     id: number;
     name: string;
+    linkedAccountRole?: string;
 };
 
 type PaginationMeta = {
@@ -113,7 +116,6 @@ type StoreForm = {
 };
 
 type UpdateForm = StoreForm & {
-    role: string;
     is_active: boolean;
     zkteco_pin: string;
 };
@@ -140,11 +142,7 @@ function StatusBadge({ status }: { status: string }) {
     );
 }
 
-function AccountStatusBadge({
-    isActive,
-}: {
-    isActive: boolean;
-}) {
+function AccountStatusBadge({ isActive }: { isActive: boolean }) {
     return (
         <span
             className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${isActive ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300'}`}
@@ -168,7 +166,48 @@ function formatRoleLabel(role: string): string {
         .replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
-function DepartmentFields<TForm extends { department_mode: DepartmentMode; department_id: string; department_name: string }>({
+function resolveLinkedAccountRole(
+    positionId: string,
+    positionRoleMap: Record<string, string>,
+    defaultEmployeeRole: string,
+): string {
+    return positionRoleMap[positionId] ?? defaultEmployeeRole;
+}
+
+function ReadonlyField({
+    id,
+    label,
+    value,
+    helperText,
+}: {
+    id: string;
+    label: string;
+    value: string;
+    helperText?: string;
+}) {
+    return (
+        <div className="grid gap-1.5">
+            <Label htmlFor={id}>{label}</Label>
+            <Input
+                id={id}
+                value={value}
+                readOnly
+                className="border-dashed bg-muted/35 text-foreground"
+            />
+            {helperText ? (
+                <p className="text-xs text-muted-foreground">{helperText}</p>
+            ) : null}
+        </div>
+    );
+}
+
+function DepartmentFields<
+    TForm extends {
+        department_mode: DepartmentMode;
+        department_id: string;
+        department_name: string;
+    },
+>({
     departments,
     data,
     setData,
@@ -192,7 +231,7 @@ function DepartmentFields<TForm extends { department_mode: DepartmentMode; depar
                 <Label htmlFor={`${idPrefix}-department`}>Department</Label>
                 <Select
                     value={selectValue}
-                onValueChange={(value) => {
+                    onValueChange={(value) => {
                         if (value === CREATE_DEPARTMENT_VALUE) {
                             setData('department_mode', 'new');
                             setData('department_id', '');
@@ -238,7 +277,9 @@ function DepartmentFields<TForm extends { department_mode: DepartmentMode; depar
                     <Input
                         id={`${idPrefix}-department-name`}
                         value={data.department_name}
-                        onChange={(event) => setData('department_name', event.target.value)}
+                        onChange={(event) =>
+                            setData('department_name', event.target.value)
+                        }
                         placeholder="Administrative Office"
                     />
                     {errors.department_name && (
@@ -289,9 +330,7 @@ function PositionField<TForm extends { position_id: string }>({
                 </SelectContent>
             </Select>
             {errors.position_id && (
-                <p className="text-xs text-destructive">
-                    {errors.position_id}
-                </p>
+                <p className="text-xs text-destructive">{errors.position_id}</p>
             )}
         </div>
     );
@@ -303,12 +342,16 @@ function AddEmployeeDialog({
     nextEmployeeId,
     departments,
     positions,
+    positionRoleMap,
+    defaultEmployeeRole,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     nextEmployeeId: string;
     departments: Option[];
     positions: Option[];
+    positionRoleMap: Record<string, string>;
+    defaultEmployeeRole: string;
 }) {
     const { data, setData, post, processing, errors, reset } =
         useForm<StoreForm>({
@@ -341,6 +384,14 @@ function AddEmployeeDialog({
         onOpenChange(nextOpen);
     };
 
+    const linkedRoleLabel = formatRoleLabel(
+        resolveLinkedAccountRole(
+            data.position_id,
+            positionRoleMap,
+            defaultEmployeeRole,
+        ),
+    );
+
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-lg">
@@ -352,119 +403,156 @@ function AddEmployeeDialog({
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid gap-4">
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="add-name">Full Name</Label>
-                            <Input
-                                id="add-name"
-                                value={data.name}
-                                onChange={(event) =>
-                                    setData('name', event.target.value)
-                                }
-                                placeholder="Juan Dela Cruz"
-                            />
-                            {errors.name && (
-                                <p className="text-xs text-destructive">
-                                    {errors.name}
+                    <div className="space-y-4">
+                        <section className="space-y-3">
+                            <div className="space-y-1">
+                                <h3 className="text-sm font-semibold text-foreground">
+                                    Identity
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Basic employee details and linked sign-in
+                                    information.
                                 </p>
-                            )}
-                        </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="add-email">Email Address</Label>
-                            <Input
-                                id="add-email"
-                                type="email"
-                                value={data.email}
-                                onChange={(event) =>
-                                    setData('email', event.target.value)
-                                }
-                                placeholder="juan@example.com"
-                            />
-                            {errors.email && (
-                                <p className="text-xs text-destructive">
-                                    {errors.email}
-                                </p>
-                            )}
-                        </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="add-employee-id">Employee ID</Label>
-                            <Input
-                                id="add-employee-id"
-                                value={nextEmployeeId}
-                                readOnly
-                                className="bg-muted/35"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Generated automatically when the employee is
-                                saved.
-                            </p>
-                        </div>
+                            </div>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="add-name">Full Name</Label>
+                                    <Input
+                                        id="add-name"
+                                        value={data.name}
+                                        onChange={(event) =>
+                                            setData('name', event.target.value)
+                                        }
+                                        placeholder="Employee Name"
+                                    />
+                                    {errors.name && (
+                                        <p className="text-xs text-destructive">
+                                            {errors.name}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="add-email">
+                                        Linked Account Email
+                                    </Label>
+                                    <Input
+                                        id="add-email"
+                                        type="email"
+                                        value={data.email}
+                                        onChange={(event) =>
+                                            setData('email', event.target.value)
+                                        }
+                                        placeholder="employee@example.com"
+                                    />
+                                    {errors.email && (
+                                        <p className="text-xs text-destructive">
+                                            {errors.email}
+                                        </p>
+                                    )}
+                                </div>
+                                <ReadonlyField
+                                    id="add-employee-id"
+                                    label="Employee ID"
+                                    value={nextEmployeeId}
+                                    helperText="Generated automatically when the employee is saved."
+                                />
+                                <ReadonlyField
+                                    id="add-linked-role"
+                                    label="Linked Account Role"
+                                    value={linkedRoleLabel}
+                                    helperText="This role is derived from the selected position."
+                                />
+                            </div>
+                        </section>
 
-                        <DepartmentFields
-                            departments={departments}
-                            data={data}
-                            setData={setData}
-                            errors={errors}
-                            idPrefix="add"
-                        />
-
-                        <PositionField
-                            positions={positions}
-                            data={data}
-                            setData={setData}
-                            errors={errors}
-                            idPrefix="add"
-                        />
-
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="add-employment-status">
-                                Employment Status
-                            </Label>
-                            <Select
-                                value={data.employment_status}
-                                onValueChange={(value) =>
-                                    setData('employment_status', value)
-                                }
-                            >
-                                <SelectTrigger id="add-employment-status">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectGroup>
-                                        <SelectItem value="regular">
-                                            Regular
-                                        </SelectItem>
-                                        <SelectItem value="casual">
-                                            Casual
-                                        </SelectItem>
-                                        <SelectItem value="job_order">
-                                            Job Order
-                                        </SelectItem>
-                                    </SelectGroup>
-                                </SelectContent>
-                            </Select>
-                            {errors.employment_status && (
-                                <p className="text-xs text-destructive">
-                                    {errors.employment_status}
+                        <section className="space-y-3">
+                            <div className="space-y-1">
+                                <h3 className="text-sm font-semibold text-foreground">
+                                    Organization
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Assign the employee to the correct
+                                    department, position, and employment setup.
                                 </p>
-                            )}
-                        </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="add-date-hired">Date Hired</Label>
-                            <Input
-                                id="add-date-hired"
-                                type="date"
-                                value={data.date_hired}
-                                onChange={(event) =>
-                                    setData('date_hired', event.target.value)
-                                }
-                            />
-                            {errors.date_hired && (
-                                <p className="text-xs text-destructive">
-                                    {errors.date_hired}
-                                </p>
-                            )}
-                        </div>
+                            </div>
+                            <div className="grid gap-4">
+                                <DepartmentFields
+                                    departments={departments}
+                                    data={data}
+                                    setData={setData}
+                                    errors={errors}
+                                    idPrefix="add"
+                                />
+
+                                <PositionField
+                                    positions={positions}
+                                    data={data}
+                                    setData={setData}
+                                    errors={errors}
+                                    idPrefix="add"
+                                />
+
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="grid gap-1.5">
+                                        <Label htmlFor="add-employment-status">
+                                            Employment Status
+                                        </Label>
+                                        <Select
+                                            value={data.employment_status}
+                                            onValueChange={(value) =>
+                                                setData(
+                                                    'employment_status',
+                                                    value,
+                                                )
+                                            }
+                                        >
+                                            <SelectTrigger id="add-employment-status">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectGroup>
+                                                    <SelectItem value="regular">
+                                                        Regular
+                                                    </SelectItem>
+                                                    <SelectItem value="casual">
+                                                        Casual
+                                                    </SelectItem>
+                                                    <SelectItem value="job_order">
+                                                        Job Order
+                                                    </SelectItem>
+                                                </SelectGroup>
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.employment_status && (
+                                            <p className="text-xs text-destructive">
+                                                {errors.employment_status}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="grid gap-1.5">
+                                        <Label htmlFor="add-date-hired">
+                                            Date Hired
+                                        </Label>
+                                        <Input
+                                            id="add-date-hired"
+                                            type="date"
+                                            value={data.date_hired}
+                                            onChange={(event) =>
+                                                setData(
+                                                    'date_hired',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                        {errors.date_hired && (
+                                            <p className="text-xs text-destructive">
+                                                {errors.date_hired}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
                     </div>
                     <DialogFooter>
                         <Button
@@ -490,14 +578,16 @@ function ManageEmployeeDialog({
     onOpenChange,
     departments,
     positions,
-    accountRoles,
+    positionRoleMap,
+    defaultEmployeeRole,
 }: {
     employee: Employee | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     departments: Option[];
     positions: Option[];
-    accountRoles: string[];
+    positionRoleMap: Record<string, string>;
+    defaultEmployeeRole: string;
 }) {
     const { data, setData, put, processing, errors, reset } =
         useForm<UpdateForm>({
@@ -509,7 +599,6 @@ function ManageEmployeeDialog({
             position_id: '',
             employment_status: 'regular',
             date_hired: '',
-            role: 'employee',
             is_active: true,
             zkteco_pin: '',
         });
@@ -527,10 +616,11 @@ function ManageEmployeeDialog({
                 ? String(employee.department_id)
                 : '',
             department_name: employee.department_id ? '' : employee.department,
-            position_id: employee.position_id ? String(employee.position_id) : '',
+            position_id: employee.position_id
+                ? String(employee.position_id)
+                : '',
             employment_status: employee.employment_status,
             date_hired: employee.date_hired,
-            role: employee.role,
             is_active: employee.account_is_active,
             zkteco_pin: employee.zkteco_pin ?? '',
         });
@@ -579,6 +669,14 @@ function ManageEmployeeDialog({
         );
     };
 
+    const linkedRoleLabel = formatRoleLabel(
+        resolveLinkedAccountRole(
+            data.position_id,
+            positionRoleMap,
+            defaultEmployeeRole,
+        ),
+    );
+
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-2xl">
@@ -590,208 +688,222 @@ function ManageEmployeeDialog({
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid gap-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="grid gap-1.5">
-                                <Label htmlFor="edit-name">Full Name</Label>
-                                <Input
-                                    id="edit-name"
-                                    value={data.name}
-                                    onChange={(event) =>
-                                        setData('name', event.target.value)
-                                    }
-                                />
-                                {errors.name && (
-                                    <p className="text-xs text-destructive">
-                                        {errors.name}
-                                    </p>
-                                )}
+                    <div className="space-y-4">
+                        <section className="space-y-3">
+                            <div className="space-y-1">
+                                <h3 className="text-sm font-semibold text-foreground">
+                                    Identity
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Employee details and linked account values
+                                    that stay visible from one workspace.
+                                </p>
                             </div>
-                            <div className="grid gap-1.5">
-                                <Label htmlFor="edit-email">
-                                    Linked Account Email
-                                </Label>
-                                <Input
-                                    id="edit-email"
-                                    type="email"
-                                    value={data.email}
-                                    onChange={(event) =>
-                                        setData('email', event.target.value)
-                                    }
-                                />
-                                {errors.email && (
-                                    <p className="text-xs text-destructive">
-                                        {errors.email}
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="grid gap-1.5">
-                                <Label htmlFor="edit-employee-id">
-                                    Employee ID
-                                </Label>
-                                <Input
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="edit-name">Full Name</Label>
+                                    <Input
+                                        id="edit-name"
+                                        value={data.name}
+                                        onChange={(event) =>
+                                            setData('name', event.target.value)
+                                        }
+                                    />
+                                    {errors.name && (
+                                        <p className="text-xs text-destructive">
+                                            {errors.name}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="edit-email">
+                                        Linked Account Email
+                                    </Label>
+                                    <Input
+                                        id="edit-email"
+                                        type="email"
+                                        value={data.email}
+                                        onChange={(event) =>
+                                            setData('email', event.target.value)
+                                        }
+                                    />
+                                    {errors.email && (
+                                        <p className="text-xs text-destructive">
+                                            {errors.email}
+                                        </p>
+                                    )}
+                                </div>
+                                <ReadonlyField
                                     id="edit-employee-id"
+                                    label="Employee ID"
                                     value={employee?.employee_id ?? ''}
-                                    readOnly
-                                    className="bg-muted/35"
+                                />
+                                <ReadonlyField
+                                    id="account-role"
+                                    label="Linked Account Role"
+                                    value={linkedRoleLabel}
+                                    helperText="This role is fixed by the selected position."
                                 />
                             </div>
-                            <div className="grid gap-1.5">
-                                <Label htmlFor="account-role">
-                                    Linked Account Role
-                                </Label>
-                                <Select
-                                    value={data.role}
-                                    onValueChange={(value) =>
-                                        setData('role', value)
-                                    }
-                                >
-                                    <SelectTrigger id="account-role">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {accountRoles.map((role) => (
-                                                <SelectItem
-                                                    key={role}
-                                                    value={role}
-                                                >
-                                                    {formatRoleLabel(role)}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                                {errors.role && (
-                                    <p className="text-xs text-destructive">
-                                        {errors.role}
-                                    </p>
-                                )}
+                        </section>
+
+                        <section className="space-y-3">
+                            <div className="space-y-1">
+                                <h3 className="text-sm font-semibold text-foreground">
+                                    Organization
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Department, position, and employment details
+                                    for the employee record.
+                                </p>
                             </div>
-                        </div>
+                            <div className="grid gap-4">
+                                <DepartmentFields
+                                    departments={departments}
+                                    data={data}
+                                    setData={setData}
+                                    errors={errors}
+                                    idPrefix="edit"
+                                />
 
-                        <DepartmentFields
-                            departments={departments}
-                            data={data}
-                            setData={setData}
-                            errors={errors}
-                            idPrefix="edit"
-                        />
+                                <PositionField
+                                    positions={positions}
+                                    data={data}
+                                    setData={setData}
+                                    errors={errors}
+                                    idPrefix="edit"
+                                />
 
-                        <PositionField
-                            positions={positions}
-                            data={data}
-                            setData={setData}
-                            errors={errors}
-                            idPrefix="edit"
-                        />
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="grid gap-1.5">
+                                        <Label htmlFor="edit-employment-status">
+                                            Employment Status
+                                        </Label>
+                                        <Select
+                                            value={data.employment_status}
+                                            onValueChange={(value) =>
+                                                setData(
+                                                    'employment_status',
+                                                    value,
+                                                )
+                                            }
+                                        >
+                                            <SelectTrigger id="edit-employment-status">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectGroup>
+                                                    <SelectItem value="regular">
+                                                        Regular
+                                                    </SelectItem>
+                                                    <SelectItem value="casual">
+                                                        Casual
+                                                    </SelectItem>
+                                                    <SelectItem value="job_order">
+                                                        Job Order
+                                                    </SelectItem>
+                                                </SelectGroup>
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.employment_status && (
+                                            <p className="text-xs text-destructive">
+                                                {errors.employment_status}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="grid gap-1.5">
+                                        <Label htmlFor="edit-date-hired">
+                                            Date Hired
+                                        </Label>
+                                        <Input
+                                            id="edit-date-hired"
+                                            type="date"
+                                            value={data.date_hired}
+                                            onChange={(event) =>
+                                                setData(
+                                                    'date_hired',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                        {errors.date_hired && (
+                                            <p className="text-xs text-destructive">
+                                                {errors.date_hired}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
 
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="edit-employment-status">
-                                Employment Status
-                            </Label>
-                            <Select
-                                value={data.employment_status}
-                                onValueChange={(value) =>
-                                    setData('employment_status', value)
-                                }
-                            >
-                                <SelectTrigger id="edit-employment-status">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectGroup>
-                                        <SelectItem value="regular">
-                                            Regular
-                                        </SelectItem>
-                                        <SelectItem value="casual">
-                                            Casual
-                                        </SelectItem>
-                                        <SelectItem value="job_order">
-                                            Job Order
-                                        </SelectItem>
-                                    </SelectGroup>
-                                </SelectContent>
-                            </Select>
-                            {errors.employment_status && (
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="edit-zkteco-pin">
+                                        ZKTeco Person ID{' '}
+                                        <span className="font-normal text-muted-foreground">
+                                            (from ZKBio Zlink Person ID column)
+                                        </span>
+                                    </Label>
+                                    <Input
+                                        id="edit-zkteco-pin"
+                                        type="text"
+                                        placeholder="e.g. EMP002 or 229532"
+                                        value={data.zkteco_pin}
+                                        onChange={(event) =>
+                                            setData(
+                                                'zkteco_pin',
+                                                event.target.value,
+                                            )
+                                        }
+                                    />
+                                    {errors.zkteco_pin && (
+                                        <p className="text-xs text-destructive">
+                                            {errors.zkteco_pin}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </section>
+
+                        <section className="space-y-3">
+                            <div className="space-y-1">
+                                <h3 className="text-sm font-semibold text-foreground">
+                                    Account Metadata
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    Read-only status signals for the linked
+                                    account.
+                                </p>
+                            </div>
+                            <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/25 p-4 text-sm text-muted-foreground">
+                                <p>
+                                    Two-factor authentication:{' '}
+                                    <span className="font-semibold text-foreground">
+                                        {employee?.account_two_factor_enabled
+                                            ? 'Enabled'
+                                            : 'Disabled'}
+                                    </span>
+                                </p>
+                                <p>
+                                    Account created:{' '}
+                                    <span className="font-semibold text-foreground">
+                                        {employee?.account_created_at ?? '-'}
+                                    </span>
+                                </p>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <Checkbox
+                                    checked={data.is_active}
+                                    onCheckedChange={(checked) =>
+                                        setData('is_active', checked === true)
+                                    }
+                                />
+                                <Label>Linked account is active</Label>
+                            </div>
+                            {errors.is_active && (
                                 <p className="text-xs text-destructive">
-                                    {errors.employment_status}
+                                    {errors.is_active}
                                 </p>
                             )}
-                        </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="edit-date-hired">Date Hired</Label>
-                            <Input
-                                id="edit-date-hired"
-                                type="date"
-                                value={data.date_hired}
-                                onChange={(event) =>
-                                    setData('date_hired', event.target.value)
-                                }
-                            />
-                            {errors.date_hired && (
-                                <p className="text-xs text-destructive">
-                                    {errors.date_hired}
-                                </p>
-                            )}
-                        </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="edit-zkteco-pin">
-                                ZKTeco Person ID{' '}
-                                <span className="font-normal text-muted-foreground">
-                                    (from ZKBio Zlink Person ID column)
-                                </span>
-                            </Label>
-                            <Input
-                                id="edit-zkteco-pin"
-                                type="text"
-                                placeholder="e.g. EMP002 or 229532"
-                                value={data.zkteco_pin}
-                                onChange={(event) =>
-                                    setData('zkteco_pin', event.target.value)
-                                }
-                            />
-                            {errors.zkteco_pin && (
-                                <p className="text-xs text-destructive">
-                                    {errors.zkteco_pin}
-                                </p>
-                            )}
-                        </div>
-
-                        <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/25 p-4 text-sm text-muted-foreground">
-                            <p>
-                                Two-factor authentication:{' '}
-                                <span className="font-semibold text-foreground">
-                                    {employee?.account_two_factor_enabled
-                                        ? 'Enabled'
-                                        : 'Disabled'}
-                                </span>
-                            </p>
-                            <p>
-                                Account created:{' '}
-                                <span className="font-semibold text-foreground">
-                                    {employee?.account_created_at ?? '-'}
-                                </span>
-                            </p>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                            <Checkbox
-                                checked={data.is_active}
-                                onCheckedChange={(checked) =>
-                                    setData('is_active', checked === true)
-                                }
-                            />
-                            <Label>Linked account is active</Label>
-                        </div>
-                        {errors.is_active && (
-                            <p className="text-xs text-destructive">
-                                {errors.is_active}
-                            </p>
-                        )}
+                        </section>
                     </div>
                     <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
                         <Button
@@ -820,70 +932,6 @@ function ManageEmployeeDialog({
     );
 }
 
-function DeleteEmployeeDialog({
-    employee,
-    open,
-    onOpenChange,
-}: {
-    employee: Employee | null;
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-}) {
-    const [processing, setProcessing] = useState(false);
-
-    const handleConfirm = (): void => {
-        if (!employee) {
-            return;
-        }
-
-        setProcessing(true);
-        router.delete(
-            employeeDirectoryRoutes.destroy({
-                employee: employee.employee_id,
-            }).url,
-            {
-                preserveScroll: true,
-                onSuccess: () => {
-                    onOpenChange(false);
-                },
-                onFinish: () => setProcessing(false),
-            },
-        );
-    };
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Delete Employee</DialogTitle>
-                    <DialogDescription>
-                        Are you sure you want to delete{' '}
-                        <strong>{employee?.name}</strong>? This action cannot be
-                        undone.
-                    </DialogDescription>
-                </DialogHeader>
-                <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => onOpenChange(false)}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="destructive"
-                        disabled={processing}
-                        onClick={handleConfirm}
-                    >
-                        {processing ? 'Deleting...' : 'Delete Employee'}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
 export function EmployeesTable({
     employees,
     search,
@@ -895,7 +943,8 @@ export function EmployeesTable({
     positions = [],
     statusFilter = '',
     positionFilter = '',
-    accountRoles = [],
+    positionRoleMap = {},
+    defaultEmployeeRole = 'employee',
 }: {
     employees: Employee[];
     search: string;
@@ -907,7 +956,8 @@ export function EmployeesTable({
     positions?: Option[];
     statusFilter?: string;
     positionFilter?: string;
-    accountRoles?: string[];
+    positionRoleMap?: Record<string, string>;
+    defaultEmployeeRole?: string;
 }) {
     const { auth } = usePage<{ auth: Auth }>().props;
     const [searchTerm, setSearchTerm] = useState(search);
@@ -921,7 +971,6 @@ export function EmployeesTable({
     );
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
-    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [crudEmployee, setCrudEmployee] = useState<Employee | null>(null);
 
     const canManageEmployees = auth.user.role === 'hr-personnel';
@@ -1053,14 +1102,23 @@ export function EmployeesTable({
         setIsPredictiveModalOpen(true);
     };
 
-    const openDeleteDialog = (employee: Employee): void => {
-        setCrudEmployee(employee);
-        setIsDeleteOpen(true);
-    };
-
     const openManageDialog = (employee: Employee): void => {
         setCrudEmployee(employee);
         setIsEditOpen(true);
+    };
+
+    const deactivateEmployeeAccount = (employee: Employee): void => {
+        if (!employee.account_is_active) {
+            return;
+        }
+
+        router.post(
+            employee.account_links.deactivate,
+            {},
+            {
+                preserveScroll: true,
+            },
+        );
     };
 
     const colSpan = canManageEmployees ? 9 : 8;
@@ -1248,14 +1306,18 @@ export function EmployeesTable({
                                 <TableCell>{employee.employee_id}</TableCell>
                                 <TableCell>{employee.name}</TableCell>
                                 <TableCell>{employee.email}</TableCell>
-                                <TableCell>{employee.department || '—'}</TableCell>
+                                <TableCell>
+                                    {employee.department || '—'}
+                                </TableCell>
                                 <TableCell>{employee.position}</TableCell>
                                 <TableCell>
                                     <StatusBadge
                                         status={employee.employment_status}
                                     />
                                 </TableCell>
-                                <TableCell>{employee.date_hired || '—'}</TableCell>
+                                <TableCell>
+                                    {employee.date_hired || '—'}
+                                </TableCell>
                                 <TableCell className="text-right">
                                     <Button
                                         type="button"
@@ -1297,15 +1359,29 @@ export function EmployeesTable({
                                             </Button>
                                             <Button
                                                 type="button"
-                                                variant="ghost"
+                                                variant="destructive"
                                                 size="sm"
-                                                className="size-8 p-0 hover:text-destructive"
+                                                className="h-8 px-3 text-primary-foreground dark:text-secondary-foreground"
                                                 onClick={() =>
-                                                    openDeleteDialog(employee)
+                                                    deactivateEmployeeAccount(
+                                                        employee,
+                                                    )
                                                 }
-                                                title="Delete employee"
+                                                disabled={
+                                                    !employee.account_is_active
+                                                }
+                                                title={
+                                                    employee.account_is_active
+                                                        ? 'Deactivate employee account'
+                                                        : 'Employee account is already inactive'
+                                                }
                                             >
-                                                <Trash2 className="size-4" />
+                                                <Power className="size-4" />
+                                                <span className="hidden sm:inline">
+                                                    {employee.account_is_active
+                                                        ? 'Deactivate'
+                                                        : 'Inactive'}
+                                                </span>
                                             </Button>
                                         </div>
                                     </TableCell>
@@ -1387,6 +1463,8 @@ export function EmployeesTable({
                 nextEmployeeId={nextEmployeeId}
                 departments={departments}
                 positions={positions}
+                positionRoleMap={positionRoleMap}
+                defaultEmployeeRole={defaultEmployeeRole}
             />
             <ManageEmployeeDialog
                 employee={crudEmployee}
@@ -1399,17 +1477,8 @@ export function EmployeesTable({
                 }}
                 departments={departments}
                 positions={positions}
-                accountRoles={accountRoles}
-            />
-            <DeleteEmployeeDialog
-                employee={crudEmployee}
-                open={isDeleteOpen}
-                onOpenChange={(open) => {
-                    setIsDeleteOpen(open);
-                    if (!open) {
-                        setCrudEmployee(null);
-                    }
-                }}
+                positionRoleMap={positionRoleMap}
+                defaultEmployeeRole={defaultEmployeeRole}
             />
             <PredictivePerformanceModule
                 isOpen={isPredictiveModalOpen}

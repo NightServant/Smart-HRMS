@@ -139,7 +139,7 @@ export function OperationalAccountsPanel({
     const [createForm, setCreateForm] = useState<AccountFormState>({
         name: '',
         email: '',
-        role: roles[0] ?? 'evaluator',
+        role: roles[0] ?? 'hr-personnel',
         employee_id: '',
         password: '',
         password_confirmation: '',
@@ -148,7 +148,7 @@ export function OperationalAccountsPanel({
     const [editForm, setEditForm] = useState<AccountFormState>({
         name: '',
         email: '',
-        role: roles[0] ?? 'evaluator',
+        role: roles[0] ?? 'hr-personnel',
         employee_id: '',
         password: '',
         password_confirmation: '',
@@ -235,7 +235,7 @@ export function OperationalAccountsPanel({
         setCreateForm({
             name: '',
             email: '',
-            role: roles[0] ?? 'evaluator',
+            role: roles[0] ?? 'hr-personnel',
             employee_id: '',
             password: '',
             password_confirmation: '',
@@ -323,8 +323,8 @@ export function OperationalAccountsPanel({
                             Non-employee account management
                         </h2>
                         <p className="text-sm text-muted-foreground">
-                            Manage HR, evaluator, and PMT accounts without
-                            mixing them into the employee records table.
+                            Manage HR and PMT accounts without mixing them into
+                            the employee records table.
                         </p>
                     </div>
                     <Button type="button" onClick={() => setIsCreateOpen(true)}>
@@ -652,8 +652,8 @@ export function OperationalAccountsPanel({
                     <DialogHeader>
                         <DialogTitle>Create operational account</DialogTitle>
                         <DialogDescription>
-                            Create a new non-employee account for HR,
-                            evaluator, or PMT access.
+                            Create a specialized account for HR personnel or
+                            PMT access.
                         </DialogDescription>
                     </DialogHeader>
                     <form className="grid gap-4" onSubmit={submitCreate}>
@@ -831,8 +831,8 @@ export function OperationalAccountsPanel({
                     <DialogHeader>
                         <DialogTitle>Edit operational account</DialogTitle>
                         <DialogDescription>
-                            Update role, employee link, and account state from
-                            the shared HR workspace.
+                            Update account details, employee link, and account
+                            state from the shared HR workspace.
                         </DialogDescription>
                     </DialogHeader>
                     <form className="grid gap-4" onSubmit={submitUpdate}>
@@ -875,39 +875,6 @@ export function OperationalAccountsPanel({
                                 )}
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="edit-ops-role">Role</Label>
-                                <Select
-                                    value={editForm.role}
-                                    onValueChange={(value) =>
-                                        setEditForm((current) => ({
-                                            ...current,
-                                            role: value,
-                                        }))
-                                    }
-                                >
-                                    <SelectTrigger id="edit-ops-role">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            {roles.map((role) => (
-                                                <SelectItem
-                                                    key={role}
-                                                    value={role}
-                                                >
-                                                    {formatRoleLabel(role)}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                                {errors.role && (
-                                    <p className="text-sm text-destructive">
-                                        {errors.role}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="grid gap-2">
                                 <Label htmlFor="edit-ops-employee-id">
                                     Employee ID
                                 </Label>
@@ -929,6 +896,14 @@ export function OperationalAccountsPanel({
                             </div>
                         </div>
                         <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/25 p-4 text-sm text-muted-foreground">
+                            <p>
+                                Role:{' '}
+                                <span className="font-semibold text-foreground">
+                                    {formatRoleLabel(
+                                        selectedAccount?.role ?? '',
+                                    )}
+                                </span>
+                            </p>
                             <p>
                                 Two-factor authentication:{' '}
                                 <span className="font-semibold text-foreground">

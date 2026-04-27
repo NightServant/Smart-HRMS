@@ -56,15 +56,13 @@ class UserManagementController extends Controller
 
     public function update(UpdateAdminUserRequest $request, User $user): RedirectResponse
     {
-        $newRole = $request->string('role')->toString();
         $isActive = $request->boolean('is_active');
 
-        $this->guardHrPersonnelState($request->user(), $user, $newRole, $isActive);
+        $this->guardHrPersonnelState($request->user(), $user, $user->role, $isActive);
 
         $payload = [
             'name' => $request->string('name')->toString(),
             'email' => $request->string('email')->toString(),
-            'role' => $newRole,
             'employee_id' => $request->input('employee_id'),
             'is_active' => $isActive,
         ];

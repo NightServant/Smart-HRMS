@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\UpdateEmployeeEmploymentStatusRequest;
-use App\Models\BiometricSyncIssue;
 use App\Models\DailyAttendance;
 use App\Models\Department;
 use App\Models\Employee;
@@ -13,6 +12,7 @@ use App\Models\LeaveRequest;
 use App\Models\Notification;
 use App\Models\SystemSetting;
 use App\Models\User;
+use App\Services\HistoricalDataSyncService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -130,6 +130,18 @@ class PaginationController extends Controller
         ];
     }
 
+    private function canonicalDepartmentSummaryName(?string $departmentName): string
+    {
+        $trimmedDepartmentName = trim((string) $departmentName);
+        $normalizedDepartmentName = strtolower((string) preg_replace('/\s+/', ' ', $trimmedDepartmentName));
+
+        return match ($normalizedDepartmentName) {
+            'administrative office',
+            'admin office' => 'Administrative Office',
+            default => $trimmedDepartmentName !== '' ? $trimmedDepartmentName : 'Unknown Department',
+        };
+    }
+
     public function attendanceManagement(Request $request): Response
     {
         $search = trim((string) $request->string('search'));
@@ -169,22 +181,6 @@ class PaginationController extends Controller
         $manualCount = DailyAttendance::query()->where('source', 'manual')->count();
         $importCount = DailyAttendance::query()->where('source', 'import')->count();
         $mixedCount = DailyAttendance::query()->where('source', 'mixed')->count();
-        $syncIssues = BiometricSyncIssue::query()
-            ->with('device')
-            ->latest('occurred_at')
-            ->limit(10)
-            ->get()
-            ->map(fn (BiometricSyncIssue $issue): array => [
-                'id' => $issue->id,
-                'device_name' => $issue->device?->name ?? $issue->device?->serial_number ?? 'Unknown Device',
-                'pin' => $issue->pin ?? '-',
-                'punch_time' => $issue->punch_time_raw ?? '-',
-                'issue_type' => $issue->issue_type,
-                'message' => $issue->message,
-                'occurred_at' => $issue->occurred_at?->format('Y-m-d H:i:s') ?? '-',
-            ])
-            ->values()
-            ->all();
 
         return Inertia::render('admin/attendance-management', [
             'search' => $search,
@@ -205,7 +201,6 @@ class PaginationController extends Controller
                 'importCount' => $importCount,
                 'mixedCount' => $mixedCount,
             ],
-            'syncIssues' => $syncIssues,
         ]);
     }
 
@@ -471,6 +466,10 @@ class PaginationController extends Controller
             ->with(['employee.department', 'employee.position', 'employee.latestSubmission'])
             ->join('employees', 'users.employee_id', '=', 'employees.employee_id')
             ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
+            ->when(
+                ! $isHrPersonnel,
+                fn ($query) => $query->where('users.role', User::ROLE_EMPLOYEE),
+            )
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
                     $subQuery
@@ -512,6 +511,7 @@ class PaginationController extends Controller
                 'account_created_at' => $user->created_at?->format('Y-m-d H:i:s'),
                 'account_links' => [
                     'password_reset' => route('admin.user-management.password-reset', $user),
+                    'deactivate' => route('admin.user-management.deactivate', $user),
                 ],
                 'predictive_evaluation_enabled' => ! in_array(
                     $user->employee_id ?? '',
@@ -530,8 +530,14 @@ class PaginationController extends Controller
             ->map(fn (EmployeePosition $position): array => [
                 'id' => $position->id,
                 'name' => $position->name,
+                'linkedAccountRole' => $position->linkedAccountRole(),
             ])
             ->values()
+            ->all();
+        $positionRoleMap = collect($positions)
+            ->mapWithKeys(fn (array $position): array => [
+                (string) $position['id'] => (string) $position['linkedAccountRole'],
+            ])
             ->all();
         $departments = Department::query()
             ->orderBy('name')
@@ -566,91 +572,9 @@ class PaginationController extends Controller
             'nextEmployeeId' => Employee::nextEmployeeId(),
             'departments' => $departments,
             'positions' => $positions,
+            'positionRoleMap' => $positionRoleMap,
+            'defaultEmployeeRole' => User::ROLE_EMPLOYEE,
         ];
-
-        if ($isHrPersonnel) {
-            $accountSearch = trim((string) $request->string('accountSearch'));
-            $accountRole = trim((string) $request->string('accountRole'));
-            $accountStatus = trim((string) $request->string('accountStatus'));
-            $accountTwoFactor = trim((string) $request->string('accountTwoFactor'));
-            $accountSort = (string) $request->string('accountSort', 'name');
-            $accountDirection = strtolower((string) $request->string('accountDirection', 'asc'));
-            $accountPerPage = max(5, min(50, (int) $request->integer('accountPerPage', 10)));
-            $allowedAccountSorts = [
-                'name' => 'users.name',
-                'email' => 'users.email',
-                'role' => 'users.role',
-                'created_at' => 'users.created_at',
-            ];
-
-            if (! array_key_exists($accountSort, $allowedAccountSorts)) {
-                $accountSort = 'name';
-            }
-
-            if (! in_array($accountDirection, ['asc', 'desc'], true)) {
-                $accountDirection = 'asc';
-            }
-
-            $operationalAccounts = User::query()
-                ->with('employee')
-                ->whereNull('employee_id')
-                ->where('role', '!=', User::ROLE_EMPLOYEE)
-                ->when($accountSearch !== '', function ($query) use ($accountSearch): void {
-                    $query->where(function ($subQuery) use ($accountSearch): void {
-                        $subQuery
-                            ->where('name', 'like', '%'.$accountSearch.'%')
-                            ->orWhere('email', 'like', '%'.$accountSearch.'%')
-                            ->orWhere('employee_id', 'like', '%'.$accountSearch.'%');
-                    });
-                })
-                ->when($accountRole !== '', fn ($query) => $query->where('role', $accountRole))
-                ->when($accountStatus === 'active', fn ($query) => $query->where('is_active', true))
-                ->when($accountStatus === 'inactive', fn ($query) => $query->where('is_active', false))
-                ->when($accountTwoFactor === 'enabled', fn ($query) => $query->whereNotNull('two_factor_confirmed_at'))
-                ->when($accountTwoFactor === 'disabled', fn ($query) => $query->whereNull('two_factor_confirmed_at'))
-                ->orderBy($allowedAccountSorts[$accountSort], $accountDirection)
-                ->when($accountSort !== 'name', fn ($query) => $query->orderBy('users.name'))
-                ->paginate($accountPerPage, ['*'], 'accountPage')
-                ->withQueryString()
-                ->through(fn (User $user): array => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $user->role,
-                    'employeeId' => $user->employee_id,
-                    'position' => $user->employee?->job_title,
-                    'twoFactorEnabled' => $user->two_factor_confirmed_at !== null,
-                    'isActive' => (bool) $user->is_active,
-                    'createdAt' => $user->created_at?->format('Y-m-d H:i:s'),
-                    'links' => [
-                        'update' => route('admin.user-management.update', $user),
-                        'activate' => route('admin.user-management.activate', $user),
-                        'deactivate' => route('admin.user-management.deactivate', $user),
-                        'passwordReset' => route('admin.user-management.password-reset', $user),
-                    ],
-                ]);
-
-            $payload['operationalAccounts'] = $operationalAccounts->items();
-            $payload['operationalFilters'] = [
-                'search' => $accountSearch,
-                'role' => $accountRole,
-                'status' => $accountStatus,
-                'twoFactor' => $accountTwoFactor,
-                'sort' => $accountSort,
-                'direction' => $accountDirection,
-            ];
-            $payload['operationalRoles'] = array_values(array_filter(
-                User::roles(),
-                fn (string $role): bool => $role !== User::ROLE_EMPLOYEE,
-            ));
-            $payload['accountRoles'] = User::roles();
-            $payload['operationalPagination'] = [
-                'currentPage' => $operationalAccounts->currentPage(),
-                'lastPage' => $operationalAccounts->lastPage(),
-                'perPage' => $operationalAccounts->perPage(),
-                'total' => $operationalAccounts->total(),
-            ];
-        }
 
         return Inertia::render('admin/employee-directory', $payload);
     }
@@ -754,8 +678,12 @@ class PaginationController extends Controller
         ]);
     }
 
-    public function adminHistoricalManagement(Request $request): Response
-    {
+    public function adminHistoricalManagement(
+        Request $request,
+        HistoricalDataSyncService $historicalDataSyncService,
+    ): Response {
+        $historicalDataSyncService->syncAll();
+
         $search = trim((string) $request->string('search'));
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
         $year = $request->integer('year', 0);
@@ -851,7 +779,7 @@ class PaginationController extends Controller
             ->get();
 
         $departmentSummary = $summaryRecords
-            ->groupBy('department_name')
+            ->groupBy(fn (HistoricalDataRecord $record): string => $this->canonicalDepartmentSummaryName($record->department_name))
             ->map(function ($deptRecords) {
                 $employeeAvgs = $deptRecords
                     ->groupBy('employee_name')

@@ -45,9 +45,9 @@ class PpeService
             }
 
             $output = trim($result->output());
-            $decoded = json_decode($output, true);
+            $decoded = $this->decodeOutput($output);
 
-            if (json_last_error() !== JSON_ERROR_NONE) {
+            if (! is_array($decoded)) {
                 Log::error('PPE invalid JSON response', ['output' => $output]);
 
                 return [
@@ -65,5 +65,38 @@ class PpeService
                 'notification' => 'PPE service is unavailable. Please try again later.',
             ];
         }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function decodeOutput(string $output): ?array
+    {
+        $decoded = json_decode($output, true);
+
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+
+        $normalized = preg_replace(
+            '/([:\[,]\s*)(NaN|-?Infinity)(?=\s*[,}\]])/',
+            '$1null',
+            $output,
+        );
+
+        if (! is_string($normalized) || $normalized === $output) {
+            return null;
+        }
+
+        Log::warning('PPE response required JSON normalization.', [
+            'output' => $output,
+            'normalized_output' => $normalized,
+        ]);
+
+        $decoded = json_decode($normalized, true);
+
+        return json_last_error() === JSON_ERROR_NONE && is_array($decoded)
+            ? $decoded
+            : null;
     }
 }

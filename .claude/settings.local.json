@@ -262,7 +262,10 @@
       "Bash(pkill -f \"expose share\")",
       "Bash(ps -eo pid,command)",
       "Bash(/usr/bin/curl -s --max-time 2 http://127.0.0.1:4040/)",
-      "Bash(/usr/bin/curl -s --max-time 2 http://127.0.0.1:4042/)"
+      "Bash(/usr/bin/curl -s --max-time 2 http://127.0.0.1:4042/)",
+      "Bash(/usr/bin/curl -s --max-time 2 http://127.0.0.1:4040/api/tunnels)",
+      "Bash(python3 -c \"import sys,json; d=json.loads\\(sys.stdin.read\\(\\)\\)['tunnels']; print\\(*[t.get\\('public_url'\\) for t in d], sep='\\\\n'\\)\")",
+      "Bash(python3 -)"
     ]
   }
 }

@@ -14,5 +14,9 @@ class DepartmentSeeder extends Seeder
         \App\Models\Department::query()->firstOrCreate([
             'name' => 'Administrative Office',
         ]);
+
+        \App\Models\Department::query()->firstOrCreate([
+            'name' => 'Performance Management Team',
+        ]);
     }
 }

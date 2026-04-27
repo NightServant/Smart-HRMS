@@ -1,7 +1,6 @@
 import { Head, usePage } from '@inertiajs/react';
 import { Briefcase, Clock, Shield, Users } from 'lucide-react';
 import { EmployeesTable } from '@/components/employees-table';
-import { OperationalAccountsPanel } from '@/components/operational-accounts-panel';
 import AppLayout from '@/layouts/app-layout';
 import * as admin from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types';
@@ -29,12 +28,14 @@ type Employee = {
     account_created_at?: string | null;
     account_links: {
         password_reset: string;
+        deactivate: string;
     };
 };
 
 type Option = {
     id: number;
     name: string;
+    linkedAccountRole?: string;
 };
 
 type PaginationMeta = {
@@ -49,33 +50,6 @@ type Stats = {
     casual: number;
     regular: number;
     job_order: number;
-};
-
-type OperationalAccount = {
-    id: number;
-    name: string;
-    email: string;
-    role: string;
-    employeeId?: string | null;
-    position?: string | null;
-    twoFactorEnabled: boolean;
-    isActive: boolean;
-    createdAt?: string | null;
-    links: {
-        update: string;
-        activate: string;
-        deactivate: string;
-        passwordReset: string;
-    };
-};
-
-type OperationalFilters = {
-    search: string;
-    role: string;
-    status: string;
-    twoFactor: string;
-    sort: 'name' | 'email' | 'role' | 'created_at';
-    direction: 'asc' | 'desc';
 };
 
 type EmployeeSortKey = 'employee_id' | 'name' | 'email' | 'department' | 'position';
@@ -149,11 +123,8 @@ export default function EmployeeDirectory({
     positions,
     statusFilter,
     positionFilter,
-    operationalAccounts,
-    operationalFilters,
-    operationalRoles,
-    operationalPagination,
-    accountRoles,
+    positionRoleMap,
+    defaultEmployeeRole,
 }: {
     employees: Employee[];
     search: string;
@@ -166,11 +137,8 @@ export default function EmployeeDirectory({
     positions: Option[];
     statusFilter: string;
     positionFilter: string;
-    operationalAccounts?: OperationalAccount[];
-    operationalFilters?: OperationalFilters;
-    operationalRoles?: string[];
-    operationalPagination?: PaginationMeta;
-    accountRoles?: string[];
+    positionRoleMap?: Record<string, string>;
+    defaultEmployeeRole?: string;
 }) {
     const { flash } = usePage<PageProps>().props;
     const createdAccountCredentials = flash.employeeAccountCredentials;
@@ -263,20 +231,9 @@ export default function EmployeeDirectory({
                     positions={positions}
                     statusFilter={statusFilter}
                     positionFilter={positionFilter}
-                    accountRoles={accountRoles ?? []}
+                    positionRoleMap={positionRoleMap ?? {}}
+                    defaultEmployeeRole={defaultEmployeeRole ?? 'employee'}
                 />
-
-                {operationalAccounts &&
-                    operationalFilters &&
-                    operationalRoles &&
-                    operationalPagination && (
-                        <OperationalAccountsPanel
-                            accounts={operationalAccounts}
-                            filters={operationalFilters}
-                            roles={operationalRoles}
-                            pagination={operationalPagination}
-                        />
-                    )}
             </div>
         </AppLayout>
     );

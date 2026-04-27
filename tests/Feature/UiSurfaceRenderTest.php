@@ -115,7 +115,7 @@ test('evaluator, hr, and pmt entry surfaces render expected components', functio
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/employee-directory')
             ->has('employees')
-            ->has('operationalAccounts'));
+            ->missing('operationalAccounts'));
 
     $this->actingAs($hr)
         ->get(route('admin.user-management'))

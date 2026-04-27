@@ -168,7 +168,7 @@ export default function HistoricalData({
                 <PageIntro
                     eyebrow="HR Personnel · Historical Data"
                     title="Historical Data Records"
-                    description="Historical employee performance and attendance metrics."
+                    description="Historical employee performance and attendance metrics, including synced attendance and finalized IPCR evaluation records."
                 />
 
                 {hasSummary && aggregates && (

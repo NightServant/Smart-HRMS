@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { Briefcase, MessageSquare, UserRound } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
 import PredictionDisplay, {
     type PredictionResult,
@@ -24,37 +24,57 @@ export default function PredictivePerformance() {
 
     return (
         <DashboardPanelCard
-            title="Predictive Performance Analysis"
-            description="AI-powered analysis based on historical evaluation data."
+            title="Predictive Performance Evaluation"
+            description="Review projected vs actual performance, IPCR targets, finalized evaluations, and attendance signals in one focused workspace."
             className="lg:col-span-2"
             accentClassName="right-8 bottom-0 size-40 rounded-full bg-complement-sky-300/20 blur-3xl dark:bg-complement-sky-500/10"
         >
+            <div className="mb-4 grid min-w-0 gap-3 rounded-xl border border-border/70 bg-muted/20 p-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                <div className="space-y-1">
+                    <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                        Employee ID
+                    </p>
+                    <p className="font-semibold text-foreground">
+                        {employeeProfile?.employee_id ?? 'N/A'}
+                    </p>
+                </div>
+                <div className="space-y-1">
+                    <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                        Position
+                    </p>
+                    <p className="font-semibold text-foreground">
+                        {employeeProfile?.job_title ?? 'N/A'}
+                    </p>
+                </div>
+                <div className="space-y-1">
+                    <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                        Employee Name
+                    </p>
+                    <p className="font-semibold text-foreground">
+                        {employeeProfile?.name ?? 'N/A'}
+                    </p>
+                </div>
+                <div className="space-y-1">
+                    <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                        Remarks
+                    </p>
+                    <p className="line-clamp-2 min-h-10 font-semibold text-foreground">
+                        {employeeProfile?.remarks ?? 'No remarks yet.'}
+                    </p>
+                </div>
+            </div>
+
             <PredictionDisplay
                 prediction={prediction ?? null}
                 loading={false}
             />
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-                <div className="space-y-1 rounded-2xl border border-brand-300 bg-white/75 p-4 text-sm text-muted-foreground shadow-sm backdrop-blur-md dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
-                    <p className="flex items-center gap-2 font-semibold text-foreground">
-                        <UserRound className="size-4 text-primary" />
-                        Employee ID: {employeeProfile?.employee_id ?? 'N/A'}
-                    </p>
-                    <p className="flex items-center gap-2 font-semibold text-foreground">
-                        <UserRound className="size-4 text-primary" />
-                        Name: {employeeProfile?.name ?? 'N/A'}
-                    </p>
+            {employeeProfile?.performance_rating ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                    <Badge variant="outline">
+                        Latest rating: {employeeProfile.performance_rating}
+                    </Badge>
                 </div>
-                <div className="space-y-1 rounded-2xl border border-brand-300 bg-white/75 p-4 text-sm text-muted-foreground shadow-sm backdrop-blur-md sm:text-right dark:border-white/10 dark:bg-white/[0.06] dark:shadow-none">
-                    <p className="flex items-center justify-start gap-2 font-semibold text-foreground lg:justify-end">
-                        <Briefcase className="size-4 text-primary" />
-                        Position: {employeeProfile?.job_title ?? 'N/A'}
-                    </p>
-                    <p className="flex items-start justify-start gap-2 break-words lg:justify-end">
-                        <MessageSquare className="size-4 text-primary" />
-                        Remarks: {employeeProfile?.remarks ?? 'No remarks yet.'}
-                    </p>
-                </div>
-            </div>
+            ) : null}
         </DashboardPanelCard>
     );
 }

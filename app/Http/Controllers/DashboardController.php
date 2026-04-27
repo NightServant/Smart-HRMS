@@ -2,18 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\HistoricalDataRecord;
 use App\Models\IpcrSubmission;
 use App\Models\Notification;
 use App\Models\Seminars;
 use App\Services\AtreService;
-use App\Services\PpeService;
+use App\Services\EmployeePredictionService;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function index(AtreService $atre, PpeService $ppe): Response
+    public function index(AtreService $atre, EmployeePredictionService $predictionService): Response
     {
         $employee = auth()->user()->employee;
 
@@ -64,42 +63,7 @@ class DashboardController extends Controller
             : null;
 
         // PPE: Predictive Performance Evaluation via Linear Regression
-        $prediction = null;
-        if ($employee) {
-            $records = HistoricalDataRecord::query()
-                ->where('employee_name', $employee->name)
-                ->orderBy('year')
-                ->get()
-                ->map(function (HistoricalDataRecord $record): ?array {
-                    $period = $record->resolvedPeriod();
-                    $score = $record->normalizedEvaluatedPerformanceScore();
-
-                    if ($period === null || $score === null) {
-                        return null;
-                    }
-
-                    return [
-                        'year' => $record->year,
-                        'period' => $period,
-                        'attendance_punctuality_rate' => (float) $record->attendance_punctuality_rate,
-                        'absenteeism_days' => $record->absenteeism_days,
-                        'tardiness_incidents' => $record->tardiness_incidents,
-                        'training_completion_status' => $record->training_completion_status,
-                        'evaluated_performance_score' => $score,
-                    ];
-                })
-                ->filter()
-                ->sortBy([
-                    ['year', 'asc'],
-                    ['period', 'asc'],
-                ])
-                ->values()
-                ->all();
-
-            if (count($records) >= 4) {
-                $prediction = $ppe->predict($employee->name, $records);
-            }
-        }
+        $prediction = $employee ? $predictionService->build($employee) : null;
 
         return Inertia::render('dashboard', [
             'recommendations' => $recommendations,

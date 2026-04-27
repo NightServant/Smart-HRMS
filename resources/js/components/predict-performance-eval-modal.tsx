@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import PredictionDisplay, {
     type PredictionResult,
 } from '@/components/prediction-display';
@@ -113,35 +114,70 @@ export default function PredictivePerformanceModule({
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="w-full bg-background text-foreground sm:max-w-5xl [&>button]:hidden">
-                <DialogHeader>
-                    <DialogTitle>
-                        Predictive Performance Analysis Module
-                    </DialogTitle>
-                    <DialogDescription></DialogDescription>
+            <DialogContent className="grid h-[min(94svh,980px)] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden border-border/70 bg-background p-0 text-foreground sm:h-[min(94svh,980px)] sm:w-[calc(100vw-2rem)] sm:max-w-[calc(100vw-2rem)] xl:w-[1440px] xl:max-w-[1440px] 2xl:w-[1520px] 2xl:max-w-[1520px]">
+                <DialogHeader className="gap-4 border-b border-border/70 px-5 py-4 sm:px-6">
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2 text-left">
+                                <DialogTitle>
+                                    Predictive Performance Evaluation
+                                </DialogTitle>
+                                <Badge variant="outline">Employee Review</Badge>
+                            </div>
+                            <DialogDescription className="max-w-3xl text-left">
+                                Review projected vs actual performance, IPCR
+                                targets, finalized evaluations, and attendance
+                                signals in one focused workspace.
+                            </DialogDescription>
+                        </div>
+
+                        <div className="grid min-w-0 gap-3 rounded-xl border border-border/70 bg-muted/20 p-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="space-y-1">
+                                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                                    Employee ID
+                                </p>
+                                <p className="font-semibold text-foreground">
+                                    {employee?.employee_id ?? 'N/A'}
+                                </p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                                    Position
+                                </p>
+                                <p className="font-semibold text-foreground">
+                                    {employee?.position ?? 'N/A'}
+                                </p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                                    Employee Name
+                                </p>
+                                <p className="font-semibold text-foreground">
+                                    {employee?.name ?? 'N/A'}
+                                </p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                                    Remarks
+                                </p>
+                                <p className="line-clamp-2 min-h-10 font-semibold text-foreground">
+                                    {employee?.remarks ?? 'No remarks yet.'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </DialogHeader>
-                <PredictionDisplay prediction={prediction} loading={loading} />
-                <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-2">
-                    <div className="space-y-1">
-                        <p className="text-sm font-semibold">
-                            Employee ID: {employee?.employee_id ?? 'N/A'}
-                        </p>
-                        <p className="text-sm font-semibold">
-                            Name: {employee?.name ?? 'N/A'}
-                        </p>
-                    </div>
-                    <div className="space-y-1 sm:text-right">
-                        <p className="text-sm font-semibold">
-                            Position: {employee?.position ?? 'N/A'}
-                        </p>
-                        <p className="text-sm font-semibold">
-                            Remarks: {employee?.remarks ?? 'No remarks yet.'}
-                        </p>
-                    </div>
+
+                <div className="min-h-0 overflow-y-auto px-5 py-4 sm:px-6">
+                    <PredictionDisplay
+                        prediction={prediction}
+                        loading={loading}
+                    />
                 </div>
-                <DialogFooter>
+
+                <DialogFooter className="border-t border-border/70 px-5 py-4 sm:px-6">
                     <DialogClose asChild>
-                        <Button type="button" variant="destructive">
+                        <Button type="button" variant="outline">
                             Close
                         </Button>
                     </DialogClose>

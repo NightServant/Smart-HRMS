@@ -22,12 +22,9 @@ test('hr personnel can view all remaining account roles in user management', fun
         ->get(route('admin.employee-directory'))
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/employee-directory')
-            ->has('operationalAccounts', 3)
-            ->where('operationalRoles', [
-                User::ROLE_EVALUATOR,
-                User::ROLE_HR_PERSONNEL,
-                User::ROLE_PMT,
-            ]));
+            ->has('employees')
+            ->missing('operationalAccounts')
+            ->missing('operationalRoles'));
 });
 
 test('hr personnel can create user accounts', function () {
@@ -53,6 +50,27 @@ test('hr personnel can create user accounts', function () {
     ]);
 });
 
+test('hr personnel cannot create evaluator operational accounts', function () {
+    $hr = User::factory()->asHrPersonnel()->create();
+
+    $response = $this->actingAs($hr)
+        ->from(route('admin.employee-directory'))
+        ->post(route('admin.user-management.store'), [
+            'name' => 'Rejected Evaluator',
+            'email' => 'rejected.evaluator@example.com',
+            'role' => User::ROLE_EVALUATOR,
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'is_active' => true,
+        ]);
+
+    $response->assertRedirect(route('admin.employee-directory'));
+    $response->assertSessionHasErrors('role');
+    $this->assertDatabaseMissing('users', [
+        'email' => 'rejected.evaluator@example.com',
+    ]);
+});
+
 test('hr personnel cannot deactivate own account', function () {
     $hr = User::factory()->asHrPersonnel()->create();
 
@@ -65,24 +83,24 @@ test('hr personnel cannot deactivate own account', function () {
     expect($hr->fresh()->is_active)->toBeTrue();
 });
 
-test('system cannot lose its last active hr personnel account', function () {
+test('operational account updates keep the existing role even when a different role is submitted', function () {
     $hr = User::factory()->asHrPersonnel()->create();
+    $pmt = User::factory()->asPmt()->create();
 
-    $response = $this->actingAs($hr)
-        ->from(route('admin.employee-directory'))
-        ->put(route('admin.user-management.update', $hr), [
-            'name' => $hr->name,
-            'email' => $hr->email,
-            'role' => User::ROLE_EMPLOYEE,
+    $this->actingAs($hr)
+        ->put(route('admin.user-management.update', $pmt), [
+            'name' => 'PMT Updated',
+            'email' => $pmt->email,
+            'role' => User::ROLE_HR_PERSONNEL,
             'employee_id' => '',
             'password' => '',
             'password_confirmation' => '',
             'is_active' => true,
-        ]);
+        ])
+        ->assertRedirect();
 
-    $response->assertRedirect(route('admin.employee-directory'));
-    $response->assertSessionHasErrors('role');
-    expect($hr->fresh()->role)->toBe(User::ROLE_HR_PERSONNEL);
+    expect($pmt->fresh()->role)->toBe(User::ROLE_PMT);
+    expect($pmt->fresh()->name)->toBe('PMT Updated');
 });
 
 test('user seeder keeps hr personnel and removes the old admin account', function () {
@@ -96,6 +114,18 @@ test('user seeder keeps hr personnel and removes the old admin account', functio
     $this->assertDatabaseHas('users', [
         'email' => 'grace.tan@shrms.test',
         'role' => User::ROLE_HR_PERSONNEL,
+    ]);
+
+    $this->assertDatabaseHas('users', [
+        'email' => 'mark.reyes@shrms.test',
+        'role' => User::ROLE_PMT,
+        'employee_id' => 'PMT-001',
+    ]);
+
+    $this->assertDatabaseHas('employees', [
+        'employee_id' => 'PMT-001',
+        'name' => 'Mark Reyes',
+        'job_title' => 'Representative',
     ]);
 
     $this->assertDatabaseMissing('users', [

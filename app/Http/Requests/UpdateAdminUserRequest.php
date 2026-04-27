@@ -41,7 +41,6 @@ class UpdateAdminUserRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user)],
-            'role' => ['required', 'string', Rule::in(User::roles())],
             'employee_id' => ['nullable', 'string', 'exists:employees,employee_id', Rule::unique('users', 'employee_id')->ignore($user)],
             'password' => ['nullable', 'confirmed', Password::defaults()],
             'is_active' => ['required', 'boolean'],

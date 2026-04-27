@@ -5,9 +5,35 @@ Reads JSON from stdin, dispatches to predictor, prints JSON result to stdout.
 """
 
 import json
+import math
 import sys
 
+import numpy as np
+
 from predictor import predict
+
+
+def sanitize_for_json(value):
+    if isinstance(value, dict):
+        return {key: sanitize_for_json(item) for key, item in value.items()}
+
+    if isinstance(value, list):
+        return [sanitize_for_json(item) for item in value]
+
+    if isinstance(value, tuple):
+        return [sanitize_for_json(item) for item in value]
+
+    if isinstance(value, np.ndarray):
+        return [sanitize_for_json(item) for item in value.tolist()]
+
+    if isinstance(value, (np.integer,)):
+        return int(value)
+
+    if isinstance(value, (np.floating, float)):
+        numeric_value = float(value)
+        return numeric_value if math.isfinite(numeric_value) else None
+
+    return value
 
 
 def main():
@@ -25,8 +51,8 @@ def main():
             }))
             sys.exit(1)
 
-        result = predict(payload)
-        print(json.dumps(result))
+        result = sanitize_for_json(predict(payload))
+        print(json.dumps(result, allow_nan=False))
 
     except Exception as exc:
         print(json.dumps({

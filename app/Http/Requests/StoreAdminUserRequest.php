@@ -38,7 +38,7 @@ class StoreAdminUserRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
-            'role' => ['required', 'string', Rule::in(User::roles())],
+            'role' => ['required', 'string', Rule::in([User::ROLE_HR_PERSONNEL, User::ROLE_PMT])],
             'employee_id' => ['nullable', 'string', 'exists:employees,employee_id', 'unique:users,employee_id'],
             'password' => ['required', 'confirmed', Password::defaults()],
             'is_active' => ['required', 'boolean'],

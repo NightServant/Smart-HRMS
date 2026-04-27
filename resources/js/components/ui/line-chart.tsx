@@ -43,6 +43,9 @@ type MultiLineDataset = {
   borderColor: string;
   backgroundColor: string;
   borderDash?: number[];
+  pointRadius?: number;
+  pointHoverRadius?: number;
+  borderWidth?: number;
 };
 
 type MultiLineChartProps = {
@@ -128,10 +131,13 @@ export function MultiLineChart({
       borderDash: ds.borderDash,
       cubicInterpolationMode: 'monotone' as const,
       tension: 0.45,
-      pointRadius: 3,
-      pointHoverRadius: 5,
-      borderWidth: 3,
+      pointRadius: ds.pointRadius ?? 4,
+      pointHoverRadius: ds.pointHoverRadius ?? 6,
+      borderWidth: ds.borderWidth ?? 3,
+      pointBorderWidth: 2,
       spanGaps: false,
+      pointBackgroundColor: ds.backgroundColor,
+      pointBorderColor: ds.borderColor,
     })),
   };
 
@@ -140,13 +146,7 @@ export function MultiLineChart({
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        display: true,
-        labels: {
-          color: CHART_TICK_COLOR,
-          font: CHART_TICK_FONT,
-          usePointStyle: true,
-          pointStyle: 'line',
-        },
+        display: false,
       },
       title: { display: false },
       tooltip: CHART_TOOLTIP_CONFIG,

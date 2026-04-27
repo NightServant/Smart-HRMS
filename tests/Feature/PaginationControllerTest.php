@@ -1,10 +1,11 @@
 <?php
 
-use App\Models\BiometricDevice;
-use App\Models\BiometricSyncIssue;
 use App\Models\DailyAttendance;
+use App\Models\Department;
 use App\Models\Employee;
+use App\Models\EmployeePosition;
 use App\Models\HistoricalDataRecord;
+use App\Models\IpcrSubmission;
 use App\Models\LeaveRequest;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -85,32 +86,14 @@ test('attendance management exposes summary counts for hr stat cards', function 
             ->where('stats.mixedCount', 0));
 });
 
-test('attendance management exposes recent biometric sync issues for live monitoring', function () {
+test('attendance management no longer exposes biometric sync exception data', function () {
     $hrUser = User::factory()->asHrPersonnel()->create();
-
-    $device = BiometricDevice::query()->create([
-        'serial_number' => 'TEST001',
-        'name' => 'Main Entrance',
-        'is_active' => true,
-    ]);
-
-    BiometricSyncIssue::query()->create([
-        'biometric_device_id' => $device->id,
-        'pin' => '1001',
-        'punch_time_raw' => '2026-04-20 09:01:15',
-        'issue_type' => 'duplicate_punch',
-        'message' => 'A matching punch already exists and was skipped.',
-        'occurred_at' => now(),
-    ]);
 
     $this->actingAs($hrUser)
         ->get(route('admin.attendance-management'))
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/attendance-management')
-            ->has('syncIssues', 1)
-            ->where('syncIssues.0.device_name', 'Main Entrance')
-            ->where('syncIssues.0.pin', '1001')
-            ->where('syncIssues.0.issue_type', 'duplicate_punch'));
+            ->missing('syncIssues'));
 });
 
 test('evaluator attendance page exposes subordinate manual punch settings', function () {
@@ -150,7 +133,22 @@ test('evaluator attendance page exposes subordinate manual punch settings', func
 });
 
 test('employee directory supports page and per page query parameters', function () {
-    User::factory()->count(6)->create();
+    foreach (range(1, 6) as $number) {
+        $employeeId = 'EMP-PAGE-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT);
+
+        Employee::query()->create([
+            'employee_id' => $employeeId,
+            'name' => "Paged Employee {$number}",
+            'job_title' => 'Administrative Aide',
+            'employment_status' => 'regular',
+        ]);
+
+        User::factory()->create([
+            'name' => "Paged Employee {$number}",
+            'employee_id' => $employeeId,
+        ]);
+    }
+
     $hrUser = User::factory()->asHrPersonnel()->create();
 
     $this->actingAs($hrUser)
@@ -577,4 +575,139 @@ test('historical data exposes semester values and sorts semestral records', func
             ->where('direction', 'asc')
             ->where('historicalData.0.period', 'S1')
             ->where('historicalData.1.period', 'S2'));
+});
+
+test('historical data page syncs attendance and finalized ipcr scores into the existing table', function () {
+    $hrUser = User::factory()->asHrPersonnel()->create();
+    $department = Department::query()->firstOrCreate(['name' => 'Administrative Office']);
+    $position = EmployeePosition::query()->create(['name' => 'Administrative Aide I']);
+    $employee = Employee::query()->create([
+        'employee_id' => 'EMP-501',
+        'name' => 'Synced Employee',
+        'job_title' => 'Administrative Aide I',
+        'department_id' => $department->id,
+        'position_id' => $position->id,
+        'employment_status' => 'regular',
+        'date_hired' => '2024-01-05',
+    ]);
+
+    IpcrSubmission::query()->create([
+        'employee_id' => $employee->employee_id,
+        'status' => 'finalized',
+        'stage' => 'finalized',
+        'form_payload' => [
+            'metadata' => [
+                'period' => 'January to June 2026',
+            ],
+            'sections' => [],
+        ],
+        'finalized_at' => now()->setDate(2026, 6, 30),
+        'final_rating' => 4.25,
+        'adjectival_rating' => 'Very Satisfactory',
+    ]);
+
+    DailyAttendance::query()->create([
+        'employee_id' => $employee->employee_id,
+        'date' => '2026-02-03',
+        'time_in' => '08:00:00',
+        'time_out' => '17:00:00',
+        'status' => 'on_time',
+        'late_minutes' => 0,
+        'source' => 'biometric',
+    ]);
+    DailyAttendance::query()->create([
+        'employee_id' => $employee->employee_id,
+        'date' => '2026-03-04',
+        'time_in' => '08:18:00',
+        'time_out' => '17:00:00',
+        'status' => 'late',
+        'late_minutes' => 18,
+        'source' => 'biometric',
+    ]);
+    DailyAttendance::query()->create([
+        'employee_id' => $employee->employee_id,
+        'date' => '2026-04-05',
+        'time_in' => null,
+        'time_out' => null,
+        'status' => 'absent',
+        'late_minutes' => 0,
+        'source' => 'manual',
+    ]);
+
+    $this->actingAs($hrUser)
+        ->get(route('admin.historical-data'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/historical-data')
+            ->where('historicalData.0.employeeName', 'Synced Employee')
+            ->where('historicalData.0.departmentName', 'Administrative Office')
+            ->where('historicalData.0.period', 'S1')
+            ->where('historicalData.0.attendancePunctualityRate', '33.33%')
+            ->where('historicalData.0.absenteeismDays', 1)
+            ->where('historicalData.0.tardinessIncidents', 1)
+            ->where('historicalData.0.evaluatedPerformanceScore', 4.25));
+
+    $this->assertDatabaseHas('historical_data_records', [
+        'employee_name' => 'Synced Employee',
+        'department_name' => 'Administrative Office',
+        'year' => 2026,
+        'period' => 'S1',
+        'quarter' => 'Q1',
+        'attendance_punctuality_rate' => '33.33%',
+        'absenteeism_days' => 1,
+        'tardiness_incidents' => 1,
+        'evaluated_performance_score' => 4.25,
+    ]);
+});
+
+test('historical data summary combines admin office aliases under administrative office', function () {
+    HistoricalDataRecord::query()->create([
+        'employee_name' => 'Maria Santos',
+        'department_name' => 'Administrative Office',
+        'year' => 2026,
+        'quarter' => 'Q1',
+        'period' => 'S1',
+        'attendance_punctuality_rate' => '98%',
+        'absenteeism_days' => 0,
+        'tardiness_incidents' => 0,
+        'training_completion_status' => 1,
+        'evaluated_performance_score' => 4.50,
+    ]);
+    HistoricalDataRecord::query()->create([
+        'employee_name' => 'Liza Castillo',
+        'department_name' => 'Admin Office',
+        'year' => 2026,
+        'quarter' => 'Q1',
+        'period' => 'S1',
+        'attendance_punctuality_rate' => '96%',
+        'absenteeism_days' => 0,
+        'tardiness_incidents' => 1,
+        'training_completion_status' => 1,
+        'evaluated_performance_score' => 3.50,
+    ]);
+    HistoricalDataRecord::query()->create([
+        'employee_name' => 'Mark Bautista',
+        'department_name' => 'Admin Office',
+        'year' => 2026,
+        'quarter' => 'Q1',
+        'period' => 'S1',
+        'attendance_punctuality_rate' => '89%',
+        'absenteeism_days' => 1,
+        'tardiness_incidents' => 1,
+        'training_completion_status' => 1,
+        'evaluated_performance_score' => 3.00,
+    ]);
+
+    $hrUser = User::factory()->asHrPersonnel()->create();
+
+    $this->actingAs($hrUser)
+        ->get(route('admin.historical-data'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('admin/historical-data')
+            ->where('departmentSummary.Administrative Office.total_employees', 3)
+            ->where('departmentSummary.Administrative Office.avg_score', 3.67)
+            ->where('departmentSummary.Administrative Office.top.0.name', 'Maria Santos')
+            ->where('departmentSummary.Administrative Office.top.0.score', 4.5)
+            ->where('departmentSummary.Administrative Office.at_risk.0.name', 'Mark Bautista')
+            ->where('departmentSummary.Administrative Office.at_risk.0.score', 3)
+            ->missing('departmentSummary.Admin Office'));
 });
