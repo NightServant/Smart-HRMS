@@ -247,7 +247,22 @@
       "Bash(/usr/bin/curl -sL \"https://zlink.minervaiot.com/static/js/main.d789f43e.chunk.js\" --max-time 15)",
       "Bash(/usr/bin/curl -sL -X POST https://zlink-open.minervaiot.com/open-apis/authen/v1/tenantToken/internal -H 'Content-Type: application/json' -H 'Accept-Language: en-US' -d '{\"appKey\":\"bogus\",\"appSecret\":\"bogus\"}' --max-time 8)",
       "Bash(/usr/bin/curl -sL -X POST https://zlink-open.minervaiot.com/open-apis/authen/v1/tenantToken/internal -H 'Content-Type: application/json' -H 'Accept-Language: en-US' -d '{\"appKey\":\"5bbnGhSltKLECfNg\",\"appSecret\":\"WRONGSECRET\"}' --max-time 8)",
-      "Bash(/usr/bin/curl -sL -X POST https://zlink-open.minervaiot.com/open-apis/authen/v1/tenantToken/internal -H 'Content-Type: application/json' -H 'Accept-Language: en-US' -d '{\"appKey\":\"5bbnGhSltKLECfNg\",\"appSecret\":\"LfqAgZt3v6j3LrBXYThT7H44HTCQUHeC\"}' --max-time 8)"
+      "Bash(/usr/bin/curl -sL -X POST https://zlink-open.minervaiot.com/open-apis/authen/v1/tenantToken/internal -H 'Content-Type: application/json' -H 'Accept-Language: en-US' -d '{\"appKey\":\"5bbnGhSltKLECfNg\",\"appSecret\":\"LfqAgZt3v6j3LrBXYThT7H44HTCQUHeC\"}' --max-time 8)",
+      "Bash(php -l /Users/gabe/Herd/Smart-HRMS/app/Services/Biometric/ZlinkClient.php /Users/gabe/Herd/Smart-HRMS/app/Services/Biometric/WebhookCrypto.php /Users/gabe/Herd/Smart-HRMS/app/Services/Biometric/EnrollmentService.php /Users/gabe/Herd/Smart-HRMS/app/Services/Biometric/EnrollmentResult.php /Users/gabe/Herd/Smart-HRMS/app/Http/Controllers/Api/BiometricController.php /Users/gabe/Herd/Smart-HRMS/app/Http/Controllers/Api/BiometricWebhookController.php /Users/gabe/Herd/Smart-HRMS/app/Http/Controllers/BiometricEnrollmentController.php /Users/gabe/Herd/Smart-HRMS/app/Http/Requests/Biometric/EnrollEmployeeRequest.php /Users/gabe/Herd/Smart-HRMS/app/Http/Requests/Biometric/SelfEnrollRequest.php /Users/gabe/Herd/Smart-HRMS/app/Providers/AppServiceProvider.php /Users/gabe/Herd/Smart-HRMS/bootstrap/app.php /Users/gabe/Herd/Smart-HRMS/routes/web.php /Users/gabe/Herd/Smart-HRMS/routes/api.php)",
+      "Bash(php /Users/gabe/Herd/Smart-HRMS/artisan tinker '--execute= *)",
+      "Bash(python3 -c \"import sys,json,re,html; d=json.loads\\(sys.stdin.read\\(\\)\\); c=d['data']['i18nContent']; c=re.sub\\(r'<[^>]+>',' ',c\\); c=html.unescape\\(re.sub\\(r'\\\\s+',' ',c\\)\\); print\\(d['data']['i18nName']\\); print\\('---'\\); print\\(c[:3000]\\)\")",
+      "Bash(python3 -c \"import sys,json,re,html; d=json.loads\\(sys.stdin.read\\(\\)\\); c=d['data']['i18nContent']; c=re.sub\\(r'<[^>]+>',' ',c\\); c=html.unescape\\(re.sub\\(r'\\\\s+',' ',c\\)\\); print\\(d['data']['i18nName']\\); print\\('---'\\); print\\(c[:2500]\\)\")",
+      "Bash(/usr/bin/curl -s --max-time 8 https://api.ipify.org)",
+      "Bash(/usr/bin/curl -s --max-time 8 https://ifconfig.me)",
+      "Bash(php /Users/gabe/Herd/Smart-HRMS/artisan tinker --execute=\"echo config\\('services.zlink.default_department_id'\\).PHP_EOL;\")",
+      "Bash(ps -eo pid,etime,command)",
+      "Bash(/usr/bin/curl -s --max-time 4 http://127.0.0.1:4040/)",
+      "Bash(/usr/bin/curl -s --max-time 4 http://127.0.0.1:4042/api/tunnels)",
+      "Bash(/usr/bin/curl -s -o /dev/null -w 'HTTP %{http_code} %{size_download} bytes\\\\n' --max-time 8 -H 'Host: smart-hrms.test' https://tw5ml5qrhd.sharedwithexpose.com/up)",
+      "Bash(pkill -f \"expose share\")",
+      "Bash(ps -eo pid,command)",
+      "Bash(/usr/bin/curl -s --max-time 2 http://127.0.0.1:4040/)",
+      "Bash(/usr/bin/curl -s --max-time 2 http://127.0.0.1:4042/)"
     ]
   }
 }

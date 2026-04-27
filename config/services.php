@@ -35,15 +35,16 @@ return [
         ],
     ],
 
-    'zkbiotime' => [
-        'url' => env('ZKBIOTIME_URL'),
-        'username' => env('ZKBIOTIME_USERNAME'),
-        'password' => env('ZKBIOTIME_PASSWORD'),
-        'auth_mode' => env('ZKBIOTIME_AUTH_MODE', 'jwt'),
-        'token_ttl_minutes' => (int) env('ZKBIOTIME_TOKEN_TTL_MINUTES', 50),
-        'request_timeout' => (int) env('ZKBIOTIME_REQUEST_TIMEOUT', 10),
-        'page_size' => (int) env('ZKBIOTIME_PAGE_SIZE', 200),
-        'default_terminal_sn' => env('ZKBIOTIME_DEFAULT_TERMINAL_SN'),
+    'zlink' => [
+        'url' => env('ZLINK_URL', 'https://zlink-open.minervaiot.com'),
+        'app_key' => env('ZLINK_APP_KEY'),
+        'app_secret' => env('ZLINK_APP_SECRET'),
+        'signature_token' => env('ZLINK_SIGNATURE_TOKEN'),
+        'encryption_key' => env('ZLINK_ENCRYPTION_KEY'),
+        'token_ttl_minutes' => (int) env('ZLINK_TOKEN_TTL_MINUTES', 50),
+        'request_timeout' => (int) env('ZLINK_REQUEST_TIMEOUT', 10),
+        'page_size' => (int) env('ZLINK_PAGE_SIZE', 200),
+        'default_department_id' => env('ZLINK_DEFAULT_DEPARTMENT_ID'),
     ],
 
 ];

@@ -5,11 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Biometric\EnrollEmployeeRequest;
 use App\Http\Requests\Biometric\SelfEnrollRequest;
-use App\Http\Requests\Biometric\SyncRequest;
 use App\Models\AttendanceRecord;
 use App\Models\DailyAttendance;
 use App\Models\Employee;
-use App\Services\Biometric\BiometricSyncService;
 use App\Services\Biometric\EnrollmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,19 +16,8 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 class BiometricController extends Controller
 {
     public function __construct(
-        private readonly BiometricSyncService $syncService,
         private readonly EnrollmentService $enrollmentService,
     ) {}
-
-    public function sync(SyncRequest $request): JsonResponse
-    {
-        $result = $this->syncService->sync(
-            $request->input('device'),
-            $request->input('since'),
-        );
-
-        return response()->json($result->toArray());
-    }
 
     public function attendance(Request $request, Employee $employee): JsonResponse
     {
@@ -61,7 +48,11 @@ class BiometricController extends Controller
     {
         $employee = Employee::query()->findOrFail($request->string('employee_id')->toString());
 
-        $result = $this->enrollmentService->enroll($employee, $request->string('terminal_sn')->toString());
+        $departmentId = $request->filled('department_id')
+            ? $request->string('department_id')->toString()
+            : null;
+
+        $result = $this->enrollmentService->enroll($employee, $departmentId);
 
         return response()->json($result->toArray());
     }
@@ -70,7 +61,7 @@ class BiometricController extends Controller
     {
         $employee = Employee::query()->findOrFail($request->user()->employee_id);
 
-        $result = $this->enrollmentService->enroll($employee, $request->string('terminal_sn')->toString());
+        $result = $this->enrollmentService->enroll($employee);
 
         return response()->json($result->toArray());
     }
@@ -86,10 +77,10 @@ class BiometricController extends Controller
         return response()->json($this->enrollmentService->verificationStatus($employee));
     }
 
-    public function terminals(): JsonResponse
+    public function departments(): JsonResponse
     {
         return response()->json([
-            'terminals' => $this->enrollmentService->terminals(),
+            'departments' => $this->enrollmentService->departments(),
         ]);
     }
 

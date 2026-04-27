@@ -11,24 +11,11 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
-type Terminal = {
-    sn: string;
-    alias: string | null;
-};
-
 type EnrollmentStatus = {
-    enrolled_in_zkbio: boolean;
+    enrolled_in_zlink: boolean;
     finger_captured: boolean;
     device_user_id: string | null;
 };
@@ -36,8 +23,8 @@ type EnrollmentStatus = {
 type EnrollmentResultPayload = {
     employee_id: string;
     device_user_id: string;
-    terminal_sn: string;
-    terminal_name: string | null;
+    department_id: string;
+    department_name: string | null;
     status: 'pushed' | 'already_enrolled';
     instructions: string;
 };
@@ -52,19 +39,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 export default function BiometricEnrollment({
     employee,
     enrollmentStatus,
-    terminals,
-    terminalsError,
-    defaultTerminalSn,
 }: {
     employee: { employee_id: string; name: string };
     enrollmentStatus: EnrollmentStatus;
-    terminals: Terminal[];
-    terminalsError: string | null;
-    defaultTerminalSn: string | null;
 }) {
-    const [selectedTerminal, setSelectedTerminal] = useState<string>(
-        defaultTerminalSn ?? terminals[0]?.sn ?? '',
-    );
     const [submitting, setSubmitting] = useState(false);
     const [checking, setChecking] = useState(false);
     const [pushedResult, setPushedResult] =
@@ -76,7 +54,7 @@ export default function BiometricEnrollment({
             return 3;
         }
 
-        if (status.enrolled_in_zkbio || pushedResult) {
+        if (status.enrolled_in_zlink || pushedResult) {
             return 2;
         }
 
@@ -84,12 +62,6 @@ export default function BiometricEnrollment({
     }, [status, pushedResult]);
 
     const handleEnroll = async (): Promise<void> => {
-        if (!selectedTerminal) {
-            toast.error('Please choose a terminal first.');
-
-            return;
-        }
-
         setSubmitting(true);
 
         try {
@@ -101,16 +73,13 @@ export default function BiometricEnrollment({
                     Accept: 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
                 },
-                body: JSON.stringify({ terminal_sn: selectedTerminal }),
+                body: JSON.stringify({}),
             });
 
             if (!response.ok) {
-                const message =
-                    response.status === 422
-                        ? 'Selected terminal is invalid.'
-                        : 'Could not register with ZKBio Time. Try again.';
-
-                toast.error(message);
+                toast.error(
+                    'Could not register with Zlink. Try again, or ask HR to assist.',
+                );
 
                 return;
             }
@@ -119,13 +88,13 @@ export default function BiometricEnrollment({
             setPushedResult(payload);
             setStatus((prev) => ({
                 ...prev,
-                enrolled_in_zkbio: true,
+                enrolled_in_zlink: true,
                 device_user_id: payload.device_user_id,
             }));
             toast.success(
                 payload.status === 'already_enrolled'
                     ? 'You are already registered. Continue to step 2.'
-                    : 'Registered with ZKBio Time. Visit the device next.',
+                    : 'Registered with Zlink. Visit the device next.',
             );
         } catch {
             toast.error('Network error. Try again.');
@@ -194,53 +163,20 @@ export default function BiometricEnrollment({
                                 Step 1 — Register
                             </CardTitle>
                             <CardDescription>
-                                Pick the terminal you&apos;ll use and push your
-                                profile to ZKBio Time.
+                                Push your profile to ZKBio Zlink so the
+                                terminals recognize you.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="flex flex-col gap-3">
-                            {terminalsError && (
-                                <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-300">
-                                    {terminalsError}
-                                </div>
-                            )}
-
-                            <div className="flex flex-col gap-2">
-                                <Label htmlFor="terminal_sn">Terminal</Label>
-                                <Select
-                                    value={selectedTerminal}
-                                    onValueChange={setSelectedTerminal}
-                                    disabled={
-                                        terminals.length === 0 || step !== 1
-                                    }
-                                >
-                                    <SelectTrigger id="terminal_sn">
-                                        <SelectValue placeholder="Choose a terminal" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {terminals.map((terminal) => (
-                                            <SelectItem
-                                                key={terminal.sn}
-                                                value={terminal.sn}
-                                            >
-                                                {terminal.alias ?? terminal.sn}{' '}
-                                                <span className="text-muted-foreground">
-                                                    ({terminal.sn})
-                                                </span>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                One click registers you with our tenant. After
+                                this you&apos;ll head to the biometric device.
+                            </p>
 
                             <Button
                                 type="button"
                                 className="w-full gap-2"
-                                disabled={
-                                    submitting ||
-                                    step !== 1 ||
-                                    !selectedTerminal
-                                }
+                                disabled={submitting || step !== 1}
                                 onClick={handleEnroll}
                             >
                                 {submitting ? (
@@ -268,7 +204,7 @@ export default function BiometricEnrollment({
                                 Step 2 — Visit the Device
                             </CardTitle>
                             <CardDescription>
-                                Scan your finger on the biometric terminal.
+                                Scan your finger on any biometric terminal.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="flex flex-col gap-3 text-sm">
@@ -292,7 +228,7 @@ export default function BiometricEnrollment({
                                     </div>
                                     <p className="text-xs text-muted-foreground">
                                         {pushedResult?.instructions ??
-                                            'Visit the terminal and follow the on-screen prompts to register your fingerprint.'}
+                                            'Visit any biometric terminal connected to your tenant and follow the on-screen prompts to enroll your fingerprint.'}
                                     </p>
                                     <Button
                                         type="button"

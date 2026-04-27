@@ -17,8 +17,6 @@ class SelfEnrollRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
-            'terminal_sn' => ['required', 'string', 'max:50'],
-        ];
+        return [];
     }
 }

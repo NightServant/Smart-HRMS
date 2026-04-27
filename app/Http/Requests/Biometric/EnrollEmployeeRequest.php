@@ -19,7 +19,7 @@ class EnrollEmployeeRequest extends FormRequest
     {
         return [
             'employee_id' => ['required', 'string', Rule::exists('employees', 'employee_id')],
-            'terminal_sn' => ['required', 'string', 'max:50'],
+            'department_id' => ['nullable', 'string', 'max:50'],
         ];
     }
 }

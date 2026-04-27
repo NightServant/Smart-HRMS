@@ -5,56 +5,56 @@ namespace App\Services\Biometric;
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use Illuminate\Support\Facades\Cache;
+use RuntimeException;
 
 class EnrollmentService
 {
-    private const TERMINALS_CACHE_KEY = 'zkbiotime:terminals';
+    private const DEPARTMENTS_CACHE_KEY = 'zlink:departments';
 
-    private const TERMINALS_CACHE_TTL_MINUTES = 10;
+    private const DEPARTMENTS_CACHE_TTL_MINUTES = 10;
 
     public function __construct(
-        private readonly ZkBioTimeClient $client,
+        private readonly ZlinkClient $client,
     ) {}
 
-    public function enroll(Employee $employee, string $terminalSn): EnrollmentResult
+    public function enroll(Employee $employee, ?string $departmentId = null): EnrollmentResult
     {
-        $terminalName = $this->terminalNameFor($terminalSn);
+        $departmentId = $this->resolveDepartmentId($departmentId);
+        $departmentName = $this->departmentNameFor($departmentId);
 
         if ($employee->zkteco_pin) {
             return new EnrollmentResult(
                 employeeId: (string) $employee->employee_id,
                 deviceUserId: (string) $employee->zkteco_pin,
-                terminalSn: $terminalSn,
-                terminalName: $terminalName,
+                departmentId: $departmentId,
+                departmentName: $departmentName,
                 status: 'already_enrolled',
-                instructions: $this->instructionsFor((string) $employee->zkteco_pin, $terminalName, $terminalSn),
+                instructions: $this->instructionsFor((string) $employee->zkteco_pin),
             );
         }
 
         $deviceUserId = $this->pickDeviceUserId($employee);
 
         $this->client->createEmployee([
-            'emp_code' => $deviceUserId,
-            'first_name' => $this->firstName($employee),
-            'last_name' => $this->lastName($employee),
+            'departmentId' => $departmentId,
+            'firstName' => $this->firstName($employee),
+            'employeeCode' => $deviceUserId,
         ]);
-
-        $this->client->assignEmployeeToTerminal($deviceUserId, $terminalSn);
 
         $employee->forceFill(['zkteco_pin' => $deviceUserId])->save();
 
         return new EnrollmentResult(
             employeeId: (string) $employee->employee_id,
             deviceUserId: $deviceUserId,
-            terminalSn: $terminalSn,
-            terminalName: $terminalName,
+            departmentId: $departmentId,
+            departmentName: $departmentName,
             status: 'pushed',
-            instructions: $this->instructionsFor($deviceUserId, $terminalName, $terminalSn),
+            instructions: $this->instructionsFor($deviceUserId),
         );
     }
 
     /**
-     * @return array{enrolled_in_zkbio: bool, finger_captured: bool, device_user_id: ?string}
+     * @return array{enrolled_in_zlink: bool, finger_captured: bool, device_user_id: ?string}
      */
     public function verificationStatus(Employee $employee): array
     {
@@ -66,39 +66,66 @@ class EnrollmentService
             ->exists();
 
         return [
-            'enrolled_in_zkbio' => $enrolled,
+            'enrolled_in_zlink' => $enrolled,
             'finger_captured' => $fingerCaptured,
             'device_user_id' => $enrolled ? (string) $employee->zkteco_pin : null,
         ];
     }
 
     /**
-     * @return array<int, array{sn: string, alias: ?string}>
+     * @return array<int, array{id: string, name: ?string}>
      */
-    public function terminals(): array
+    public function departments(): array
     {
         return Cache::remember(
-            self::TERMINALS_CACHE_KEY,
-            now()->addMinutes(self::TERMINALS_CACHE_TTL_MINUTES),
+            self::DEPARTMENTS_CACHE_KEY,
+            now()->addMinutes(self::DEPARTMENTS_CACHE_TTL_MINUTES),
             function (): array {
-                $terminals = $this->client->listTerminals();
+                $rows = $this->client->listDepartments();
 
                 return array_values(array_map(
                     fn (array $row): array => [
-                        'sn' => (string) ($row['sn'] ?? $row['serial_number'] ?? ''),
-                        'alias' => isset($row['alias']) ? (string) $row['alias'] : null,
+                        'id' => (string) ($row['id'] ?? $row['departmentId'] ?? ''),
+                        'name' => isset($row['name']) ? (string) $row['name'] : null,
                     ],
-                    $terminals,
+                    $rows,
                 ));
             },
         );
     }
 
-    private function terminalNameFor(string $sn): ?string
+    private function resolveDepartmentId(?string $departmentId): string
     {
-        foreach ($this->terminals() as $terminal) {
-            if ($terminal['sn'] === $sn) {
-                return $terminal['alias'];
+        if ($departmentId !== null && $departmentId !== '') {
+            return $departmentId;
+        }
+
+        $configured = (string) config('services.zlink.default_department_id', '');
+
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        $departments = $this->departments();
+
+        if ($departments === []) {
+            throw new RuntimeException('No departments available in Zlink. Create one first or set ZLINK_DEFAULT_DEPARTMENT_ID.');
+        }
+
+        $first = (string) ($departments[0]['id'] ?? '');
+
+        if ($first === '') {
+            throw new RuntimeException('First department from Zlink had no id.');
+        }
+
+        return $first;
+    }
+
+    private function departmentNameFor(string $id): ?string
+    {
+        foreach ($this->departments() as $dept) {
+            if ($dept['id'] === $id) {
+                return $dept['name'];
             }
         }
 
@@ -107,7 +134,11 @@ class EnrollmentService
 
     private function pickDeviceUserId(Employee $employee): string
     {
-        $candidate = (string) $employee->employee_id;
+        $candidate = strtoupper(preg_replace('/[^A-Z0-9]/i', '', (string) $employee->employee_id) ?? '');
+
+        if ($candidate === '') {
+            $candidate = 'EMP'.strtoupper(substr(md5((string) $employee->employee_id), 0, 8));
+        }
 
         if (! Employee::query()->where('zkteco_pin', $candidate)->exists()) {
             return $candidate;
@@ -115,37 +146,27 @@ class EnrollmentService
 
         $suffix = 1;
 
-        while (Employee::query()->where('zkteco_pin', $candidate.'-'.$suffix)->exists()) {
+        while (Employee::query()->where('zkteco_pin', $candidate.$suffix)->exists()) {
             $suffix++;
         }
 
-        return $candidate.'-'.$suffix;
+        return $candidate.$suffix;
     }
 
     private function firstName(Employee $employee): string
     {
-        $parts = preg_split('/\s+/', trim((string) $employee->name));
+        $name = trim((string) $employee->name);
 
-        return $parts[0] ?? (string) $employee->employee_id;
-    }
-
-    private function lastName(Employee $employee): string
-    {
-        $parts = preg_split('/\s+/', trim((string) $employee->name));
-
-        if ($parts === false || count($parts) <= 1) {
-            return '';
+        if ($name === '') {
+            return (string) $employee->employee_id;
         }
 
-        return (string) end($parts);
+        // Zlink limits firstName to 32 chars.
+        return mb_substr($name, 0, 32);
     }
 
-    private function instructionsFor(string $deviceUserId, ?string $terminalName, string $terminalSn): string
+    private function instructionsFor(string $deviceUserId): string
     {
-        $location = $terminalName !== null && $terminalName !== ''
-            ? "{$terminalName} (SN {$terminalSn})"
-            : "terminal {$terminalSn}";
-
-        return "Visit {$location}, log in as user ID {$deviceUserId}, and follow the on-device prompts to enroll your fingerprint.";
+        return "Visit any biometric terminal connected to your tenant, log in as user ID {$deviceUserId}, and follow the on-device prompts to enroll your fingerprint.";
     }
 }

@@ -7,8 +7,8 @@ class EnrollmentResult
     public function __construct(
         public string $employeeId,
         public string $deviceUserId,
-        public string $terminalSn,
-        public ?string $terminalName,
+        public string $departmentId,
+        public ?string $departmentName,
         public string $status,
         public string $instructions,
     ) {}
@@ -21,8 +21,8 @@ class EnrollmentResult
         return [
             'employee_id' => $this->employeeId,
             'device_user_id' => $this->deviceUserId,
-            'terminal_sn' => $this->terminalSn,
-            'terminal_name' => $this->terminalName,
+            'department_id' => $this->departmentId,
+            'department_name' => $this->departmentName,
             'status' => $this->status,
             'instructions' => $this->instructions,
         ];

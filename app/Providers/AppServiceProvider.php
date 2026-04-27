@@ -7,7 +7,8 @@ use App\Http\Responses\RedirectAsIntended;
 use App\Http\Responses\RegisterResponse;
 use App\Models\IpcrSubmission;
 use App\Models\LeaveRequest;
-use App\Services\Biometric\ZkBioTimeClient;
+use App\Services\Biometric\WebhookCrypto;
+use App\Services\Biometric\ZlinkClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Date;
@@ -30,7 +31,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(RegisterResponseContract::class, RegisterResponse::class);
         $this->app->bind(FortifyRedirectAsIntended::class, RedirectAsIntended::class);
 
-        $this->app->singleton(ZkBioTimeClient::class, fn (): ZkBioTimeClient => ZkBioTimeClient::fromConfig());
+        $this->app->singleton(ZlinkClient::class, fn (): ZlinkClient => ZlinkClient::fromConfig());
+        $this->app->singleton(WebhookCrypto::class, fn (): WebhookCrypto => WebhookCrypto::fromConfig());
     }
 
     /**

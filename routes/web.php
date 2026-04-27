@@ -72,7 +72,7 @@ Route::post('ipcr/target', [IwrController::class, 'saveIpcrTarget'])
     ->name('ipcr.target.save');
 
 Route::get('attendance', [AttendanceRecordController::class, 'index'])
-    ->middleware(['auth', 'role:employee', 'biometric.sync'])
+    ->middleware(['auth', 'role:employee'])
     ->name('attendance');
 Route::post('attendance/punch', [AttendanceRecordController::class, 'punch'])
     ->middleware(['auth', 'role:employee'])
@@ -137,7 +137,7 @@ Route::delete('admin/historical-data/clear-imported', [Import_CSV_Controller::cl
     ->name('admin.historical-data.clear-imported');
 
 Route::get('admin/attendance-management', [PaginationController::class, 'attendanceManagement'])
-    ->middleware(['auth', 'role:hr-personnel', 'biometric.sync'])
+    ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.attendance-management');
 
 Route::get('admin/evaluator-attendance', [PaginationController::class, 'evaluatorAttendanceManagement'])
