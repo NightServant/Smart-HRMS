@@ -8,15 +8,49 @@ use App\Notifications\EmployeeAccountCredentialsNotification;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('employee directory only returns users with employee role', function () {
+test('employee directory returns linked employee records in ascending employee id order', function () {
+    $department = Department::query()->firstOrCreate(['name' => 'Administrative Office']);
+    $position = EmployeePosition::query()->create(['name' => 'Administrative Aide']);
+
+    Employee::query()->create([
+        'employee_id' => 'EMP-002',
+        'name' => 'Employee One',
+        'job_title' => 'Administrative Aide',
+        'department_id' => $department->id,
+        'position_id' => $position->id,
+        'employment_status' => 'regular',
+        'date_hired' => '2024-05-20',
+    ]);
+    Employee::query()->create([
+        'employee_id' => 'EMP-003',
+        'name' => 'Employee Two',
+        'job_title' => 'Administrative Aide',
+        'department_id' => $department->id,
+        'position_id' => $position->id,
+        'employment_status' => 'regular',
+        'date_hired' => '2024-05-21',
+    ]);
+    Employee::query()->create([
+        'employee_id' => 'EMP-001',
+        'name' => 'John Reyes',
+        'job_title' => 'Department Head',
+        'department_id' => $department->id,
+        'position_id' => $position->id,
+        'employment_status' => 'regular',
+        'date_hired' => '2024-05-19',
+    ]);
+
     User::factory()->create([
         'name' => 'Employee One',
+        'employee_id' => 'EMP-002',
     ]);
     User::factory()->create([
         'name' => 'Employee Two',
+        'employee_id' => 'EMP-003',
     ]);
     User::factory()->asEvaluator()->create([
-        'name' => 'Evaluator User',
+        'name' => 'John Reyes',
+        'employee_id' => 'EMP-001',
     ]);
     User::factory()->asPmt()->create([
         'name' => 'PMT User',
@@ -28,36 +62,65 @@ test('employee directory only returns users with employee role', function () {
         ->get(route('admin.employee-directory'))
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/employee-directory')
-            ->has('employees', 2)
-            ->where('employees.0.role', User::ROLE_EMPLOYEE)
+            ->has('employees', 3)
+            ->where('employees.0.employee_id', 'EMP-001')
+            ->where('employees.0.role', User::ROLE_EVALUATOR)
+            ->where('employees.0.predictive_evaluation_enabled', false)
+            ->where('employees.1.employee_id', 'EMP-002')
             ->where('employees.1.role', User::ROLE_EMPLOYEE)
-            ->has('operationalAccounts', 3)
+            ->where('employees.2.employee_id', 'EMP-003')
+            ->has('operationalAccounts', 2)
             ->where('operationalAccounts', fn ($accounts): bool => collect($accounts)
                 ->pluck('role')
                 ->sort()
                 ->values()
                 ->all() === [
-                    User::ROLE_EVALUATOR,
                     User::ROLE_HR_PERSONNEL,
                     User::ROLE_PMT,
                 ]));
 });
 
-test('evaluator employee directory stays employee only', function () {
+test('evaluator employee directory stays linked employee only', function () {
+    $department = Department::query()->firstOrCreate(['name' => 'Administrative Office']);
+    $position = EmployeePosition::query()->create(['name' => 'Administrative Aide']);
+
+    Employee::query()->create([
+        'employee_id' => 'EMP-001',
+        'name' => 'John Reyes',
+        'job_title' => 'Department Head',
+        'department_id' => $department->id,
+        'position_id' => $position->id,
+        'employment_status' => 'regular',
+        'date_hired' => '2024-05-19',
+    ]);
+    Employee::query()->create([
+        'employee_id' => 'EMP-002',
+        'name' => 'Employee One',
+        'job_title' => 'Administrative Aide',
+        'department_id' => $department->id,
+        'position_id' => $position->id,
+        'employment_status' => 'regular',
+        'date_hired' => '2024-05-20',
+    ]);
+
     User::factory()->create([
         'name' => 'Employee One',
+        'employee_id' => 'EMP-002',
     ]);
     User::factory()->asPmt()->create([
         'name' => 'PMT User',
     ]);
-
-    $evaluator = User::factory()->asEvaluator()->create();
+    $evaluator = User::factory()->asEvaluator()->create([
+        'name' => 'John Reyes',
+        'employee_id' => 'EMP-001',
+    ]);
 
     $this->actingAs($evaluator)
         ->get(route('admin.employee-directory'))
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/employee-directory')
-            ->has('employees', 1)
+            ->has('employees', 2)
+            ->where('employees.0.employee_id', 'EMP-001')
             ->missing('operationalAccounts')
             ->missing('operationalRoles')
             ->missing('accountRoles'));
@@ -171,6 +234,8 @@ test('updating an employee recreates a missing linked account', function () {
             'position_id' => $position->id,
             'employment_status' => 'regular',
             'date_hired' => '2026-04-10',
+            'role' => User::ROLE_EMPLOYEE,
+            'is_active' => true,
             'zkteco_pin' => '',
         ])
         ->assertRedirect()
@@ -191,6 +256,52 @@ test('updating an employee recreates a missing linked account', function () {
         $user,
         EmployeeAccountCredentialsNotification::class,
     );
+});
+
+test('updating an employee can also update linked account role and status', function () {
+    $hrUser = User::factory()->asHrPersonnel()->create();
+    $department = Department::query()->firstOrCreate(['name' => 'Administrative Office']);
+    $position = EmployeePosition::query()->create([
+        'name' => 'Administrative Aide',
+    ]);
+
+    $employee = Employee::query()->create([
+        'employee_id' => 'EMP-210',
+        'name' => 'John Linked',
+        'job_title' => 'Administrative Aide',
+        'department_id' => $department->id,
+        'position_id' => $position->id,
+        'employment_status' => 'regular',
+        'date_hired' => '2026-04-10',
+    ]);
+
+    $user = User::factory()->create([
+        'name' => 'John Linked',
+        'email' => 'john.linked@example.com',
+        'employee_id' => 'EMP-210',
+        'role' => User::ROLE_EMPLOYEE,
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($hrUser)
+        ->put(route('admin.employee-directory.update', $employee), [
+            'name' => 'John Linked',
+            'email' => 'john.reyes@example.com',
+            'department_mode' => 'existing',
+            'department_id' => $department->id,
+            'department_name' => '',
+            'position_id' => $position->id,
+            'employment_status' => 'regular',
+            'date_hired' => '2026-04-10',
+            'role' => User::ROLE_EVALUATOR,
+            'is_active' => false,
+            'zkteco_pin' => '',
+        ])
+        ->assertRedirect();
+
+    expect($user->fresh()->role)->toBe(User::ROLE_EVALUATOR);
+    expect($user->fresh()->is_active)->toBeFalse();
+    expect($user->fresh()->email)->toBe('john.reyes@example.com');
 });
 
 test('document management only returns users with employee role', function () {

@@ -3,7 +3,6 @@ import {
     ArrowDown,
     ArrowUp,
     ArrowUpDown,
-    Pencil,
     Plus,
     Search,
     Trash2,
@@ -73,11 +72,9 @@ type Employee = {
     notification?: string | null;
     account_is_active: boolean;
     account_two_factor_enabled: boolean;
+    predictive_evaluation_enabled: boolean;
     account_created_at?: string | null;
     account_links: {
-        update: string;
-        activate: string;
-        deactivate: string;
         password_reset: string;
     };
 };
@@ -116,17 +113,9 @@ type StoreForm = {
 };
 
 type UpdateForm = StoreForm & {
-    zkteco_pin: string;
-};
-
-type ManageAccountForm = {
-    name: string;
-    email: string;
     role: string;
-    employee_id: string;
-    password: string;
-    password_confirmation: string;
     is_active: boolean;
+    zkteco_pin: string;
 };
 
 function formatStatus(status: string): string {
@@ -495,18 +484,20 @@ function AddEmployeeDialog({
     );
 }
 
-function EditEmployeeDialog({
+function ManageEmployeeDialog({
     employee,
     open,
     onOpenChange,
     departments,
     positions,
+    accountRoles,
 }: {
     employee: Employee | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
     departments: Option[];
     positions: Option[];
+    accountRoles: string[];
 }) {
     const { data, setData, put, processing, errors, reset } =
         useForm<UpdateForm>({
@@ -518,6 +509,8 @@ function EditEmployeeDialog({
             position_id: '',
             employment_status: 'regular',
             date_hired: '',
+            role: 'employee',
+            is_active: true,
             zkteco_pin: '',
         });
 
@@ -537,6 +530,8 @@ function EditEmployeeDialog({
             position_id: employee.position_id ? String(employee.position_id) : '',
             employment_status: employee.employment_status,
             date_hired: employee.date_hired,
+            role: employee.role,
+            is_active: employee.account_is_active,
             zkteco_pin: employee.zkteco_pin ?? '',
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -570,47 +565,112 @@ function EditEmployeeDialog({
         );
     };
 
+    const sendPasswordReset = (): void => {
+        if (!employee) {
+            return;
+        }
+
+        router.post(
+            employee.account_links.password_reset,
+            {},
+            {
+                preserveScroll: true,
+            },
+        );
+    };
+
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-lg">
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>Edit Employee</DialogTitle>
+                    <DialogTitle>Manage Employee</DialogTitle>
                     <DialogDescription>
-                        Update information for {employee?.name ?? 'employee'}.
+                        Update employee information and the linked account for{' '}
+                        {employee?.name ?? 'employee'} in one place.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid gap-4">
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="edit-name">Full Name</Label>
-                            <Input
-                                id="edit-name"
-                                value={data.name}
-                                onChange={(event) =>
-                                    setData('name', event.target.value)
-                                }
-                            />
-                            {errors.name && (
-                                <p className="text-xs text-destructive">
-                                    {errors.name}
-                                </p>
-                            )}
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="edit-name">Full Name</Label>
+                                <Input
+                                    id="edit-name"
+                                    value={data.name}
+                                    onChange={(event) =>
+                                        setData('name', event.target.value)
+                                    }
+                                />
+                                {errors.name && (
+                                    <p className="text-xs text-destructive">
+                                        {errors.name}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="edit-email">
+                                    Linked Account Email
+                                </Label>
+                                <Input
+                                    id="edit-email"
+                                    type="email"
+                                    value={data.email}
+                                    onChange={(event) =>
+                                        setData('email', event.target.value)
+                                    }
+                                />
+                                {errors.email && (
+                                    <p className="text-xs text-destructive">
+                                        {errors.email}
+                                    </p>
+                                )}
+                            </div>
                         </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="edit-email">Email Address</Label>
-                            <Input
-                                id="edit-email"
-                                type="email"
-                                value={data.email}
-                                onChange={(event) =>
-                                    setData('email', event.target.value)
-                                }
-                            />
-                            {errors.email && (
-                                <p className="text-xs text-destructive">
-                                    {errors.email}
-                                </p>
-                            )}
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="edit-employee-id">
+                                    Employee ID
+                                </Label>
+                                <Input
+                                    id="edit-employee-id"
+                                    value={employee?.employee_id ?? ''}
+                                    readOnly
+                                    className="bg-muted/35"
+                                />
+                            </div>
+                            <div className="grid gap-1.5">
+                                <Label htmlFor="account-role">
+                                    Linked Account Role
+                                </Label>
+                                <Select
+                                    value={data.role}
+                                    onValueChange={(value) =>
+                                        setData('role', value)
+                                    }
+                                >
+                                    <SelectTrigger id="account-role">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            {accountRoles.map((role) => (
+                                                <SelectItem
+                                                    key={role}
+                                                    value={role}
+                                                >
+                                                    {formatRoleLabel(role)}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
+                                {errors.role && (
+                                    <p className="text-xs text-destructive">
+                                        {errors.role}
+                                    </p>
+                                )}
+                            </div>
                         </div>
 
                         <DepartmentFields
@@ -700,211 +760,39 @@ function EditEmployeeDialog({
                                 </p>
                             )}
                         </div>
-                    </div>
-                    <DialogFooter>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => onOpenChange(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={processing}>
-                            {processing ? 'Saving...' : 'Save Changes'}
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
-}
 
-function ManageEmployeeAccountDialog({
-    employee,
-    open,
-    onOpenChange,
-    accountRoles,
-}: {
-    employee: Employee | null;
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    accountRoles: string[];
-}) {
-    const { data, setData, put, processing, errors, reset } =
-        useForm<ManageAccountForm>({
-            name: '',
-            email: '',
-            role: 'employee',
-            employee_id: '',
-            password: '',
-            password_confirmation: '',
-            is_active: true,
-        });
-
-    useEffect(() => {
-        if (!open || employee === null) {
-            return;
-        }
-
-        setData({
-            name: employee.name,
-            email: employee.email,
-            role: employee.role,
-            employee_id: employee.employee_id,
-            password: '',
-            password_confirmation: '',
-            is_active: employee.account_is_active,
-        });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, employee?.user_id]);
-
-    const handleOpenChange = (nextOpen: boolean): void => {
-        if (!nextOpen) {
-            reset();
-        }
-
-        onOpenChange(nextOpen);
-    };
-
-    const handleSubmit = (event: FormEvent): void => {
-        event.preventDefault();
-
-        if (!employee) {
-            return;
-        }
-
-        put(employee.account_links.update, {
-            preserveScroll: true,
-            onSuccess: () => {
-                onOpenChange(false);
-            },
-        });
-    };
-
-    const sendPasswordReset = (): void => {
-        if (!employee) {
-            return;
-        }
-
-        router.post(
-            employee.account_links.password_reset,
-            {},
-            {
-                preserveScroll: true,
-            },
-        );
-    };
-
-    return (
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Manage Linked Account</DialogTitle>
-                    <DialogDescription>
-                        Update account access for {employee?.name ?? 'employee'}
-                        . If the role changes away from employee, the account
-                        will move to Operational Accounts after saving.
-                    </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="account-name">Name</Label>
-                            <Input
-                                id="account-name"
-                                value={data.name}
-                                readOnly
-                                className="bg-muted/35"
-                            />
+                        <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/25 p-4 text-sm text-muted-foreground">
+                            <p>
+                                Two-factor authentication:{' '}
+                                <span className="font-semibold text-foreground">
+                                    {employee?.account_two_factor_enabled
+                                        ? 'Enabled'
+                                        : 'Disabled'}
+                                </span>
+                            </p>
+                            <p>
+                                Account created:{' '}
+                                <span className="font-semibold text-foreground">
+                                    {employee?.account_created_at ?? '-'}
+                                </span>
+                            </p>
                         </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="account-employee-id">
-                                Employee ID
-                            </Label>
-                            <Input
-                                id="account-employee-id"
-                                value={data.employee_id}
-                                readOnly
-                                className="bg-muted/35"
-                            />
-                        </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="account-email">Email Address</Label>
-                            <Input
-                                id="account-email"
-                                type="email"
-                                value={data.email}
-                                onChange={(event) =>
-                                    setData('email', event.target.value)
+
+                        <div className="flex items-center gap-3">
+                            <Checkbox
+                                checked={data.is_active}
+                                onCheckedChange={(checked) =>
+                                    setData('is_active', checked === true)
                                 }
                             />
-                            {errors.email && (
-                                <p className="text-xs text-destructive">
-                                    {errors.email}
-                                </p>
-                            )}
+                            <Label>Linked account is active</Label>
                         </div>
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="account-role">Account Role</Label>
-                            <Select
-                                value={data.role}
-                                onValueChange={(value) =>
-                                    setData('role', value)
-                                }
-                            >
-                                <SelectTrigger id="account-role">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectGroup>
-                                        {accountRoles.map((role) => (
-                                            <SelectItem key={role} value={role}>
-                                                {formatRoleLabel(role)}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectGroup>
-                                </SelectContent>
-                            </Select>
-                            {errors.role && (
-                                <p className="text-xs text-destructive">
-                                    {errors.role}
-                                </p>
-                            )}
-                        </div>
+                        {errors.is_active && (
+                            <p className="text-xs text-destructive">
+                                {errors.is_active}
+                            </p>
+                        )}
                     </div>
-
-                    <div className="grid gap-2 rounded-lg border border-border/60 bg-muted/25 p-4 text-sm text-muted-foreground">
-                        <p>
-                            Two-factor authentication:{' '}
-                            <span className="font-semibold text-foreground">
-                                {employee?.account_two_factor_enabled
-                                    ? 'Enabled'
-                                    : 'Disabled'}
-                            </span>
-                        </p>
-                        <p>
-                            Account created:{' '}
-                            <span className="font-semibold text-foreground">
-                                {employee?.account_created_at ?? '-'}
-                            </span>
-                        </p>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        <Checkbox
-                            checked={data.is_active}
-                            onCheckedChange={(checked) =>
-                                setData('is_active', checked === true)
-                            }
-                        />
-                        <Label>Account is active</Label>
-                    </div>
-                    {errors.is_active && (
-                        <p className="text-xs text-destructive">
-                            {errors.is_active}
-                        </p>
-                    )}
-
                     <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
                         <Button
                             type="button"
@@ -922,7 +810,7 @@ function ManageEmployeeAccountDialog({
                                 Cancel
                             </Button>
                             <Button type="submit" disabled={processing}>
-                                {processing ? 'Saving...' : 'Save Account'}
+                                {processing ? 'Saving...' : 'Save Changes'}
                             </Button>
                         </div>
                     </DialogFooter>
@@ -1034,7 +922,6 @@ export function EmployeesTable({
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [isManageAccountOpen, setIsManageAccountOpen] = useState(false);
     const [crudEmployee, setCrudEmployee] = useState<Employee | null>(null);
 
     const canManageEmployees = auth.user.role === 'hr-personnel';
@@ -1158,13 +1045,12 @@ export function EmployeesTable({
     };
 
     const openPredictiveModal = (employee: Employee): void => {
+        if (!employee.predictive_evaluation_enabled) {
+            return;
+        }
+
         setSelectedEmployee(employee);
         setIsPredictiveModalOpen(true);
-    };
-
-    const openEditDialog = (employee: Employee): void => {
-        setCrudEmployee(employee);
-        setIsEditOpen(true);
     };
 
     const openDeleteDialog = (employee: Employee): void => {
@@ -1172,12 +1058,12 @@ export function EmployeesTable({
         setIsDeleteOpen(true);
     };
 
-    const openManageAccountDialog = (employee: Employee): void => {
+    const openManageDialog = (employee: Employee): void => {
         setCrudEmployee(employee);
-        setIsManageAccountOpen(true);
+        setIsEditOpen(true);
     };
 
-    const colSpan = canManageEmployees ? 10 : 8;
+    const colSpan = canManageEmployees ? 9 : 8;
 
     return (
         <>
@@ -1373,12 +1259,22 @@ export function EmployeesTable({
                                 <TableCell className="text-right">
                                     <Button
                                         type="button"
+                                        disabled={
+                                            !employee.predictive_evaluation_enabled
+                                        }
                                         onClick={() =>
                                             openPredictiveModal(employee)
                                         }
-                                        className="mx-auto my-auto w-1/2 rounded-md bg-secondary px-4 py-2 font-bold text-foreground shadow-md transition-opacity hover:opacity-90 hover:shadow-lg"
+                                        className="mx-auto my-auto w-1/2 rounded-md bg-secondary px-4 py-2 font-bold text-foreground shadow-md transition-opacity hover:opacity-90 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+                                        title={
+                                            employee.predictive_evaluation_enabled
+                                                ? 'Open Predictive Performance Evaluation'
+                                                : 'Predictive Performance Evaluation is unavailable for this employee'
+                                        }
                                     >
-                                        Click here
+                                        {employee.predictive_evaluation_enabled
+                                            ? 'Click here'
+                                            : 'Unavailable'}
                                     </Button>
                                 </TableCell>
                                 {canManageEmployees && (
@@ -1390,28 +1286,14 @@ export function EmployeesTable({
                                                 size="sm"
                                                 className="h-8 gap-1.5 px-2"
                                                 onClick={() =>
-                                                    openManageAccountDialog(
-                                                        employee,
-                                                    )
+                                                    openManageDialog(employee)
                                                 }
-                                                title="Manage account"
+                                                title="Manage employee"
                                             >
                                                 <UserCog className="size-4" />
                                                 <span className="hidden sm:inline">
-                                                    Account
+                                                    Manage
                                                 </span>
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="size-8 p-0 hover:text-primary"
-                                                onClick={() =>
-                                                    openEditDialog(employee)
-                                                }
-                                                title="Edit employee"
-                                            >
-                                                <Pencil className="size-4" />
                                             </Button>
                                             <Button
                                                 type="button"
@@ -1506,7 +1388,7 @@ export function EmployeesTable({
                 departments={departments}
                 positions={positions}
             />
-            <EditEmployeeDialog
+            <ManageEmployeeDialog
                 employee={crudEmployee}
                 open={isEditOpen}
                 onOpenChange={(open) => {
@@ -1517,16 +1399,6 @@ export function EmployeesTable({
                 }}
                 departments={departments}
                 positions={positions}
-            />
-            <ManageEmployeeAccountDialog
-                employee={crudEmployee}
-                open={isManageAccountOpen}
-                onOpenChange={(open) => {
-                    setIsManageAccountOpen(open);
-                    if (!open) {
-                        setCrudEmployee(null);
-                    }
-                }}
                 accountRoles={accountRoles}
             />
             <DeleteEmployeeDialog

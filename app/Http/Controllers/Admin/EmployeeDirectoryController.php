@@ -15,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class EmployeeDirectoryController extends Controller
 {
@@ -94,6 +95,9 @@ class EmployeeDirectoryController extends Controller
         DB::transaction(function () use ($validated, $employee, $request, &$createdLinkedAccount, &$temporaryPassword): void {
             $department = $this->resolveDepartment($validated);
             $position = EmployeePosition::query()->findOrFail($validated['position_id']);
+            $newRole = $validated['role'];
+            $isActive = (bool) $validated['is_active'];
+            $linkedUser = $employee->user;
 
             $employee->update([
                 'name' => $validated['name'],
@@ -105,10 +109,19 @@ class EmployeeDirectoryController extends Controller
                 'zkteco_pin' => $validated['zkteco_pin'] ?? null,
             ]);
 
-            if ($employee->user !== null) {
-                $employee->user->update([
+            if ($linkedUser !== null) {
+                $this->guardHrPersonnelState(
+                    actor: $request->user(),
+                    subject: $linkedUser,
+                    newRole: $newRole,
+                    newIsActive: $isActive,
+                );
+
+                $linkedUser->update([
                     'name' => $validated['name'],
                     'email' => $validated['email'],
+                    'role' => $newRole,
+                    'is_active' => $isActive,
                 ]);
             } else {
                 $temporaryPassword = Str::random(12);
@@ -117,10 +130,10 @@ class EmployeeDirectoryController extends Controller
                     'name' => $validated['name'],
                     'email' => $validated['email'],
                     'employee_id' => $employee->employee_id,
-                    'role' => User::ROLE_EMPLOYEE,
+                    'role' => $newRole,
                     'password' => Hash::make($temporaryPassword),
                     'email_verified_at' => now(),
-                    'is_active' => true,
+                    'is_active' => $isActive,
                     'must_change_password' => true,
                 ]);
 
@@ -156,6 +169,37 @@ class EmployeeDirectoryController extends Controller
         }
 
         return back()->with('success', 'Employee updated successfully.');
+    }
+
+    private function guardHrPersonnelState(User $actor, User $subject, string $newRole, bool $newIsActive): void
+    {
+        if ($actor->is($subject) && ! $newIsActive) {
+            throw ValidationException::withMessages([
+                'is_active' => 'You cannot deactivate your own HR personnel account.',
+            ]);
+        }
+
+        if ($subject->role !== User::ROLE_HR_PERSONNEL || (! $subject->is_active && $newRole === User::ROLE_HR_PERSONNEL)) {
+            return;
+        }
+
+        $remainsActiveHrPersonnel = $newRole === User::ROLE_HR_PERSONNEL && $newIsActive;
+
+        if ($remainsActiveHrPersonnel) {
+            return;
+        }
+
+        $otherActiveHrPersonnel = User::query()
+            ->where('role', User::ROLE_HR_PERSONNEL)
+            ->where('is_active', true)
+            ->whereKeyNot($subject->getKey())
+            ->count();
+
+        if ($otherActiveHrPersonnel === 0) {
+            throw ValidationException::withMessages([
+                'role' => 'At least one active HR personnel account must remain in the system.',
+            ]);
+        }
     }
 
     /**

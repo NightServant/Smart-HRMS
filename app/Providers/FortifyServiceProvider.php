@@ -107,7 +107,6 @@ class FortifyServiceProvider extends ServiceProvider
             return Inertia::render('auth/login', [
                 'canResetPassword' => Features::enabled(Features::resetPasswords()),
                 'canRegister' => Features::enabled(Features::registration()),
-                'passwordChangeRecommendation' => 'If HR gave you a temporary password, sign in with it first and you will be asked to retype the old password, enter a new password, and confirm the new password.',
                 'status' => $request->session()->get('status'),
                 'publicKey' => $publicPem,
             ]);

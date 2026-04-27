@@ -464,14 +464,13 @@ class PaginationController extends Controller
             'position' => 'employees.job_title',
             'department' => 'departments.name',
         ];
-        ['sort' => $sort, 'direction' => $direction] = $this->resolveSort($request, $allowedSorts, 'name');
+        ['sort' => $sort, 'direction' => $direction] = $this->resolveSort($request, $allowedSorts, 'employee_id');
 
         $employees = User::query()
             ->select('users.*')
             ->with(['employee.department', 'employee.position', 'employee.latestSubmission'])
-            ->leftJoin('employees', 'users.employee_id', '=', 'employees.employee_id')
+            ->join('employees', 'users.employee_id', '=', 'employees.employee_id')
             ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
-            ->where('role', User::ROLE_EMPLOYEE)
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
                     $subQuery
@@ -512,11 +511,13 @@ class PaginationController extends Controller
                 'account_two_factor_enabled' => $user->two_factor_confirmed_at !== null,
                 'account_created_at' => $user->created_at?->format('Y-m-d H:i:s'),
                 'account_links' => [
-                    'update' => route('admin.user-management.update', $user),
-                    'activate' => route('admin.user-management.activate', $user),
-                    'deactivate' => route('admin.user-management.deactivate', $user),
                     'password_reset' => route('admin.user-management.password-reset', $user),
                 ],
+                'predictive_evaluation_enabled' => ! in_array(
+                    $user->employee_id ?? '',
+                    FlatFatController::EXCLUDED_EMPLOYEE_IDS,
+                    true,
+                ),
                 'performance_rating' => $user->employee?->latestSubmission?->performance_rating,
                 'remarks' => $user->employee?->latestSubmission?->rejection_reason,
                 'notification' => $user->employee?->latestSubmission?->notification,
@@ -592,6 +593,7 @@ class PaginationController extends Controller
 
             $operationalAccounts = User::query()
                 ->with('employee')
+                ->whereNull('employee_id')
                 ->where('role', '!=', User::ROLE_EMPLOYEE)
                 ->when($accountSearch !== '', function ($query) use ($accountSearch): void {
                     $query->where(function ($subQuery) use ($accountSearch): void {

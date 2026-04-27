@@ -124,9 +124,18 @@ test('evaluator, hr, and pmt entry surfaces render expected components', functio
 
 test('auth, settings, and maintenance support screens render expected components', function () {
     $user = User::factory()->create();
+    $firstLoginEmployee = User::factory()->create([
+        'role' => User::ROLE_EMPLOYEE,
+        'must_change_password' => true,
+    ]);
 
     $this->get(route('login'))
         ->assertOk();
+
+    $this->actingAs($firstLoginEmployee)
+        ->get(route('first-login-password-prompt'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('auth/first-login-password-prompt'));
 
     $this->actingAs($user)
         ->get(route('profile.edit'))

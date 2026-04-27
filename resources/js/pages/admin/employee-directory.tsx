@@ -25,11 +25,9 @@ type Employee = {
     notification?: string | null;
     account_is_active: boolean;
     account_two_factor_enabled: boolean;
+    predictive_evaluation_enabled: boolean;
     account_created_at?: string | null;
     account_links: {
-        update: string;
-        activate: string;
-        deactivate: string;
         password_reset: string;
     };
 };

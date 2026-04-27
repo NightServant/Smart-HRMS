@@ -8,6 +8,7 @@ use App\Http\Controllers\BiometricEnrollmentController;
 use App\Http\Controllers\BiometricSimulatorController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Export_CSV_Controller;
+use App\Http\Controllers\FirstLoginPasswordPromptController;
 use App\Http\Controllers\FlatFatController;
 use App\Http\Controllers\Import_CSV_Controller;
 use App\Http\Controllers\IwrController;
@@ -44,6 +45,9 @@ Route::get('/maintenance', function () {
 Route::get('dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'role:employee'])
     ->name('dashboard');
+Route::get('first-login-password-prompt', [FirstLoginPasswordPromptController::class, 'show'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('first-login-password-prompt');
 
 Route::get('leave-application', [LeaveRequestController::class, 'create'])
     ->middleware(['auth', 'role:employee'])

@@ -9,8 +9,7 @@ test('login screen can be rendered', function () {
     $this->get(route('login'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('auth/login')
-            ->where('passwordChangeRecommendation', 'If HR gave you a temporary password, sign in with it first and you will be asked to retype the old password, enter a new password, and confirm the new password.'));
+            ->component('auth/login'));
 });
 
 test('users can authenticate using the login screen', function () {
@@ -25,7 +24,7 @@ test('users can authenticate using the login screen', function () {
     $response->assertRedirect(route('dashboard', absolute: false));
 });
 
-test('employees with a temporary password are redirected to password settings after login', function () {
+test('employees with a temporary password are redirected to the first-login prompt after login', function () {
     $user = User::factory()->create([
         'role' => User::ROLE_EMPLOYEE,
         'must_change_password' => true,
@@ -37,7 +36,37 @@ test('employees with a temporary password are redirected to password settings af
     ]);
 
     $this->assertAuthenticated();
-    $response->assertRedirect(route('user-password.edit', absolute: false));
+    $response->assertRedirect(route('first-login-password-prompt', absolute: false));
+});
+
+test('employees with a temporary password still see the first-login prompt even with an intended destination', function () {
+    $user = User::factory()->create([
+        'role' => User::ROLE_EMPLOYEE,
+        'must_change_password' => true,
+    ]);
+
+    $this->get(route('dashboard'));
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('first-login-password-prompt', absolute: false));
+});
+
+test('employees can choose not now from the first-login prompt and still keep the password-change flag', function () {
+    $user = User::factory()->create([
+        'role' => User::ROLE_EMPLOYEE,
+        'must_change_password' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk();
+
+    expect($user->fresh()->must_change_password)->toBeTrue();
 });
 
 test('hr personnel are redirected to hr dashboard after login', function () {

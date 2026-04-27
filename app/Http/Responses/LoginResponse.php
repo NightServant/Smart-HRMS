@@ -20,6 +20,10 @@ class LoginResponse implements LoginResponseContract
             return redirect()->intended(config('fortify.home'));
         }
 
+        if ($user->hasRole(User::ROLE_EMPLOYEE) && $user->must_change_password) {
+            return redirect()->route('first-login-password-prompt');
+        }
+
         return redirect()->intended(route($user->homeRouteName(), absolute: false));
     }
 }

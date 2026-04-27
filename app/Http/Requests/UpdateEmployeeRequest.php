@@ -52,6 +52,8 @@ class UpdateEmployeeRequest extends FormRequest
             'position_id' => ['required', 'integer', 'exists:employee_positions,id'],
             'employment_status' => ['required', 'string', Rule::in(['regular', 'casual', 'job_order'])],
             'date_hired' => ['required', 'date'],
+            'role' => ['required', 'string', Rule::in(User::roles())],
+            'is_active' => ['required', 'boolean'],
             'zkteco_pin' => [
                 'nullable',
                 'string',
@@ -67,6 +69,7 @@ class UpdateEmployeeRequest extends FormRequest
             'department_id.required_if' => 'Please select a department.',
             'department_name.required_if' => 'Please enter a department name.',
             'employment_status.in' => 'Employment status must be Regular, Casual, or Job Order.',
+            'role.in' => 'Please select a valid linked account role.',
         ];
     }
 }

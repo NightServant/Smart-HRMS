@@ -92,7 +92,7 @@ class User extends Authenticatable
     public function homeRouteName(): string
     {
         if ($this->role === self::ROLE_EMPLOYEE && $this->must_change_password) {
-            return 'user-password.edit';
+            return 'first-login-password-prompt';
         }
 
         if ($this->role === self::ROLE_HR_PERSONNEL) {

@@ -18,7 +18,7 @@ class FlatFatController extends Controller
     /**
      * @var list<string>
      */
-    private const EXCLUDED_EMPLOYEE_IDS = ['EMP-001'];
+    public const EXCLUDED_EMPLOYEE_IDS = ['EMP-001'];
 
     public function __construct(private FlatFatService $flatFatService) {}
 
