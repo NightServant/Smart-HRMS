@@ -140,7 +140,7 @@ test('employee directory supports page and per page query parameters', function 
             'employee_id' => $employeeId,
             'name' => "Paged Employee {$number}",
             'job_title' => 'Administrative Aide',
-            'employment_status' => 'regular',
+            'employment_status' => 'permanent',
         ]);
 
         User::factory()->create([
@@ -424,7 +424,7 @@ test('hr personnel can update employee employment status from the directory', fu
         'employee_id' => 'EMP-010',
         'name' => 'Sample Employee',
         'job_title' => 'Administrative Aide',
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
     ]);
 
     User::factory()->create([
@@ -459,7 +459,7 @@ test('evaluators cannot update employee employment status from the directory', f
         'employee_id' => 'EMP-011',
         'name' => 'Restricted Employee',
         'job_title' => 'Administrative Aide',
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
     ]);
 
     $evaluator = User::factory()->asEvaluator()->create();
@@ -587,7 +587,7 @@ test('historical data page syncs attendance and finalized ipcr scores into the e
         'job_title' => 'Administrative Aide I',
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
         'date_hired' => '2024-01-05',
     ]);
 

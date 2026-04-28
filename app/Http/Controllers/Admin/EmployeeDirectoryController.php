@@ -33,7 +33,7 @@ class EmployeeDirectoryController extends Controller
             $employeeId = Employee::nextEmployeeId(lockForUpdate: true);
             $department = $this->resolveDepartment($validated);
             $position = EmployeePosition::query()->findOrFail($validated['position_id']);
-            $linkedRole = $position->linkedAccountRole();
+            $linkedRole = $position->linkedAccountRole($department->name);
 
             $employee = Employee::query()->create([
                 'employee_id' => $employeeId,
@@ -96,7 +96,7 @@ class EmployeeDirectoryController extends Controller
         DB::transaction(function () use ($validated, $employee, $request, &$createdLinkedAccount, &$temporaryPassword): void {
             $department = $this->resolveDepartment($validated);
             $position = EmployeePosition::query()->findOrFail($validated['position_id']);
-            $newRole = $position->linkedAccountRole();
+            $newRole = $position->linkedAccountRole($department->name);
             $isActive = (bool) $validated['is_active'];
             $linkedUser = $employee->user;
 

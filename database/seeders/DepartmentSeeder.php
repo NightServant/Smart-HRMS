@@ -16,7 +16,7 @@ class DepartmentSeeder extends Seeder
         ]);
 
         \App\Models\Department::query()->firstOrCreate([
-            'name' => 'Performance Management Team',
+            'name' => 'Human Resource Management Office',
         ]);
     }
 }

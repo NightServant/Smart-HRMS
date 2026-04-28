@@ -10,7 +10,6 @@ import {
     Grid,
     PieChart,
     Send,
-    ShieldPlus,
     Target,
     Users,
 } from 'lucide-react';
@@ -69,11 +68,6 @@ const employeeNavItems: NavItem[] = [
         title: 'Attendance',
         href: attendance(),
         icon: Fingerprint,
-    },
-    {
-        title: 'Biometric Enrollment',
-        href: '/biometric-enrollment',
-        icon: ShieldPlus,
     },
     {
         title: 'Notifications',

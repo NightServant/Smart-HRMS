@@ -86,7 +86,7 @@ test('prediction endpoint prefers live IPCR and attendance data over duplicate c
         'job_title' => 'Administrative Aide I',
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
         'date_hired' => '2024-01-10',
     ]);
 

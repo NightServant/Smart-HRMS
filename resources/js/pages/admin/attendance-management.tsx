@@ -8,6 +8,10 @@ import {
     HelpCircle,
 } from 'lucide-react';
 import { Doughnut } from 'react-chartjs-2';
+import {
+    AttendancePolicyCard,
+    type AttendancePolicy,
+} from '@/components/attendance-policy-card';
 import { AttendanceTable } from '@/components/attendance-table';
 import AppLayout from '@/layouts/app-layout';
 import * as admin from '@/routes/admin';
@@ -127,11 +131,13 @@ export default function AttendanceManagement({
     search,
     pagination,
     stats,
+    attendancePolicy,
 }: {
     attendances: DailyAttendanceRow[];
     search: string;
     pagination: PaginationMeta;
     stats: Stats;
+    attendancePolicy: AttendancePolicy;
 }) {
     const sourceData = {
         labels: ['Biometric', 'Manual', 'Import', 'Mixed'],
@@ -178,6 +184,7 @@ export default function AttendanceManagement({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Attendance Management" />
             <div className="app-page-shell app-page-stack lg:items-stretch">
+                <AttendancePolicyCard policy={attendancePolicy} />
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-stretch">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <StatCard

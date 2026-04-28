@@ -8,6 +8,7 @@ use App\Models\BiometricDevice;
 use App\Models\DailyAttendance;
 use App\Models\Employee;
 use App\Services\Biometric\AttendanceAggregator;
+use App\Services\Biometric\EnrollmentService;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -19,6 +20,7 @@ class AttendanceRecordController extends Controller
 {
     public function __construct(
         private readonly AttendanceAggregator $aggregator,
+        private readonly EnrollmentService $enrollmentService,
     ) {}
 
     public function index(Request $request): Response
@@ -56,12 +58,22 @@ class AttendanceRecordController extends Controller
 
         $employee = Employee::find($employeeId);
 
+        $enrollmentStatus = $employee !== null
+            ? $this->enrollmentService->verificationStatus($employee)
+            : [
+                'enrolled_in_zlink' => false,
+                'finger_captured' => false,
+                'device_user_id' => null,
+            ];
+
         return Inertia::render('attendance', [
             'records' => $records,
             'rawPunches' => $rawPunches,
             'employeeId' => $employeeId ?? '',
+            'employeeName' => $employee?->name ?? $request->user()->name,
             'hasDevice' => $hasDevice,
             'enrolledInBiometric' => ! empty($employee?->zkteco_pin),
+            'enrollmentStatus' => $enrollmentStatus,
             'manualPunchEnabled' => (bool) ($employee?->manual_punch_enabled ?? false),
         ]);
     }

@@ -48,11 +48,13 @@ type PaginationMeta = {
 type Stats = {
     total: number;
     casual: number;
-    regular: number;
+    permanent: number;
     job_order: number;
 };
 
-type EmployeeSortKey = 'employee_id' | 'name' | 'email' | 'department' | 'position';
+type EmployeeSortKey = 'employee_id' | 'name' | 'email' | 'position';
+
+type DepartmentPositionRoleMap = Record<string, Record<string, string>>;
 
 type PageProps = {
     flash: {
@@ -123,7 +125,10 @@ export default function EmployeeDirectory({
     positions,
     statusFilter,
     positionFilter,
+    departmentFilter,
+    canFilterByDepartment,
     positionRoleMap,
+    departmentPositionRoleMap,
     defaultEmployeeRole,
 }: {
     employees: Employee[];
@@ -137,7 +142,10 @@ export default function EmployeeDirectory({
     positions: Option[];
     statusFilter: string;
     positionFilter: string;
+    departmentFilter?: string;
+    canFilterByDepartment?: boolean;
     positionRoleMap?: Record<string, string>;
+    departmentPositionRoleMap?: DepartmentPositionRoleMap;
     defaultEmployeeRole?: string;
 }) {
     const { flash } = usePage<PageProps>().props;
@@ -156,8 +164,8 @@ export default function EmployeeDirectory({
                         color="primary"
                     />
                     <StatCard
-                        title="Regular"
-                        value={stats.regular}
+                        title="Permanent"
+                        value={stats.permanent}
                         icon={Shield}
                         color="green"
                     />
@@ -231,7 +239,10 @@ export default function EmployeeDirectory({
                     positions={positions}
                     statusFilter={statusFilter}
                     positionFilter={positionFilter}
+                    departmentFilter={departmentFilter ?? ''}
+                    canFilterByDepartment={canFilterByDepartment ?? false}
                     positionRoleMap={positionRoleMap ?? {}}
+                    departmentPositionRoleMap={departmentPositionRoleMap ?? {}}
                     defaultEmployeeRole={defaultEmployeeRole ?? 'employee'}
                 />
             </div>

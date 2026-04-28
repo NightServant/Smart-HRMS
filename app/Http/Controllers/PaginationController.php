@@ -201,6 +201,11 @@ class PaginationController extends Controller
                 'importCount' => $importCount,
                 'mixedCount' => $mixedCount,
             ],
+            'attendancePolicy' => [
+                'office_hours_start' => (string) SystemSetting::get('office_hours_start', '08:00'),
+                'office_hours_end' => (string) SystemSetting::get('office_hours_end', '17:00'),
+                'late_threshold_minutes' => (int) SystemSetting::get('late_threshold_minutes', 15),
+            ],
         ]);
     }
 
@@ -448,16 +453,17 @@ class PaginationController extends Controller
     public function employeeDirectory(Request $request): Response
     {
         $isHrPersonnel = $request->user()?->hasRole(User::ROLE_HR_PERSONNEL) ?? false;
+        $evaluatorDepartmentId = $isHrPersonnel ? null : $request->user()?->employee?->department_id;
         $search = trim((string) $request->string('search'));
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
         $statusFilter = trim((string) $request->string('statusFilter'));
         $positionFilter = trim((string) $request->string('positionFilter'));
+        $departmentFilter = trim((string) $request->string('departmentFilter'));
         $allowedSorts = [
             'employee_id' => 'users.employee_id',
             'name' => 'users.name',
             'email' => 'users.email',
             'position' => 'employees.job_title',
-            'department' => 'departments.name',
         ];
         ['sort' => $sort, 'direction' => $direction] = $this->resolveSort($request, $allowedSorts, 'employee_id');
 
@@ -469,6 +475,14 @@ class PaginationController extends Controller
             ->when(
                 ! $isHrPersonnel,
                 fn ($query) => $query->where('users.role', User::ROLE_EMPLOYEE),
+            )
+            ->when(
+                ! $isHrPersonnel && $evaluatorDepartmentId !== null,
+                fn ($query) => $query->where('employees.department_id', $evaluatorDepartmentId),
+            )
+            ->when(
+                $isHrPersonnel && $departmentFilter !== '',
+                fn ($query) => $query->where('departments.name', $departmentFilter),
             )
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
@@ -503,7 +517,7 @@ class PaginationController extends Controller
                 'department' => $user->employee?->department?->name ?? '',
                 'position_id' => $user->employee?->position_id,
                 'position' => $user->employee?->position?->name ?? $user->employee?->job_title ?? 'Employee',
-                'employment_status' => $user->employee?->employment_status ?? 'regular',
+                'employment_status' => $user->employee?->employment_status ?? 'permanent',
                 'date_hired' => $user->employee?->date_hired?->format('Y-m-d') ?? '',
                 'zkteco_pin' => $user->employee?->zkteco_pin,
                 'account_is_active' => (bool) $user->is_active,
@@ -523,7 +537,11 @@ class PaginationController extends Controller
                 'notification' => $user->employee?->latestSubmission?->notification,
             ]);
 
-        $allEmployees = Employee::query();
+        $allEmployees = Employee::query()
+            ->when(
+                ! $isHrPersonnel && $evaluatorDepartmentId !== null,
+                fn ($query) => $query->where('department_id', $evaluatorDepartmentId),
+            );
         $positions = EmployeePosition::query()
             ->orderBy('name')
             ->get(['id', 'name'])
@@ -548,11 +566,23 @@ class PaginationController extends Controller
             ])
             ->values()
             ->all();
+        $departmentPositionRoleMap = collect($departments)
+            ->mapWithKeys(fn (array $department): array => [
+                (string) $department['id'] => collect($positions)
+                    ->mapWithKeys(fn (array $position): array => [
+                        (string) $position['id'] => EmployeePosition::linkedAccountRoleFor(
+                            $department['name'],
+                            $position['name'],
+                        ),
+                    ])
+                    ->all(),
+            ])
+            ->all();
 
         $stats = [
             'total' => (clone $allEmployees)->count(),
             'casual' => (clone $allEmployees)->where('employment_status', 'casual')->count(),
-            'regular' => (clone $allEmployees)->where('employment_status', 'regular')->count(),
+            'permanent' => (clone $allEmployees)->where('employment_status', 'permanent')->count(),
             'job_order' => (clone $allEmployees)->where('employment_status', 'job_order')->count(),
         ];
         $payload = [
@@ -561,6 +591,8 @@ class PaginationController extends Controller
             'direction' => $direction,
             'statusFilter' => $statusFilter,
             'positionFilter' => $positionFilter,
+            'departmentFilter' => $departmentFilter,
+            'canFilterByDepartment' => $isHrPersonnel,
             'employees' => $employees->items(),
             'pagination' => [
                 'currentPage' => $employees->currentPage(),
@@ -573,6 +605,7 @@ class PaginationController extends Controller
             'departments' => $departments,
             'positions' => $positions,
             'positionRoleMap' => $positionRoleMap,
+            'departmentPositionRoleMap' => $departmentPositionRoleMap,
             'defaultEmployeeRole' => User::ROLE_EMPLOYEE,
         ];
 

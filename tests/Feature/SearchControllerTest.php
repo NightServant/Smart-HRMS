@@ -70,7 +70,7 @@ test('document management search returns employee users only', function () {
         'employee_id' => 'EMP-002',
         'name' => 'Carol Employee',
         'job_title' => 'Administrative Aide',
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
     ]);
     User::factory()->create([
         'name' => 'Carol Employee',

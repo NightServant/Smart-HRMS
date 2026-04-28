@@ -24,14 +24,14 @@ class UpdateEmployeeEmploymentStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'employment_status' => ['required', 'string', Rule::in(['regular', 'casual', 'job_order'])],
+            'employment_status' => ['required', 'string', Rule::in(['permanent', 'casual', 'job_order'])],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'employment_status.in' => 'Employment status must be Regular, Casual, or Job Order.',
+            'employment_status.in' => 'Employment status must be Permanent, Casual, or Job Order.',
         ];
     }
 }

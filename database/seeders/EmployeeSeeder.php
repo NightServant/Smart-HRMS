@@ -12,8 +12,8 @@ class EmployeeSeeder extends Seeder
         $departmentId = DB::table('departments')
             ->where('name', 'Administrative Office')
             ->value('id');
-        $pmtDepartmentId = DB::table('departments')
-            ->where('name', 'Performance Management Team')
+        $hrmoDepartmentId = DB::table('departments')
+            ->where('name', 'Human Resource Management Office')
             ->value('id');
 
         $positionIds = DB::table('employee_positions')
@@ -41,7 +41,8 @@ class EmployeeSeeder extends Seeder
             ['employee_id' => 'EMP-019', 'name' => 'Maricel Dela Rosa', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2024-01-07'],
             ['employee_id' => 'EMP-020', 'name' => 'Benedict Mercado', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2020-06-01'],
             ['employee_id' => 'EMP-021', 'name' => 'Theresa Evangelista', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2024-04-15'],
-            ['employee_id' => 'PMT-001', 'name' => 'Mark Reyes', 'job_title' => 'Representative', 'position_id' => $positionIds['Representative'] ?? null, 'department_id' => $pmtDepartmentId, 'supervisor_id' => null, 'date_hired' => '2024-06-01'],
+            ['employee_id' => 'HR-001', 'name' => 'Grace Tan', 'job_title' => 'Department Head', 'position_id' => $positionIds['Department Head'] ?? null, 'department_id' => $hrmoDepartmentId, 'supervisor_id' => null, 'date_hired' => '2024-01-15'],
+            ['employee_id' => 'PMT-001', 'name' => 'Mark Reyes', 'job_title' => 'PMT Officer', 'position_id' => $positionIds['PMT Officer'] ?? null, 'department_id' => $hrmoDepartmentId, 'supervisor_id' => 'HR-001', 'date_hired' => '2024-06-01'],
         ];
 
         DB::table('employees')->upsert(

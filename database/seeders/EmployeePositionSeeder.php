@@ -23,6 +23,7 @@ class EmployeePositionSeeder extends Seeder
             'Field Officer',
             'HR Officer',
             'PMT Chair',
+            'PMT Officer',
             'Representative',
             'QA',
         ])->each(fn (string $name) => \App\Models\EmployeePosition::query()->firstOrCreate([

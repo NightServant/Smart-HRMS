@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\EmployeeDirectoryController;
+use App\Http\Controllers\Admin\SystemSettingController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\AttendanceImportController;
 use App\Http\Controllers\AttendanceRecordController;
@@ -125,6 +127,10 @@ Route::put('admin/employee-directory/{employee}', [EmployeeDirectoryController::
 Route::delete('admin/employee-directory/{employee}', [EmployeeDirectoryController::class, 'destroy'])
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.employee-directory.destroy');
+
+Route::post('admin/departments', [DepartmentController::class, 'store'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.departments.store');
 
 Route::get('document-management', [PaginationController::class, 'documentManagement'])
     ->middleware(['auth', 'role:evaluator'])
@@ -303,6 +309,10 @@ Route::post('admin/user-management/{user}/deactivate', [UserManagementController
 Route::post('admin/user-management/{user}/password-reset', [UserManagementController::class, 'sendPasswordReset'])
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.user-management.password-reset');
+
+Route::post('admin/system-settings', [SystemSettingController::class, 'update'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.system-settings.update');
 
 Route::resource('seminars', SeminarsController::class)
     ->only(['store', 'update', 'destroy'])

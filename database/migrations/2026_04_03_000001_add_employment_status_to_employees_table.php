@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('employees', function (Blueprint $table): void {
-            $table->string('employment_status', 20)->default('regular')->after('job_title');
+            $table->string('employment_status', 20)->default('permanent')->after('job_title');
             $table->index('employment_status');
         });
     }

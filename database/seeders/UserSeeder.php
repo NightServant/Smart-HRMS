@@ -40,10 +40,10 @@ class UserSeeder extends Seeder
             ['name' => 'Benedict Mercado', 'email' => 'benedict.mercado@shrms.test', 'password' => $password, 'role' => User::ROLE_EMPLOYEE, 'employee_id' => 'EMP-020', 'email_verified_at' => now(), 'is_active' => true],
             ['name' => 'Theresa Evangelista', 'email' => 'theresa.evangelista@shrms.test', 'password' => $password, 'role' => User::ROLE_EMPLOYEE, 'employee_id' => 'EMP-021', 'email_verified_at' => now(), 'is_active' => true],
 
-            // HR Personnel (not in org chart, required for leave workflow Stage 2)
-            ['name' => 'Grace Tan', 'email' => 'grace.tan@shrms.test', 'password' => $password, 'role' => User::ROLE_HR_PERSONNEL, 'employee_id' => null, 'email_verified_at' => now(), 'is_active' => true],
+            // HR Personnel — Department Head of Human Resource Management Office
+            ['name' => 'Grace Tan', 'email' => 'grace.tan@shrms.test', 'password' => $password, 'role' => User::ROLE_HR_PERSONNEL, 'employee_id' => 'HR-001', 'email_verified_at' => now(), 'is_active' => true],
 
-            // PMT reviewer (linked in employee directory)
+            // PMT Officer in Human Resource Management Office
             ['name' => 'Mark Reyes', 'email' => 'mark.reyes@shrms.test', 'password' => $password, 'role' => User::ROLE_PMT, 'employee_id' => 'PMT-001', 'email_verified_at' => now(), 'is_active' => true],
         ];
 

@@ -20,7 +20,7 @@ test('employee directory returns linked employee records in ascending employee i
         'job_title' => 'Administrative Aide',
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
         'date_hired' => '2024-05-20',
     ]);
     Employee::query()->create([
@@ -29,7 +29,7 @@ test('employee directory returns linked employee records in ascending employee i
         'job_title' => 'Administrative Aide',
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
         'date_hired' => '2024-05-21',
     ]);
     Employee::query()->create([
@@ -38,7 +38,7 @@ test('employee directory returns linked employee records in ascending employee i
         'job_title' => 'Department Head',
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
         'date_hired' => '2024-05-19',
     ]);
     Employee::query()->create([
@@ -47,7 +47,7 @@ test('employee directory returns linked employee records in ascending employee i
         'job_title' => 'Representative',
         'department_id' => $pmtDepartment->id,
         'position_id' => $representativePosition->id,
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
         'date_hired' => '2024-06-01',
     ]);
 
@@ -102,7 +102,7 @@ test('evaluator employee directory stays linked employee only', function () {
         'job_title' => 'Department Head',
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
         'date_hired' => '2024-05-19',
     ]);
     Employee::query()->create([
@@ -111,7 +111,7 @@ test('evaluator employee directory stays linked employee only', function () {
         'job_title' => 'Administrative Aide',
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
         'date_hired' => '2024-05-20',
     ]);
     Employee::query()->create([
@@ -120,7 +120,7 @@ test('evaluator employee directory stays linked employee only', function () {
         'job_title' => 'Representative',
         'department_id' => $pmtDepartment->id,
         'position_id' => $representativePosition->id,
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
         'date_hired' => '2024-06-01',
     ]);
 
@@ -158,7 +158,7 @@ test('employee directory exposes the employee date hired field', function () {
         'job_title' => 'Administrative Aide',
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
         'date_hired' => '2024-05-20',
     ]);
 
@@ -194,7 +194,7 @@ test('hr personnel can add an employee with an inline new department and credent
             'department_id' => '',
             'department_name' => 'Planning Office',
             'position_id' => $position->id,
-            'employment_status' => 'regular',
+            'employment_status' => 'permanent',
             'date_hired' => '2026-04-01',
         ]);
 
@@ -244,7 +244,7 @@ test('creating an employee ignores spoofed role input and derives the linked rol
             'department_id' => $department->id,
             'department_name' => '',
             'position_id' => $position->id,
-            'employment_status' => 'regular',
+            'employment_status' => 'permanent',
             'date_hired' => '2026-04-02',
             'role' => User::ROLE_PMT,
         ])
@@ -273,7 +273,7 @@ test('representative positions derive the PMT linked account role', function () 
             'department_id' => $department->id,
             'department_name' => '',
             'position_id' => $position->id,
-            'employment_status' => 'regular',
+            'employment_status' => 'permanent',
             'date_hired' => '2026-04-03',
             'role' => User::ROLE_EMPLOYEE,
         ])
@@ -300,7 +300,7 @@ test('updating an employee recreates a missing linked account', function () {
         'job_title' => 'Project Development Officer',
         'department_id' => $department->id,
         'position_id' => $position->id,
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
         'date_hired' => '2026-04-10',
     ]);
 
@@ -312,7 +312,7 @@ test('updating an employee recreates a missing linked account', function () {
             'department_id' => $department->id,
             'department_name' => '',
             'position_id' => $position->id,
-            'employment_status' => 'regular',
+            'employment_status' => 'permanent',
             'date_hired' => '2026-04-10',
             'role' => User::ROLE_EMPLOYEE,
             'is_active' => true,
@@ -354,7 +354,7 @@ test('updating an employee derives linked account role from the selected positio
         'job_title' => 'Administrative Aide I',
         'department_id' => $department->id,
         'position_id' => $employeePosition->id,
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
         'date_hired' => '2026-04-10',
     ]);
 
@@ -374,7 +374,7 @@ test('updating an employee derives linked account role from the selected positio
             'department_id' => $department->id,
             'department_name' => '',
             'position_id' => $evaluatorPosition->id,
-            'employment_status' => 'regular',
+            'employment_status' => 'permanent',
             'date_hired' => '2026-04-10',
             'role' => User::ROLE_PMT,
             'is_active' => false,
@@ -405,7 +405,7 @@ test('positions outside the fixed mapping still default linked accounts to emplo
             'department_id' => $department->id,
             'department_name' => '',
             'position_id' => $position->id,
-            'employment_status' => 'regular',
+            'employment_status' => 'permanent',
             'date_hired' => '2026-04-03',
         ])
         ->assertRedirect();
@@ -421,7 +421,7 @@ test('document management only returns users with employee role', function () {
         'employee_id' => 'EMP-002',
         'name' => 'Employee One',
         'job_title' => 'Administrative Aide',
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
     ]);
     User::factory()->create([
         'name' => 'Employee One',
@@ -431,7 +431,7 @@ test('document management only returns users with employee role', function () {
         'employee_id' => 'EMP-003',
         'name' => 'Employee Two',
         'job_title' => 'Administrative Assistant',
-        'employment_status' => 'regular',
+        'employment_status' => 'permanent',
     ]);
     User::factory()->create([
         'name' => 'Employee Two',

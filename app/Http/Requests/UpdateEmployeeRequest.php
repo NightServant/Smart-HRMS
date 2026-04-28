@@ -50,7 +50,7 @@ class UpdateEmployeeRequest extends FormRequest
             'department_id' => ['nullable', 'integer', 'required_if:department_mode,existing', 'exists:departments,id'],
             'department_name' => ['nullable', 'string', 'required_if:department_mode,new', 'max:255'],
             'position_id' => ['required', 'integer', 'exists:employee_positions,id'],
-            'employment_status' => ['required', 'string', Rule::in(['regular', 'casual', 'job_order'])],
+            'employment_status' => ['required', 'string', Rule::in(['permanent', 'casual', 'job_order'])],
             'date_hired' => ['required', 'date'],
             'is_active' => ['required', 'boolean'],
             'zkteco_pin' => [
@@ -67,7 +67,7 @@ class UpdateEmployeeRequest extends FormRequest
         return [
             'department_id.required_if' => 'Please select a department.',
             'department_name.required_if' => 'Please enter a department name.',
-            'employment_status.in' => 'Employment status must be Regular, Casual, or Job Order.',
+            'employment_status.in' => 'Employment status must be Permanent, Casual, or Job Order.',
         ];
     }
 }
