@@ -31,8 +31,6 @@ return new class extends Migration
                     'department_id' => $hrmoId,
                     'supervisor_id' => null,
                     'date_hired' => '2024-01-15',
-                    'created_at' => now(),
-                    'updated_at' => now(),
                 ]);
             }
 
@@ -48,7 +46,6 @@ return new class extends Migration
             'position_id' => $pmtOfficerId,
             'department_id' => $hrmoId,
             'supervisor_id' => 'HR-001',
-            'updated_at' => now(),
         ]);
     }
 
@@ -60,7 +57,6 @@ return new class extends Migration
             'job_title' => 'Representative',
             'position_id' => $representativeId,
             'supervisor_id' => null,
-            'updated_at' => now(),
         ]);
 
         DB::table('employees')->where('employee_id', 'HR-001')->delete();

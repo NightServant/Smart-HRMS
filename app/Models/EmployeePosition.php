@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 class EmployeePosition extends Model
 {
@@ -23,24 +24,35 @@ class EmployeePosition extends Model
     }
 
     /**
-     * Resolve the linked user role for a (department, position) pair.
+     * Resolve the linked account role for a (department, position) pair.
      *
-     * Department Head maps to different roles per department:
-     *  - Administrative Office          → Evaluator
-     *  - Human Resource Management Office → HR Personnel
-     *  - Any other / new department     → Employee (safe fallback; adjust here as the org grows)
+     * Looks up the department_position pivot first; falls back to legacy
+     * position-name heuristics so callers without a department still resolve
+     * to a sensible role.
      */
     public static function linkedAccountRoleFor(?string $departmentName, ?string $positionName): string
     {
-        $dept = strtolower(trim((string) $departmentName));
-        $pos = strtolower(trim((string) $positionName));
+        $deptName = trim((string) $departmentName);
+        $posName = trim((string) $positionName);
 
-        return match (true) {
-            $dept === 'administrative office' && $pos === 'department head' => User::ROLE_EVALUATOR,
-            $dept === 'human resource management office' && $pos === 'department head' => User::ROLE_HR_PERSONNEL,
-            $dept === 'human resource management office' && $pos === 'pmt officer' => User::ROLE_PMT,
-            $pos === 'pmt chair', $pos === 'pmt officer', $pos === 'representative' => User::ROLE_PMT,
-            $pos === 'department head' => User::ROLE_EVALUATOR,
+        if ($deptName !== '' && $posName !== '') {
+            $role = DB::table('department_position')
+                ->join('departments', 'departments.id', '=', 'department_position.department_id')
+                ->join('employee_positions', 'employee_positions.id', '=', 'department_position.position_id')
+                ->where('departments.name', $deptName)
+                ->where('employee_positions.name', $posName)
+                ->value('department_position.linked_role');
+
+            if (is_string($role) && $role !== '') {
+                return $role;
+            }
+        }
+
+        $normalizedPos = strtolower($posName);
+
+        return match ($normalizedPos) {
+            'department head' => User::ROLE_EVALUATOR,
+            'pmt officer', 'pmt chair', 'representative' => User::ROLE_PMT,
             default => User::ROLE_EMPLOYEE,
         };
     }
@@ -53,5 +65,17 @@ class EmployeePosition extends Model
     public function employees(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Employee::class, 'position_id');
+    }
+
+    public function departments(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            Department::class,
+            'department_position',
+            'position_id',
+            'department_id',
+        )
+            ->withPivot('linked_role')
+            ->withTimestamps();
     }
 }

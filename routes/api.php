@@ -26,4 +26,7 @@ Route::middleware(['web', 'auth', 'throttle:60,1'])->prefix('biometrics')->group
         ->name('api.biometrics.departments');
     Route::get('attendance/{employee:employee_id}', [BiometricController::class, 'attendance'])
         ->name('api.biometrics.attendance');
+    Route::post('clock', [BiometricController::class, 'clock'])
+        ->middleware('role:employee')
+        ->name('api.biometrics.clock');
 });

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Badge } from '@/components/ui/badge';
 import PredictionDisplay, {
     type PredictionResult,
 } from '@/components/prediction-display';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,

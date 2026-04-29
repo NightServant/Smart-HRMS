@@ -32,10 +32,16 @@ type Employee = {
     };
 };
 
-type Option = {
+type Position = {
     id: number;
     name: string;
     linkedAccountRole?: string;
+};
+
+type Department = {
+    id: number;
+    name: string;
+    positions: Position[];
 };
 
 type PaginationMeta = {
@@ -121,11 +127,11 @@ export default function EmployeeDirectory({
     pagination,
     stats,
     nextEmployeeId,
+    nextEmployeeIdByPrefix,
     departments,
-    positions,
     statusFilter,
     positionFilter,
-    departmentFilter,
+    activeDepartmentId,
     canFilterByDepartment,
     positionRoleMap,
     departmentPositionRoleMap,
@@ -138,11 +144,11 @@ export default function EmployeeDirectory({
     pagination: PaginationMeta;
     stats: Stats;
     nextEmployeeId: string;
-    departments: Option[];
-    positions: Option[];
+    nextEmployeeIdByPrefix?: Record<string, string>;
+    departments: Department[];
     statusFilter: string;
     positionFilter: string;
-    departmentFilter?: string;
+    activeDepartmentId?: number | null;
     canFilterByDepartment?: boolean;
     positionRoleMap?: Record<string, string>;
     departmentPositionRoleMap?: DepartmentPositionRoleMap;
@@ -235,11 +241,11 @@ export default function EmployeeDirectory({
                     direction={direction}
                     pagination={pagination}
                     nextEmployeeId={nextEmployeeId}
+                    nextEmployeeIdByPrefix={nextEmployeeIdByPrefix ?? {}}
                     departments={departments}
-                    positions={positions}
                     statusFilter={statusFilter}
                     positionFilter={positionFilter}
-                    departmentFilter={departmentFilter ?? ''}
+                    activeDepartmentId={activeDepartmentId ?? null}
                     canFilterByDepartment={canFilterByDepartment ?? false}
                     positionRoleMap={positionRoleMap ?? {}}
                     departmentPositionRoleMap={departmentPositionRoleMap ?? {}}

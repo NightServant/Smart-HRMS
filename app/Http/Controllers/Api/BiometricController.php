@@ -6,9 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Biometric\EnrollEmployeeRequest;
 use App\Http\Requests\Biometric\SelfEnrollRequest;
 use App\Models\AttendanceRecord;
+use App\Models\BiometricDevice;
 use App\Models\DailyAttendance;
 use App\Models\Employee;
+use App\Services\Biometric\AttendanceAggregator;
 use App\Services\Biometric\EnrollmentService;
+use Carbon\Carbon;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -17,7 +21,80 @@ class BiometricController extends Controller
 {
     public function __construct(
         private readonly EnrollmentService $enrollmentService,
+        private readonly AttendanceAggregator $aggregator,
     ) {}
+
+    public function clock(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'employee_id' => ['required', 'string'],
+            'zkteco_pin' => ['required', 'string'],
+            'mode' => ['required', 'in:in,out'],
+        ]);
+
+        $user = $request->user();
+
+        if (! $user || $user->employee_id !== $validated['employee_id']) {
+            return response()->json(
+                ['error' => 'Employee ID does not match your account.'],
+                403,
+            );
+        }
+
+        $employee = Employee::query()->find($validated['employee_id']);
+        if (! $employee) {
+            return response()->json(
+                ['error' => 'Employee record not found.'],
+                404,
+            );
+        }
+
+        if (empty($employee->zkteco_pin) || $employee->zkteco_pin !== $validated['zkteco_pin']) {
+            return response()->json(
+                ['error' => 'Fingerprint is not registered for your account. Please enroll first.'],
+                422,
+            );
+        }
+
+        // Ensure a biometric device row exists so the punch can be attributed.
+        BiometricDevice::query()->firstOrCreate(
+            ['serial_number' => 'WEB-CLOCK'],
+            ['name' => 'Web Clock-In/Out', 'is_active' => true],
+        );
+
+        $now = Carbon::now();
+
+        $existing = AttendanceRecord::query()
+            ->where('employee_id', $employee->employee_id)
+            ->where('punch_time', $now)
+            ->exists();
+
+        if ($existing) {
+            return response()->json(
+                ['error' => 'A punch is already recorded for this exact timestamp. Wait a moment and try again.'],
+                422,
+            );
+        }
+
+        AttendanceRecord::query()->create([
+            'employee_id' => $employee->employee_id,
+            'date' => $now->toDateString(),
+            'punch_time' => $now,
+            'status' => null,
+            'source' => 'biometric',
+        ]);
+
+        $this->aggregator->recomputeForEmployeeDate(
+            (string) $employee->employee_id,
+            CarbonImmutable::parse($now->toDateString()),
+        );
+
+        $modeLabel = $validated['mode'] === 'in' ? 'Clock-in' : 'Clock-out';
+
+        return response()->json([
+            'message' => "{$modeLabel} recorded at ".$now->format('h:i A').'.',
+        ]);
+    }
 
     public function attendance(Request $request, Employee $employee): JsonResponse
     {

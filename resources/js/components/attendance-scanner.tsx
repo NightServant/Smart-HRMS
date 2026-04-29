@@ -1,6 +1,21 @@
 import { router, useForm } from '@inertiajs/react';
-import { Clock, Fingerprint, IdCard, Monitor, RefreshCw, ShieldCheck } from 'lucide-react';
+import {
+    Clock,
+    Fingerprint,
+    IdCard,
+    LogIn,
+    LogOut,
+    Monitor,
+    RefreshCw,
+    ShieldAlert,
+    ShieldCheck,
+} from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import {
+    BiometricEnrollmentDialog,
+    type EnrollmentStatus,
+} from '@/components/biometric-enrollment-dialog';
 import PageIntro from '@/components/page-intro';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -49,23 +64,40 @@ const STATUS_CLASSES: Record<DailyAttendanceRecord['status'], string> = {
 export default function AttendanceScanner({
     records,
     employeeId,
+    employeeName,
+    zktecoPin,
     hasDevice,
+    enrolledInBiometric,
+    enrollmentStatus,
     manualPunchEnabled = false,
 }: {
     records: DailyAttendanceRecord[];
     employeeId: string;
+    employeeName: string;
+    zktecoPin: string | null;
     hasDevice: boolean;
+    enrolledInBiometric: boolean;
+    enrollmentStatus: EnrollmentStatus;
     manualPunchEnabled?: boolean;
 }) {
     const { data, post, processing } = useForm({
         employee_id: employeeId,
     });
 
+    const [scanning, setScanning] = useState<'in' | 'out' | null>(null);
+    const [isEnrollOpen, setIsEnrollOpen] = useState(false);
+
+    const refreshAttendance = (): void => {
+        router.reload({
+            only: ['records', 'enrolledInBiometric', 'enrollmentStatus'],
+        });
+    };
+
     const handlePunch = (): void => {
         post('/attendance/punch', {
             preserveScroll: true,
             onSuccess: () => {
-                router.reload({ only: ['records'] });
+                refreshAttendance();
                 toast.success('Attendance recorded successfully.');
             },
             onError: (errors) => {
@@ -74,6 +106,61 @@ export default function AttendanceScanner({
                 toast.error(message);
             },
         });
+    };
+
+    const handleFingerprintScan = async (mode: 'in' | 'out'): Promise<void> => {
+        if (!enrolledInBiometric || !zktecoPin) {
+            toast.error('Please enroll your fingerprint first.');
+            setIsEnrollOpen(true);
+            return;
+        }
+
+        setScanning(mode);
+
+        try {
+            const response = await fetch('/api/biometrics/clock', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN':
+                        document
+                            .querySelector('meta[name="csrf-token"]')
+                            ?.getAttribute('content') ?? '',
+                },
+                body: JSON.stringify({
+                    employee_id: employeeId,
+                    zkteco_pin: zktecoPin,
+                    mode,
+                }),
+            });
+
+            const payload = (await response.json().catch(() => ({}))) as {
+                message?: string;
+                error?: string;
+            };
+
+            if (!response.ok) {
+                toast.error(
+                    payload.error ??
+                        payload.message ??
+                        'Fingerprint scan could not be confirmed by the device.',
+                );
+                return;
+            }
+
+            toast.success(
+                payload.message ??
+                    `Clock ${mode === 'in' ? 'in' : 'out'} recorded.`,
+            );
+            refreshAttendance();
+        } catch {
+            toast.error('Network error. Try again.');
+        } finally {
+            setScanning(null);
+        }
     };
 
     const now = new Date();
@@ -145,16 +232,32 @@ export default function AttendanceScanner({
                             </div>
                         </div>
 
-                        {!hasDevice ? (
-                            <div className="flex flex-col items-center gap-2 py-4 text-center">
-                                <Fingerprint className="size-10 text-muted-foreground/40" />
-                                <p className="text-sm font-medium text-muted-foreground">
-                                    No devices available.
-                                </p>
-                                <p className="text-xs text-muted-foreground/70">
-                                    A biometric device will appear here once
-                                    connected to the system.
-                                </p>
+                        {!enrolledInBiometric ? (
+                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+                                <div className="flex items-start gap-3">
+                                    <ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                                    <div className="flex-1">
+                                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                                            Fingerprint not registered yet
+                                        </p>
+                                        <p className="mt-0.5 text-xs text-amber-700/80 dark:text-amber-400/70">
+                                            Enroll your fingerprint to enable
+                                            biometric clock-in and clock-out
+                                            from this scanner.
+                                        </p>
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            className="mt-3 gap-1.5"
+                                            onClick={() =>
+                                                setIsEnrollOpen(true)
+                                            }
+                                        >
+                                            <Fingerprint className="size-4" />
+                                            Enroll Fingerprint
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
                         ) : (
                             <div className="flex flex-col gap-3">
@@ -169,9 +272,72 @@ export default function AttendanceScanner({
                                 </div>
 
                                 <p className="text-sm text-foreground/80">
-                                    Your fingerprint scans are pulled from
-                                    ZKBio Time when this page is opened.
+                                    Scan your fingerprint on the terminal, then
+                                    press Clock In or Clock Out below to record
+                                    the punch.
                                 </p>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                        type="button"
+                                        className="w-full gap-2"
+                                        disabled={
+                                            scanning !== null || !hasDevice
+                                        }
+                                        onClick={() =>
+                                            handleFingerprintScan('in')
+                                        }
+                                    >
+                                        <LogIn className="size-4" />
+                                        {scanning === 'in'
+                                            ? 'Scanning...'
+                                            : 'Clock In'}
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full gap-2"
+                                        disabled={
+                                            scanning !== null || !hasDevice
+                                        }
+                                        onClick={() =>
+                                            handleFingerprintScan('out')
+                                        }
+                                    >
+                                        <LogOut className="size-4" />
+                                        {scanning === 'out'
+                                            ? 'Scanning...'
+                                            : 'Clock Out'}
+                                    </Button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 rounded-md border border-border/60 bg-background/40 p-2 text-xs text-muted-foreground">
+                                    <div>
+                                        <p className="text-[10px] uppercase tracking-wide">
+                                            Employee
+                                        </p>
+                                        <p className="font-mono text-foreground">
+                                            {employeeId}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] uppercase tracking-wide">
+                                            Device PIN
+                                        </p>
+                                        <p className="font-mono text-foreground">
+                                            {zktecoPin ?? '—'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={() => setIsEnrollOpen(true)}
+                                    className="flex items-center gap-2 self-start text-xs text-muted-foreground hover:text-foreground"
+                                >
+                                    <ShieldCheck className="size-3.5" />
+                                    Manage biometric enrollment
+                                </button>
 
                                 <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/50 px-3 py-2">
                                     <RefreshCw className="size-3.5 shrink-0 text-muted-foreground" />
@@ -217,7 +383,9 @@ export default function AttendanceScanner({
                         </div>
 
                         <div className="flex flex-col gap-2">
-                            <Label htmlFor="employee_id">Employee ID: {data.employee_id}</Label>
+                            <Label htmlFor="employee_id">
+                                Employee ID: {data.employee_id}
+                            </Label>
                         </div>
 
                         <div className="py-2 text-xs text-muted-foreground">
@@ -318,6 +486,14 @@ export default function AttendanceScanner({
                     </Table>
                 </div>
             </div>
+
+            <BiometricEnrollmentDialog
+                open={isEnrollOpen}
+                onOpenChange={setIsEnrollOpen}
+                employee={{ employee_id: employeeId, name: employeeName }}
+                initialStatus={enrollmentStatus}
+                onEnrolled={refreshAttendance}
+            />
         </>
     );
 }

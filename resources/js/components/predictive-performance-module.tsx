@@ -1,9 +1,9 @@
 import { usePage } from '@inertiajs/react';
-import { Badge } from '@/components/ui/badge';
 import { DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
 import PredictionDisplay, {
     type PredictionResult,
 } from '@/components/prediction-display';
+import { Badge } from '@/components/ui/badge';
 
 type EmployeeProfile = {
     employee_id: string;

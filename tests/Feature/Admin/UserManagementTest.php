@@ -125,7 +125,13 @@ test('user seeder keeps hr personnel and removes the old admin account', functio
     $this->assertDatabaseHas('employees', [
         'employee_id' => 'PMT-001',
         'name' => 'Mark Reyes',
-        'job_title' => 'Representative',
+        'job_title' => 'PMT Officer',
+    ]);
+
+    $this->assertDatabaseHas('employees', [
+        'employee_id' => 'HR-001',
+        'name' => 'Grace Tan',
+        'job_title' => 'Department Head',
     ]);
 
     $this->assertDatabaseMissing('users', [

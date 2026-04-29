@@ -8,7 +8,6 @@ import {
     FileText,
     HelpCircle,
     Search,
-    ToggleLeft,
     ToggleRight,
     UserSearch,
     XCircle,
@@ -241,17 +240,9 @@ function ManualPunchPanel({
                         <span className="italic">{subordinate.manual_punch_reason}</span>
                     </div>
                 )}
-                <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    disabled={isUpdating}
-                    onClick={onDisable}
-                    className="gap-2"
-                >
-                    <ToggleLeft className="size-4" />
-                    Disable Manual Punch
-                </Button>
+                <p className="text-xs text-muted-foreground">
+                    Manual punch will turn off automatically once the end date passes.
+                </p>
             </div>
         );
     }

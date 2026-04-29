@@ -8,9 +8,8 @@ import {
     Search,
     UserCog,
     UserSearch,
-    UserX,
 } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import PageIntro from '@/components/page-intro';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -36,6 +35,7 @@ import {
     SelectContent,
     SelectGroup,
     SelectItem,
+    SelectSeparator,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
@@ -47,15 +47,16 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import * as admin from '@/routes/admin';
 import employeeDirectoryRoutes from '@/routes/admin/employee-directory';
 import type { Auth } from '@/types';
 import { AddDepartmentDialog } from './add-department-dialog';
+import { AddPositionDialog } from './add-position-dialog';
 import PredictivePerformanceModule from './predict-performance-eval-modal';
 
-const CREATE_DEPARTMENT_VALUE = '__create_department__';
-const ADD_DEPARTMENT_FILTER_VALUE = '__add_department__';
-const ALL_DEPARTMENTS_VALUE = 'all';
+const ADD_POSITION_FILTER_VALUE = '__add_position__';
+const HRMO_NAME = 'Human Resource Management Office';
 
 type Employee = {
     id: number;
@@ -84,10 +85,16 @@ type Employee = {
     };
 };
 
-type Option = {
+type Position = {
     id: number;
     name: string;
     linkedAccountRole?: string;
+};
+
+type Department = {
+    id: number;
+    name: string;
+    positions: Position[];
 };
 
 type PaginationMeta = {
@@ -101,12 +108,10 @@ type EmployeeSortKey = 'employee_id' | 'name' | 'email' | 'position';
 type SortDirection = 'asc' | 'desc';
 type DepartmentPositionRoleMap = Record<string, Record<string, string>>;
 
-type DepartmentMode = 'existing' | 'new';
-
 type StoreForm = {
     name: string;
     email: string;
-    department_mode: DepartmentMode;
+    department_mode: 'existing';
     department_id: string;
     department_name: string;
     position_id: string;
@@ -137,16 +142,6 @@ function StatusBadge({ status }: { status: string }) {
             className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${colors[status] ?? colors.permanent}`}
         >
             {formatStatus(status)}
-        </span>
-    );
-}
-
-function AccountStatusBadge({ isActive }: { isActive: boolean }) {
-    return (
-        <span
-            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${isActive ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300'}`}
-        >
-            {isActive ? 'Active' : 'Inactive'}
         </span>
     );
 }
@@ -207,110 +202,20 @@ function ReadonlyField({
     );
 }
 
-function DepartmentFields<
-    TForm extends {
-        department_mode: DepartmentMode;
-        department_id: string;
-        department_name: string;
-    },
->({
-    departments,
-    data,
-    setData,
-    errors,
-    idPrefix,
-}: {
-    departments: Option[];
-    data: TForm;
-    setData: (key: keyof TForm, value: string) => void;
-    errors: Record<string, string>;
-    idPrefix: 'add' | 'edit';
-}) {
-    const isCreatingDepartment = data.department_mode === 'new';
-    const selectValue = isCreatingDepartment
-        ? CREATE_DEPARTMENT_VALUE
-        : data.department_id || '';
-
-    return (
-        <>
-            <div className="grid gap-1.5">
-                <Label htmlFor={`${idPrefix}-department`}>Department</Label>
-                <Select
-                    value={selectValue}
-                    onValueChange={(value) => {
-                        if (value === CREATE_DEPARTMENT_VALUE) {
-                            setData('department_mode', 'new');
-                            setData('department_id', '');
-                            return;
-                        }
-
-                        setData('department_mode', 'existing');
-                        setData('department_id', value);
-                        setData('department_name', '');
-                    }}
-                >
-                    <SelectTrigger id={`${idPrefix}-department`}>
-                        <SelectValue placeholder="Select a department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectGroup>
-                            {departments.map((department) => (
-                                <SelectItem
-                                    key={department.id}
-                                    value={String(department.id)}
-                                >
-                                    {department.name}
-                                </SelectItem>
-                            ))}
-                            <SelectItem value={CREATE_DEPARTMENT_VALUE}>
-                                Add new department
-                            </SelectItem>
-                        </SelectGroup>
-                    </SelectContent>
-                </Select>
-                {errors.department_id && (
-                    <p className="text-xs text-destructive">
-                        {errors.department_id}
-                    </p>
-                )}
-            </div>
-
-            {isCreatingDepartment && (
-                <div className="grid gap-1.5">
-                    <Label htmlFor={`${idPrefix}-department-name`}>
-                        New Department Name
-                    </Label>
-                    <Input
-                        id={`${idPrefix}-department-name`}
-                        value={data.department_name}
-                        onChange={(event) =>
-                            setData('department_name', event.target.value)
-                        }
-                        placeholder="Administrative Office"
-                    />
-                    {errors.department_name && (
-                        <p className="text-xs text-destructive">
-                            {errors.department_name}
-                        </p>
-                    )}
-                </div>
-            )}
-        </>
-    );
-}
-
 function PositionField<TForm extends { position_id: string }>({
     positions,
     data,
     setData,
     errors,
     idPrefix,
+    disabled = false,
 }: {
-    positions: Option[];
+    positions: Position[];
     data: TForm;
     setData: (key: keyof TForm, value: string) => void;
     errors: Record<string, string>;
     idPrefix: 'add' | 'edit';
+    disabled?: boolean;
 }) {
     return (
         <div className="grid gap-1.5">
@@ -318,9 +223,16 @@ function PositionField<TForm extends { position_id: string }>({
             <Select
                 value={data.position_id}
                 onValueChange={(value) => setData('position_id', value)}
+                disabled={disabled || positions.length === 0}
             >
                 <SelectTrigger id={`${idPrefix}-position`}>
-                    <SelectValue placeholder="Select a position" />
+                    <SelectValue
+                        placeholder={
+                            positions.length === 0
+                                ? 'No positions available for this department'
+                                : 'Select a position'
+                        }
+                    />
                 </SelectTrigger>
                 <SelectContent>
                     <SelectGroup>
@@ -342,36 +254,81 @@ function PositionField<TForm extends { position_id: string }>({
     );
 }
 
+function idPrefixForRole(role: string): 'EMP' | 'HR' | 'PMT' {
+    if (role === 'hr-personnel') {
+        return 'HR';
+    }
+    if (role === 'pmt') {
+        return 'PMT';
+    }
+    return 'EMP';
+}
+
 function AddEmployeeDialog({
     open,
     onOpenChange,
     nextEmployeeId,
+    nextEmployeeIdByPrefix,
     departments,
-    positions,
     positionRoleMap,
     departmentPositionRoleMap,
     defaultEmployeeRole,
+    initialDepartmentId,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     nextEmployeeId: string;
-    departments: Option[];
-    positions: Option[];
+    nextEmployeeIdByPrefix: Record<string, string>;
+    departments: Department[];
     positionRoleMap: Record<string, string>;
     departmentPositionRoleMap: DepartmentPositionRoleMap;
     defaultEmployeeRole: string;
+    initialDepartmentId: string;
 }) {
     const { data, setData, post, processing, errors, reset } =
         useForm<StoreForm>({
             name: '',
             email: '',
             department_mode: 'existing',
-            department_id: '',
+            department_id: initialDepartmentId,
             department_name: '',
             position_id: '',
             employment_status: 'permanent',
             date_hired: '',
         });
+
+    const departmentPositions = useMemo<Position[]>(() => {
+        const dept = departments.find(
+            (department) => String(department.id) === data.department_id,
+        );
+        return (dept?.positions ?? []).filter(
+            (position) => position.linkedAccountRole !== 'hr-personnel',
+        );
+    }, [departments, data.department_id]);
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+        setData('department_id', initialDepartmentId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, initialDepartmentId]);
+
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+        const firstPositionId = departmentPositions[0]
+            ? String(departmentPositions[0].id)
+            : '';
+        const stillValid = departmentPositions.some(
+            (position) => String(position.id) === data.position_id,
+        );
+        if (!stillValid) {
+            setData('position_id', firstPositionId);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, data.department_id, departmentPositions]);
 
     const handleSubmit = (event: FormEvent): void => {
         event.preventDefault();
@@ -388,19 +345,20 @@ function AddEmployeeDialog({
         if (!nextOpen) {
             reset();
         }
-
         onOpenChange(nextOpen);
     };
 
-    const linkedRoleLabel = formatRoleLabel(
-        resolveLinkedAccountRole(
-            data.position_id,
-            data.department_id,
-            positionRoleMap,
-            departmentPositionRoleMap,
-            defaultEmployeeRole,
-        ),
+    const linkedRole = resolveLinkedAccountRole(
+        data.position_id,
+        data.department_id,
+        positionRoleMap,
+        departmentPositionRoleMap,
+        defaultEmployeeRole,
     );
+    const linkedRoleLabel = formatRoleLabel(linkedRole);
+    const previewEmployeeId = data.position_id
+        ? (nextEmployeeIdByPrefix[idPrefixForRole(linkedRole)] ?? nextEmployeeId)
+        : nextEmployeeId;
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -463,8 +421,8 @@ function AddEmployeeDialog({
                                 <ReadonlyField
                                     id="add-employee-id"
                                     label="Employee ID"
-                                    value={nextEmployeeId}
-                                    helperText="Generated automatically when the employee is saved."
+                                    value={previewEmployeeId}
+                                    helperText="Generated automatically based on the selected position."
                                 />
                                 <ReadonlyField
                                     id="add-linked-role"
@@ -481,21 +439,52 @@ function AddEmployeeDialog({
                                     Organization
                                 </h3>
                                 <p className="text-xs text-muted-foreground">
-                                    Assign the employee to the correct
-                                    department, position, and employment setup.
+                                    Pick the department first, then the
+                                    position. Available positions are scoped to
+                                    each department.
                                 </p>
                             </div>
                             <div className="grid gap-4">
-                                <DepartmentFields
-                                    departments={departments}
-                                    data={data}
-                                    setData={setData}
-                                    errors={errors}
-                                    idPrefix="add"
-                                />
+                                <div className="grid gap-1.5">
+                                    <Label htmlFor="add-department">
+                                        Department
+                                    </Label>
+                                    <Select
+                                        value={data.department_id}
+                                        onValueChange={(value) => {
+                                            setData('department_id', value);
+                                            setData('position_id', '');
+                                        }}
+                                    >
+                                        <SelectTrigger id="add-department">
+                                            <SelectValue placeholder="Select a department" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectGroup>
+                                                {departments.map(
+                                                    (department) => (
+                                                        <SelectItem
+                                                            key={department.id}
+                                                            value={String(
+                                                                department.id,
+                                                            )}
+                                                        >
+                                                            {department.name}
+                                                        </SelectItem>
+                                                    ),
+                                                )}
+                                            </SelectGroup>
+                                        </SelectContent>
+                                    </Select>
+                                    {errors.department_id && (
+                                        <p className="text-xs text-destructive">
+                                            {errors.department_id}
+                                        </p>
+                                    )}
+                                </div>
 
                                 <PositionField
-                                    positions={positions}
+                                    positions={departmentPositions}
                                     data={data}
                                     setData={setData}
                                     errors={errors}
@@ -587,7 +576,6 @@ function ManageEmployeeDialog({
     open,
     onOpenChange,
     departments,
-    positions,
     positionRoleMap,
     departmentPositionRoleMap,
     defaultEmployeeRole,
@@ -595,8 +583,7 @@ function ManageEmployeeDialog({
     employee: Employee | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    departments: Option[];
-    positions: Option[];
+    departments: Department[];
     positionRoleMap: Record<string, string>;
     departmentPositionRoleMap: DepartmentPositionRoleMap;
     defaultEmployeeRole: string;
@@ -623,11 +610,11 @@ function ManageEmployeeDialog({
         setData({
             name: employee.name,
             email: employee.email,
-            department_mode: employee.department_id ? 'existing' : 'new',
+            department_mode: 'existing',
             department_id: employee.department_id
                 ? String(employee.department_id)
                 : '',
-            department_name: employee.department_id ? '' : employee.department,
+            department_name: '',
             position_id: employee.position_id
                 ? String(employee.position_id)
                 : '',
@@ -639,11 +626,17 @@ function ManageEmployeeDialog({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, employee?.employee_id]);
 
+    const departmentPositions = useMemo<Position[]>(() => {
+        const dept = departments.find(
+            (department) => String(department.id) === data.department_id,
+        );
+        return dept?.positions ?? [];
+    }, [departments, data.department_id]);
+
     const handleOpenChange = (nextOpen: boolean): void => {
         if (!nextOpen) {
             reset();
         }
-
         onOpenChange(nextOpen);
     };
 
@@ -767,21 +760,19 @@ function ManageEmployeeDialog({
                                     Organization
                                 </h3>
                                 <p className="text-xs text-muted-foreground">
-                                    Department, position, and employment details
-                                    for the employee record.
+                                    Department is fixed for this record. Pick a
+                                    position from the same department.
                                 </p>
                             </div>
                             <div className="grid gap-4">
-                                <DepartmentFields
-                                    departments={departments}
-                                    data={data}
-                                    setData={setData}
-                                    errors={errors}
-                                    idPrefix="edit"
+                                <ReadonlyField
+                                    id="edit-department"
+                                    label="Department"
+                                    value={employee?.department ?? ''}
                                 />
 
                                 <PositionField
-                                    positions={positions}
+                                    positions={departmentPositions}
                                     data={data}
                                     setData={setData}
                                     errors={errors}
@@ -953,11 +944,11 @@ export function EmployeesTable({
     direction,
     pagination,
     nextEmployeeId,
+    nextEmployeeIdByPrefix = {},
     departments,
-    positions = [],
     statusFilter = '',
     positionFilter = '',
-    departmentFilter = '',
+    activeDepartmentId = null,
     canFilterByDepartment = false,
     positionRoleMap = {},
     departmentPositionRoleMap = {},
@@ -969,11 +960,11 @@ export function EmployeesTable({
     direction: SortDirection;
     pagination: PaginationMeta;
     nextEmployeeId: string;
-    departments: Option[];
-    positions?: Option[];
+    nextEmployeeIdByPrefix?: Record<string, string>;
+    departments: Department[];
     statusFilter?: string;
     positionFilter?: string;
-    departmentFilter?: string;
+    activeDepartmentId?: number | null;
     canFilterByDepartment?: boolean;
     positionRoleMap?: Record<string, string>;
     departmentPositionRoleMap?: DepartmentPositionRoleMap;
@@ -985,9 +976,8 @@ export function EmployeesTable({
         useState(statusFilter);
     const [currentPositionFilter, setCurrentPositionFilter] =
         useState(positionFilter);
-    const [currentDepartmentFilter, setCurrentDepartmentFilter] =
-        useState(departmentFilter);
     const [isAddDepartmentOpen, setIsAddDepartmentOpen] = useState(false);
+    const [isAddPositionOpen, setIsAddPositionOpen] = useState(false);
     const [isPredictiveModalOpen, setIsPredictiveModalOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
         null,
@@ -997,6 +987,19 @@ export function EmployeesTable({
     const [crudEmployee, setCrudEmployee] = useState<Employee | null>(null);
 
     const canManageEmployees = auth.user.role === 'hr-personnel';
+
+    const activeDepartment = useMemo<Department | null>(() => {
+        if (!activeDepartmentId) {
+            return departments[0] ?? null;
+        }
+        return (
+            departments.find(
+                (department) => department.id === activeDepartmentId,
+            ) ?? null
+        );
+    }, [departments, activeDepartmentId]);
+
+    const isHrmoActive = activeDepartment?.name === HRMO_NAME;
 
     const buildMergedQuery = (
         overrides: Record<string, string | number>,
@@ -1023,41 +1026,45 @@ export function EmployeesTable({
         direction?: SortDirection;
         statusFilter?: string;
         positionFilter?: string;
-        departmentFilter?: string;
+        activeDepartmentId?: number | null;
     }): void => {
-        router.get(
-            admin.employeeDirectory().url,
-            buildMergedQuery({
-                search: params.search ?? searchTerm,
-                page: params.page ?? pagination.currentPage,
-                perPage: params.perPage ?? pagination.perPage,
-                sort: params.sort ?? sort,
-                direction: params.direction ?? direction,
-                statusFilter: params.statusFilter ?? currentStatusFilter,
-                positionFilter: params.positionFilter ?? currentPositionFilter,
-                departmentFilter:
-                    params.departmentFilter ?? currentDepartmentFilter,
-            }),
-            {
-                preserveScroll: true,
-                preserveState: true,
-                replace: true,
-                only: [
-                    'employees',
-                    'search',
-                    'sort',
-                    'direction',
-                    'pagination',
-                    'stats',
-                    'statusFilter',
-                    'positionFilter',
-                    'departmentFilter',
-                    'departments',
-                    'positions',
-                    'nextEmployeeId',
-                ],
-            },
-        );
+        const overrides: Record<string, string | number> = {
+            search: params.search ?? searchTerm,
+            page: params.page ?? pagination.currentPage,
+            perPage: params.perPage ?? pagination.perPage,
+            sort: params.sort ?? sort,
+            direction: params.direction ?? direction,
+            statusFilter: params.statusFilter ?? currentStatusFilter,
+            positionFilter: params.positionFilter ?? currentPositionFilter,
+        };
+
+        const nextDeptId =
+            params.activeDepartmentId !== undefined
+                ? params.activeDepartmentId
+                : activeDepartmentId;
+        if (nextDeptId !== null && nextDeptId !== undefined) {
+            overrides.activeDepartmentId = nextDeptId;
+        }
+
+        router.get(admin.employeeDirectory().url, buildMergedQuery(overrides), {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+            only: [
+                'employees',
+                'search',
+                'sort',
+                'direction',
+                'pagination',
+                'stats',
+                'statusFilter',
+                'positionFilter',
+                'activeDepartmentId',
+                'departments',
+                'positions',
+                'nextEmployeeId',
+            ],
+        });
     };
 
     const renderSortIcon = (column: EmployeeSortKey) => {
@@ -1095,20 +1102,24 @@ export function EmployeesTable({
     };
 
     const handlePositionFilterChange = (value: string): void => {
+        if (value === ADD_POSITION_FILTER_VALUE) {
+            setIsAddPositionOpen(true);
+            return;
+        }
+
         const filterValue = value === 'all' ? '' : value;
         setCurrentPositionFilter(filterValue);
         visitEmployeesTable({ positionFilter: filterValue, page: 1 });
     };
 
-    const handleDepartmentFilterChange = (value: string): void => {
-        if (value === ADD_DEPARTMENT_FILTER_VALUE) {
-            setIsAddDepartmentOpen(true);
-            return;
-        }
-
-        const filterValue = value === ALL_DEPARTMENTS_VALUE ? '' : value;
-        setCurrentDepartmentFilter(filterValue);
-        visitEmployeesTable({ departmentFilter: filterValue, page: 1 });
+    const handleDepartmentTabChange = (value: string): void => {
+        const nextId = Number(value);
+        setCurrentPositionFilter('');
+        visitEmployeesTable({
+            page: 1,
+            activeDepartmentId: Number.isFinite(nextId) ? nextId : null,
+            positionFilter: '',
+        });
     };
 
     const handleRowsPerPageChange = (value: string): void => {
@@ -1159,7 +1170,12 @@ export function EmployeesTable({
         );
     };
 
-    const colSpan = canManageEmployees ? 8 : 7;
+    // Column count: id, name, email, position, status, date_hired,
+    // (predictive eval, hidden for HRMO), (actions when HR).
+    const baseCols = 6;
+    const predictiveCol = isHrmoActive ? 0 : 1;
+    const actionsCol = canManageEmployees ? 1 : 0;
+    const colSpan = baseCols + predictiveCol + actionsCol;
 
     return (
         <>
@@ -1189,6 +1205,41 @@ export function EmployeesTable({
                 }
             />
             <div className="glass-card app-data-shell mx-auto w-full animate-zoom-in-soft bg-card shadow-sm">
+                {departments.length > 0 && (
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 pt-4 pb-2">
+                        <Tabs
+                            value={
+                                activeDepartment
+                                    ? String(activeDepartment.id)
+                                    : ''
+                            }
+                            onValueChange={handleDepartmentTabChange}
+                        >
+                            <TabsList variant="line">
+                                {departments.map((department) => (
+                                    <TabsTrigger
+                                        key={department.id}
+                                        value={String(department.id)}
+                                    >
+                                        {department.name}
+                                    </TabsTrigger>
+                                ))}
+                            </TabsList>
+                        </Tabs>
+                        {canFilterByDepartment && (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="gap-1.5"
+                                onClick={() => setIsAddDepartmentOpen(true)}
+                            >
+                                <Plus className="size-4" />
+                                Add Department
+                            </Button>
+                        )}
+                    </div>
+                )}
                 <div className="app-filter-bar py-2">
                     <div className="relative w-full max-w-sm animate-fade-in-left">
                         <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -1232,7 +1283,7 @@ export function EmployeesTable({
                             value={currentPositionFilter || 'all'}
                             onValueChange={handlePositionFilterChange}
                         >
-                            <SelectTrigger className="w-52 bg-card">
+                            <SelectTrigger className="w-56 bg-card">
                                 <SelectValue placeholder="All Positions" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1240,56 +1291,35 @@ export function EmployeesTable({
                                     <SelectItem value="all">
                                         All Positions
                                     </SelectItem>
-                                    {positions.map((position) => (
-                                        <SelectItem
-                                            key={position.id}
-                                            value={position.name}
-                                        >
-                                            {position.name}
-                                        </SelectItem>
-                                    ))}
+                                    {(activeDepartment?.positions ?? []).map(
+                                        (position) => (
+                                            <SelectItem
+                                                key={position.id}
+                                                value={position.name}
+                                            >
+                                                {position.name}
+                                            </SelectItem>
+                                        ),
+                                    )}
+                                    {canManageEmployees && activeDepartment && (
+                                        <>
+                                            <SelectSeparator />
+                                            <SelectItem
+                                                value={
+                                                    ADD_POSITION_FILTER_VALUE
+                                                }
+                                                className="font-semibold text-primary"
+                                            >
+                                                + Add Position
+                                            </SelectItem>
+                                        </>
+                                    )}
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
-                        {canFilterByDepartment && (
-                            <Select
-                                value={
-                                    currentDepartmentFilter ||
-                                    ALL_DEPARTMENTS_VALUE
-                                }
-                                onValueChange={handleDepartmentFilterChange}
-                            >
-                                <SelectTrigger className="w-60 bg-card">
-                                    <SelectValue placeholder="All Departments" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectGroup>
-                                        <SelectItem
-                                            value={ALL_DEPARTMENTS_VALUE}
-                                        >
-                                            All Departments
-                                        </SelectItem>
-                                        {departments.map((department) => (
-                                            <SelectItem
-                                                key={department.id}
-                                                value={department.name}
-                                            >
-                                                {department.name}
-                                            </SelectItem>
-                                        ))}
-                                        <SelectItem
-                                            value={ADD_DEPARTMENT_FILTER_VALUE}
-                                            className="font-semibold text-primary"
-                                        >
-                                            + Add Department
-                                        </SelectItem>
-                                    </SelectGroup>
-                                </SelectContent>
-                            </Select>
-                        )}
                     </div>
                 </div>
-                <Table className="w-full min-w-[84rem]">
+                <Table className="w-full min-w-[78rem]">
                     <TableHeader>
                         <TableRow className="app-table-head-row text-sm font-bold">
                             <TableHead>
@@ -1344,9 +1374,11 @@ export function EmployeesTable({
                             </TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Date Hired</TableHead>
-                            <TableHead className="text-right">
-                                Predictive Performance Evaluation
-                            </TableHead>
+                            {!isHrmoActive && (
+                                <TableHead className="text-right">
+                                    Predictive Performance Evaluation
+                                </TableHead>
+                            )}
                             {canManageEmployees && (
                                 <TableHead className="text-center">
                                     Actions
@@ -1375,27 +1407,29 @@ export function EmployeesTable({
                                 <TableCell>
                                     {employee.date_hired || '—'}
                                 </TableCell>
-                                <TableCell className="text-right">
-                                    <Button
-                                        type="button"
-                                        disabled={
-                                            !employee.predictive_evaluation_enabled
-                                        }
-                                        onClick={() =>
-                                            openPredictiveModal(employee)
-                                        }
-                                        className="mx-auto my-auto w-1/2 rounded-md bg-secondary px-4 py-2 font-bold text-foreground shadow-md transition-opacity hover:opacity-90 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
-                                        title={
-                                            employee.predictive_evaluation_enabled
-                                                ? 'Open Predictive Performance Evaluation'
-                                                : 'Predictive Performance Evaluation is unavailable for this employee'
-                                        }
-                                    >
-                                        {employee.predictive_evaluation_enabled
-                                            ? 'Click here'
-                                            : 'Unavailable'}
-                                    </Button>
-                                </TableCell>
+                                {!isHrmoActive && (
+                                    <TableCell className="text-right">
+                                        <Button
+                                            type="button"
+                                            disabled={
+                                                !employee.predictive_evaluation_enabled
+                                            }
+                                            onClick={() =>
+                                                openPredictiveModal(employee)
+                                            }
+                                            className="mx-auto my-auto w-1/2 rounded-md bg-secondary px-4 py-2 font-bold text-foreground shadow-md transition-opacity hover:opacity-90 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+                                            title={
+                                                employee.predictive_evaluation_enabled
+                                                    ? 'Open Predictive Performance Evaluation'
+                                                    : 'Predictive Performance Evaluation is unavailable for this employee'
+                                            }
+                                        >
+                                            {employee.predictive_evaluation_enabled
+                                                ? 'Click here'
+                                                : 'Unavailable'}
+                                        </Button>
+                                    </TableCell>
+                                )}
                                 {canManageEmployees && (
                                     <TableCell className="text-center">
                                         <div className="flex items-center justify-center gap-1">
@@ -1407,7 +1441,16 @@ export function EmployeesTable({
                                                 onClick={() =>
                                                     openManageDialog(employee)
                                                 }
-                                                title="Manage employee"
+                                                disabled={
+                                                    employee.role ===
+                                                    'hr-personnel'
+                                                }
+                                                title={
+                                                    employee.role ===
+                                                    'hr-personnel'
+                                                        ? 'HR personnel accounts cannot be managed from this view'
+                                                        : 'Manage employee'
+                                                }
                                             >
                                                 <UserCog className="size-4" />
                                                 <span className="hidden sm:inline">
@@ -1425,12 +1468,17 @@ export function EmployeesTable({
                                                     )
                                                 }
                                                 disabled={
-                                                    !employee.account_is_active
+                                                    !employee.account_is_active ||
+                                                    employee.role ===
+                                                        'hr-personnel'
                                                 }
                                                 title={
-                                                    employee.account_is_active
-                                                        ? 'Deactivate employee account'
-                                                        : 'Employee account is already inactive'
+                                                    employee.role ===
+                                                    'hr-personnel'
+                                                        ? 'HR personnel accounts cannot be deactivated from this view'
+                                                        : employee.account_is_active
+                                                          ? 'Deactivate employee account'
+                                                          : 'Employee account is already inactive'
                                                 }
                                             >
                                                 <Power className="size-4" />
@@ -1518,11 +1566,14 @@ export function EmployeesTable({
                 open={isAddOpen}
                 onOpenChange={setIsAddOpen}
                 nextEmployeeId={nextEmployeeId}
+                nextEmployeeIdByPrefix={nextEmployeeIdByPrefix}
                 departments={departments}
-                positions={positions}
                 positionRoleMap={positionRoleMap}
                 departmentPositionRoleMap={departmentPositionRoleMap}
                 defaultEmployeeRole={defaultEmployeeRole}
+                initialDepartmentId={
+                    activeDepartment ? String(activeDepartment.id) : ''
+                }
             />
             <ManageEmployeeDialog
                 employee={crudEmployee}
@@ -1534,7 +1585,6 @@ export function EmployeesTable({
                     }
                 }}
                 departments={departments}
-                positions={positions}
                 positionRoleMap={positionRoleMap}
                 departmentPositionRoleMap={departmentPositionRoleMap}
                 defaultEmployeeRole={defaultEmployeeRole}
@@ -1542,6 +1592,12 @@ export function EmployeesTable({
             <AddDepartmentDialog
                 open={isAddDepartmentOpen}
                 onOpenChange={setIsAddDepartmentOpen}
+            />
+            <AddPositionDialog
+                open={isAddPositionOpen}
+                onOpenChange={setIsAddPositionOpen}
+                departmentId={activeDepartment?.id ?? null}
+                departmentName={activeDepartment?.name ?? ''}
             />
             <PredictivePerformanceModule
                 isOpen={isPredictiveModalOpen}

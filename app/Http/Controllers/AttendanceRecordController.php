@@ -57,6 +57,7 @@ class AttendanceRecordController extends Controller
         $hasDevice = BiometricDevice::query()->where('is_active', true)->exists();
 
         $employee = Employee::find($employeeId);
+        $employee?->refreshManualPunchStatus();
 
         $enrollmentStatus = $employee !== null
             ? $this->enrollmentService->verificationStatus($employee)
@@ -71,6 +72,7 @@ class AttendanceRecordController extends Controller
             'rawPunches' => $rawPunches,
             'employeeId' => $employeeId ?? '',
             'employeeName' => $employee?->name ?? $request->user()->name,
+            'zktecoPin' => $employee?->zkteco_pin,
             'hasDevice' => $hasDevice,
             'enrolledInBiometric' => ! empty($employee?->zkteco_pin),
             'enrollmentStatus' => $enrollmentStatus,
@@ -92,34 +94,12 @@ class AttendanceRecordController extends Controller
             return back()->withErrors(['employee_id' => 'Employee ID does not match your account.']);
         }
 
-        // Check if manual punch is enabled for this employee
+        // Reconcile the schedule against today's date before checking the flag.
         $employee = \App\Models\Employee::find($inputEmployeeId);
+        $employee?->refreshManualPunchStatus();
+
         if (! $employee?->manual_punch_enabled) {
             return back()->withErrors(['employee_id' => 'Manual attendance punch is not enabled for your account. Contact your supervisor.']);
-        }
-
-        // Auto-disable if the scheduled date range has expired
-        $today = Carbon::today();
-        $startDate = $employee->manual_punch_start_date !== null
-            ? Carbon::parse($employee->manual_punch_start_date)
-            : null;
-        $endDate = $employee->manual_punch_end_date !== null
-            ? Carbon::parse($employee->manual_punch_end_date)
-            : null;
-
-        if ($startDate !== null && $endDate !== null) {
-            $withinRange = $today->greaterThanOrEqualTo($startDate) && $today->lessThanOrEqualTo($endDate);
-
-            if (! $withinRange) {
-                $employee->update([
-                    'manual_punch_enabled' => false,
-                    'manual_punch_reason' => null,
-                    'manual_punch_start_date' => null,
-                    'manual_punch_end_date' => null,
-                ]);
-
-                return back()->withErrors(['employee_id' => 'Your manual punch permission has expired. Contact your supervisor.']);
-            }
         }
 
         $now = Carbon::now();

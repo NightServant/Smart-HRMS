@@ -21,4 +21,16 @@ class Department extends Model
     {
         return $this->hasMany(Employee::class);
     }
+
+    public function positions(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            EmployeePosition::class,
+            'department_position',
+            'department_id',
+            'position_id',
+        )
+            ->withPivot('linked_role')
+            ->withTimestamps();
+    }
 }

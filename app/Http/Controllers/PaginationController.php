@@ -418,6 +418,7 @@ class PaginationController extends Controller
         $subordinates = \App\Models\Employee::query()
             ->where('supervisor_id', $evaluatorEmployeeId)
             ->get(['employee_id', 'name', 'manual_punch_enabled', 'manual_punch_reason', 'manual_punch_start_date', 'manual_punch_end_date'])
+            ->each(fn (\App\Models\Employee $emp) => $emp->refreshManualPunchStatus())
             ->map(fn (\App\Models\Employee $emp): array => [
                 'employee_id' => $emp->employee_id,
                 'name' => $emp->name,
@@ -458,7 +459,7 @@ class PaginationController extends Controller
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
         $statusFilter = trim((string) $request->string('statusFilter'));
         $positionFilter = trim((string) $request->string('positionFilter'));
-        $departmentFilter = trim((string) $request->string('departmentFilter'));
+        $activeDepartmentId = $request->integer('activeDepartmentId') ?: null;
         $allowedSorts = [
             'employee_id' => 'users.employee_id',
             'name' => 'users.name',
@@ -481,8 +482,8 @@ class PaginationController extends Controller
                 fn ($query) => $query->where('employees.department_id', $evaluatorDepartmentId),
             )
             ->when(
-                $isHrPersonnel && $departmentFilter !== '',
-                fn ($query) => $query->where('departments.name', $departmentFilter),
+                $isHrPersonnel && $activeDepartmentId !== null,
+                fn ($query) => $query->where('employees.department_id', $activeDepartmentId),
             )
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
@@ -542,7 +543,34 @@ class PaginationController extends Controller
                 ! $isHrPersonnel && $evaluatorDepartmentId !== null,
                 fn ($query) => $query->where('department_id', $evaluatorDepartmentId),
             );
-        $positions = EmployeePosition::query()
+
+        $departmentsCollection = Department::query()
+            ->with(['positions' => fn ($query) => $query->orderBy('name')])
+            ->when(
+                ! $isHrPersonnel && $evaluatorDepartmentId !== null,
+                fn ($query) => $query->where('id', $evaluatorDepartmentId),
+            )
+            ->orderBy('name')
+            ->get();
+
+        $departments = $departmentsCollection
+            ->map(fn (Department $department): array => [
+                'id' => $department->id,
+                'name' => $department->name,
+                'positions' => $department->positions
+                    ->map(fn (EmployeePosition $position): array => [
+                        'id' => $position->id,
+                        'name' => $position->name,
+                        'linkedAccountRole' => (string) ($position->pivot->linked_role
+                            ?? EmployeePosition::linkedAccountRoleFor($department->name, $position->name)),
+                    ])
+                    ->values()
+                    ->all(),
+            ])
+            ->values()
+            ->all();
+
+        $allPositions = EmployeePosition::query()
             ->orderBy('name')
             ->get(['id', 'name'])
             ->map(fn (EmployeePosition $position): array => [
@@ -552,32 +580,26 @@ class PaginationController extends Controller
             ])
             ->values()
             ->all();
-        $positionRoleMap = collect($positions)
+
+        $positionRoleMap = collect($allPositions)
             ->mapWithKeys(fn (array $position): array => [
                 (string) $position['id'] => (string) $position['linkedAccountRole'],
             ])
             ->all();
-        $departments = Department::query()
-            ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (Department $department): array => [
-                'id' => $department->id,
-                'name' => $department->name,
-            ])
-            ->values()
-            ->all();
+
         $departmentPositionRoleMap = collect($departments)
             ->mapWithKeys(fn (array $department): array => [
-                (string) $department['id'] => collect($positions)
+                (string) $department['id'] => collect($department['positions'])
                     ->mapWithKeys(fn (array $position): array => [
-                        (string) $position['id'] => EmployeePosition::linkedAccountRoleFor(
-                            $department['name'],
-                            $position['name'],
-                        ),
+                        (string) $position['id'] => (string) $position['linkedAccountRole'],
                     ])
                     ->all(),
             ])
             ->all();
+
+        $resolvedActiveDepartmentId = $activeDepartmentId
+            ?? $evaluatorDepartmentId
+            ?? ($departments[0]['id'] ?? null);
 
         $stats = [
             'total' => (clone $allEmployees)->count(),
@@ -591,7 +613,7 @@ class PaginationController extends Controller
             'direction' => $direction,
             'statusFilter' => $statusFilter,
             'positionFilter' => $positionFilter,
-            'departmentFilter' => $departmentFilter,
+            'activeDepartmentId' => $resolvedActiveDepartmentId,
             'canFilterByDepartment' => $isHrPersonnel,
             'employees' => $employees->items(),
             'pagination' => [
@@ -602,8 +624,13 @@ class PaginationController extends Controller
             ],
             'stats' => $stats,
             'nextEmployeeId' => Employee::nextEmployeeId(),
+            'nextEmployeeIdByPrefix' => [
+                'EMP' => Employee::nextEmployeeId('EMP'),
+                'HR' => Employee::nextEmployeeId('HR'),
+                'PMT' => Employee::nextEmployeeId('PMT'),
+            ],
             'departments' => $departments,
-            'positions' => $positions,
+            'positions' => $allPositions,
             'positionRoleMap' => $positionRoleMap,
             'departmentPositionRoleMap' => $departmentPositionRoleMap,
             'defaultEmployeeRole' => User::ROLE_EMPLOYEE,

@@ -30,10 +30,20 @@ class EmployeeDirectoryController extends Controller
         $user = null;
 
         DB::transaction(function () use ($validated, $request, $temporaryPassword, &$employee, &$user): void {
-            $employeeId = Employee::nextEmployeeId(lockForUpdate: true);
             $department = $this->resolveDepartment($validated);
             $position = EmployeePosition::query()->findOrFail($validated['position_id']);
             $linkedRole = $position->linkedAccountRole($department->name);
+
+            if ($linkedRole === User::ROLE_HR_PERSONNEL) {
+                throw ValidationException::withMessages([
+                    'position_id' => 'HR Personnel accounts cannot be created from the directory.',
+                ]);
+            }
+
+            $employeeId = Employee::nextEmployeeId(
+                prefix: Employee::idPrefixForRole($linkedRole),
+                lockForUpdate: true,
+            );
 
             $employee = Employee::query()->create([
                 'employee_id' => $employeeId,
