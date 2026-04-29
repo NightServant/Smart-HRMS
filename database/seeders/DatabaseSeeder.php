@@ -17,9 +17,8 @@ class DatabaseSeeder extends Seeder
             EmployeePositionSeeder::class,
             EmployeeSeeder::class,
             UserSeeder::class,
-            IpcrWorkflowSeeder::class,
             LeaveWorkflowSeeder::class,
-            PerformanceForecastSeeder::class,
+            HistoricalPerformanceSeeder::class,
         ]);
     }
 }

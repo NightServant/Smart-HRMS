@@ -1,7 +1,6 @@
 import { router } from "@inertiajs/react";
-import { ArrowDown, ArrowUp, ArrowUpDown, Upload, Search, UserSearch, Trash2 } from "lucide-react";
-import { useRef, useState, type ChangeEvent } from "react";
-import { toast } from "sonner";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -107,9 +106,6 @@ export function HistoricalDataTable({
 }) {
     const [searchTerm, setSearchTerm] = useState(search);
     const [selectedYear, setSelectedYear] = useState(year ? String(year) : 'all');
-    const [isImporting, setIsImporting] = useState(false);
-    const [isClearing, setIsClearing] = useState(false);
-    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const currentYear = new Date().getFullYear();
     const yearOptions = Array.from({ length: 8 }, (_, i) => currentYear - i);
@@ -188,62 +184,6 @@ export function HistoricalDataTable({
         }
 
         visitHistoricalDataTable({ page: pagination.currentPage + 1 });
-    };
-
-    const handleImportClick = (): void => {
-        fileInputRef.current?.click();
-    };
-
-    const handleFileChange = (event: ChangeEvent<HTMLInputElement>): void => {
-        const file = event.target.files?.[0];
-        if (!file) {
-            return;
-        }
-
-        if (!file.name.toLowerCase().endsWith(".csv")) {
-            toast.error("Please select a valid CSV file.");
-            return;
-        }
-
-        setIsImporting(true);
-        router.post('/admin/historical-data/import-csv', { historical_csv: file }, {
-            forceFormData: true,
-            preserveScroll: true,
-            onSuccess: () => {
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = "";
-                }
-                toast.success("CSV file imported successfully!");
-            },
-            onError: (errors) => {
-                const firstError = Object.values(errors)[0];
-                toast.error(typeof firstError === "string" ? firstError : "Failed to import CSV file.");
-            },
-            onFinish: () => {
-                setIsImporting(false);
-            },
-        });
-    };
-
-    const handleClearImportedClick = (): void => {
-        const confirmed = window.confirm("Clear all imported historical records?");
-        if (!confirmed) {
-            return;
-        }
-
-        setIsClearing(true);
-        router.delete('/admin/historical-data/clear-imported', {
-            preserveScroll: true,
-            onSuccess: () => {
-                toast.success("Imported historical records cleared.");
-            },
-            onError: () => {
-                toast.error("Failed to clear imported historical records.");
-            },
-            onFinish: () => {
-                setIsClearing(false);
-            },
-        });
     };
 
     const groupedHistoricalData: GroupedHistoricalRow[] = [];
@@ -336,35 +276,6 @@ export function HistoricalDataTable({
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
-                    </div>
-                    <div className="flex flex-row animate-fade-in-right items-center gap-2">
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept=".csv,text/csv"
-                            className="hidden"
-                            onChange={handleFileChange}
-                        />
-                        <Button
-                            variant="outline"
-                            className="animate-fade-in-right w-fit px-4 py-2"
-                            type="button"
-                            onClick={handleImportClick}
-                            disabled={isImporting}
-                        >
-                            <Upload className="mr-2 h-4 w-4" />
-                            Import CSV
-                        </Button>
-                        <Button
-                            variant="destructive"
-                            className="animate-fade-in-right w-fit px-4 py-2"
-                            type="button"
-                            onClick={handleClearImportedClick}
-                            disabled={isClearing}
-                        >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Clear Imported
-                        </Button>
                     </div>
                 </div>
 

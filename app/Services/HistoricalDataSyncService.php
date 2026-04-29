@@ -18,7 +18,9 @@ class HistoricalDataSyncService
         Employee::query()
             ->with(['department'])
             ->get()
-            ->each(fn (Employee $employee): bool => $this->syncEmployee($employee));
+            ->each(function (Employee $employee): void {
+                $this->syncEmployee($employee);
+            });
     }
 
     public function syncEmployee(Employee $employee): bool
