@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\BiometricController;
 use App\Http\Controllers\Api\BiometricWebhookController;
+use App\Http\Controllers\Api\WebAuthnController;
 use Illuminate\Support\Facades\Route;
 
 // Public webhook entrypoint. Auth is handled inside the controller via signature
@@ -29,4 +30,19 @@ Route::middleware(['web', 'auth', 'throttle:60,1'])->prefix('biometrics')->group
     Route::post('clock', [BiometricController::class, 'clock'])
         ->middleware('role:employee')
         ->name('api.biometrics.clock');
+
+    Route::prefix('webauthn')->middleware('role:employee')->group(function (): void {
+        Route::get('status', [WebAuthnController::class, 'status'])
+            ->name('api.biometrics.webauthn.status');
+        Route::post('register-options', [WebAuthnController::class, 'registerOptions'])
+            ->name('api.biometrics.webauthn.register-options');
+        Route::post('register', [WebAuthnController::class, 'register'])
+            ->name('api.biometrics.webauthn.register');
+        Route::post('clock-options', [WebAuthnController::class, 'clockOptions'])
+            ->name('api.biometrics.webauthn.clock-options');
+        Route::post('clock', [WebAuthnController::class, 'clock'])
+            ->name('api.biometrics.webauthn.clock');
+        Route::post('reset', [WebAuthnController::class, 'reset'])
+            ->name('api.biometrics.webauthn.reset');
+    });
 });

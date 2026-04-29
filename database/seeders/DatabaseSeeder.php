@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             IpcrWorkflowSeeder::class,
             LeaveWorkflowSeeder::class,
+            PerformanceForecast2029Seeder::class,
         ]);
     }
 }

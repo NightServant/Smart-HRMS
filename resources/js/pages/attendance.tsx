@@ -25,8 +25,6 @@ export default function Attendance({
     records,
     employeeId,
     employeeName,
-    zktecoPin,
-    hasDevice,
     enrolledInBiometric = false,
     enrollmentStatus,
     manualPunchEnabled = false,
@@ -34,8 +32,6 @@ export default function Attendance({
     records: DailyAttendanceRecord[];
     employeeId: string;
     employeeName: string;
-    zktecoPin: string | null;
-    hasDevice: boolean;
     enrolledInBiometric?: boolean;
     enrollmentStatus: EnrollmentStatus;
     manualPunchEnabled?: boolean;
@@ -48,8 +44,6 @@ export default function Attendance({
                     records={records}
                     employeeId={employeeId}
                     employeeName={employeeName}
-                    zktecoPin={zktecoPin}
-                    hasDevice={hasDevice}
                     enrolledInBiometric={enrolledInBiometric}
                     enrollmentStatus={enrollmentStatus}
                     manualPunchEnabled={manualPunchEnabled}

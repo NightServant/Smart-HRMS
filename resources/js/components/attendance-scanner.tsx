@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { AttendancePolicyHelpDialog } from '@/components/attendance-policy-help-dialog';
 import {
     BiometricEnrollmentDialog,
     type EnrollmentStatus,
@@ -61,12 +62,43 @@ const STATUS_CLASSES: Record<DailyAttendanceRecord['status'], string> = {
         'bg-zinc-100 text-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300',
 };
 
+function base64UrlToBytes(value: string): Uint8Array<ArrayBuffer> {
+    const padded = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padding = '='.repeat((4 - (padded.length % 4)) % 4);
+    const binary = atob(padded + padding);
+    const buffer = new ArrayBuffer(binary.length);
+    const bytes = new Uint8Array(buffer);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+}
+
+function bufferToBase64Url(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary)
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+}
+
+function csrfHeader(): Record<string, string> {
+    return {
+        'X-CSRF-TOKEN':
+            document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute('content') ?? '',
+    };
+}
+
 export default function AttendanceScanner({
     records,
     employeeId,
     employeeName,
-    zktecoPin,
-    hasDevice,
     enrolledInBiometric,
     enrollmentStatus,
     manualPunchEnabled = false,
@@ -74,8 +106,6 @@ export default function AttendanceScanner({
     records: DailyAttendanceRecord[];
     employeeId: string;
     employeeName: string;
-    zktecoPin: string | null;
-    hasDevice: boolean;
     enrolledInBiometric: boolean;
     enrollmentStatus: EnrollmentStatus;
     manualPunchEnabled?: boolean;
@@ -109,31 +139,105 @@ export default function AttendanceScanner({
     };
 
     const handleFingerprintScan = async (mode: 'in' | 'out'): Promise<void> => {
-        if (!enrolledInBiometric || !zktecoPin) {
+        if (!enrolledInBiometric) {
             toast.error('Please enroll your fingerprint first.');
             setIsEnrollOpen(true);
+            return;
+        }
+
+        if (typeof window.PublicKeyCredential === 'undefined') {
+            toast.error(
+                'This browser does not support WebAuthn. Use Chrome, Edge, or Safari with a fingerprint reader.',
+            );
             return;
         }
 
         setScanning(mode);
 
         try {
-            const response = await fetch('/api/biometrics/clock', {
+            const optionsResponse = await fetch(
+                '/api/biometrics/webauthn/clock-options',
+                {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        ...csrfHeader(),
+                    },
+                    body: JSON.stringify({}),
+                },
+            );
+
+            if (!optionsResponse.ok) {
+                const errPayload = (await optionsResponse
+                    .json()
+                    .catch(() => ({}))) as { error?: string };
+                toast.error(
+                    errPayload.error ??
+                        'Could not start fingerprint verification.',
+                );
+                return;
+            }
+
+            const options = (await optionsResponse.json()) as {
+                challenge: string;
+                rpId: string;
+                timeout: number;
+                userVerification: 'required' | 'preferred' | 'discouraged';
+                allowCredentials: Array<{
+                    type: 'public-key';
+                    id: string;
+                }>;
+            };
+
+            const assertion = (await navigator.credentials.get({
+                publicKey: {
+                    challenge: base64UrlToBytes(options.challenge),
+                    rpId: options.rpId,
+                    timeout: options.timeout,
+                    userVerification: options.userVerification,
+                    allowCredentials: options.allowCredentials.map((entry) => ({
+                        type: 'public-key',
+                        id: base64UrlToBytes(entry.id),
+                    })),
+                },
+            })) as PublicKeyCredential | null;
+
+            if (!assertion) {
+                toast.error('Fingerprint verification was cancelled.');
+                return;
+            }
+
+            const assertionResponse =
+                assertion.response as AuthenticatorAssertionResponse;
+
+            const response = await fetch('/api/biometrics/webauthn/clock', {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                     Accept: 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN':
-                        document
-                            .querySelector('meta[name="csrf-token"]')
-                            ?.getAttribute('content') ?? '',
+                    ...csrfHeader(),
                 },
                 body: JSON.stringify({
-                    employee_id: employeeId,
-                    zkteco_pin: zktecoPin,
                     mode,
+                    assertion: {
+                        id: assertion.id,
+                        response: {
+                            clientDataJSON: bufferToBase64Url(
+                                assertionResponse.clientDataJSON,
+                            ),
+                            authenticatorData: bufferToBase64Url(
+                                assertionResponse.authenticatorData,
+                            ),
+                            signature: bufferToBase64Url(
+                                assertionResponse.signature,
+                            ),
+                        },
+                    },
                 }),
             });
 
@@ -146,7 +250,7 @@ export default function AttendanceScanner({
                 toast.error(
                     payload.error ??
                         payload.message ??
-                        'Fingerprint scan could not be confirmed by the device.',
+                        'Fingerprint scan could not be confirmed.',
                 );
                 return;
             }
@@ -156,8 +260,12 @@ export default function AttendanceScanner({
                     `Clock ${mode === 'in' ? 'in' : 'out'} recorded.`,
             );
             refreshAttendance();
-        } catch {
-            toast.error('Network error. Try again.');
+        } catch (error) {
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : 'Fingerprint verification failed.';
+            toast.error(message);
         } finally {
             setScanning(null);
         }
@@ -183,19 +291,20 @@ export default function AttendanceScanner({
             <PageIntro
                 eyebrow="Employee · Attendance"
                 title="Attendance and Biometric Verification"
-                description="Record your attendance using the ZKTeco biometric terminal or the secured manual entry fallback below."
+                description="Record your attendance using your device's built-in fingerprint reader or the secured manual entry fallback below."
                 actions={
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className="bg-background/70">
                             <Fingerprint className="size-3.5" />
-                            {hasDevice
+                            {enrolledInBiometric
                                 ? 'Biometric ready'
-                                : 'Waiting for device'}
+                                : 'Fingerprint not enrolled'}
                         </Badge>
                         <Badge variant="outline" className="bg-background/70">
                             <Clock className="size-3.5" />
                             {currentTime}
                         </Badge>
+                        <AttendancePolicyHelpDialog />
                     </div>
                 }
                 className="animate-slide-in-down"
@@ -209,10 +318,10 @@ export default function AttendanceScanner({
                             Biometric Scanner
                         </CardTitle>
                         <CardDescription>
-                            Record your attendance via the ZKTeco terminal.
-                            Enrollment is managed in the ZK BIO Time portal —
-                            the device must be online and bound to this tenant
-                            for scans to sync back.
+                            Verify with the fingerprint reader on this device.
+                            Smart HRMS uses WebAuthn (FIDO2) so your fingerprint
+                            never leaves your device — only a signed assertion
+                            is sent back to record the punch.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-4">
@@ -223,12 +332,12 @@ export default function AttendanceScanner({
                                 </div>
                                 <div className="flex-1">
                                     <p className="text-sm font-semibold">
-                                        ZKTeco M1 Terminal
+                                        Built-in Fingerprint Reader
                                     </p>
                                     <p className="mt-0.5 text-xs text-muted-foreground">
-                                        Compatible with ZKTeco M1 Time &amp;
-                                        Attendance Terminal (fingerprint +
-                                        password).
+                                        Touch ID, Windows Hello, Android
+                                        fingerprint, or any FIDO2 biometric
+                                        authenticator on this device.
                                     </p>
                                 </div>
                             </div>
@@ -269,23 +378,21 @@ export default function AttendanceScanner({
                                         <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
                                     </span>
                                     <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                                        Active — Synced via ZKBio Time
+                                        Active — Verified via WebAuthn
                                     </span>
                                 </div>
 
                                 <p className="text-sm text-foreground/80">
-                                    Scan your fingerprint on the terminal, then
-                                    press Clock In or Clock Out below to record
-                                    the punch.
+                                    Press Clock In or Clock Out below — your
+                                    device will prompt for a fingerprint scan
+                                    to confirm the punch.
                                 </p>
 
                                 <div className="grid grid-cols-2 gap-2">
                                     <Button
                                         type="button"
                                         className="w-full gap-2"
-                                        disabled={
-                                            scanning !== null || !hasDevice
-                                        }
+                                        disabled={scanning !== null}
                                         onClick={() =>
                                             handleFingerprintScan('in')
                                         }
@@ -299,9 +406,7 @@ export default function AttendanceScanner({
                                         type="button"
                                         variant="outline"
                                         className="w-full gap-2"
-                                        disabled={
-                                            scanning !== null || !hasDevice
-                                        }
+                                        disabled={scanning !== null}
                                         onClick={() =>
                                             handleFingerprintScan('out')
                                         }
@@ -324,10 +429,10 @@ export default function AttendanceScanner({
                                     </div>
                                     <div>
                                         <p className="text-[10px] uppercase tracking-wide">
-                                            Device PIN
+                                            Authenticator
                                         </p>
                                         <p className="font-mono text-foreground">
-                                            {zktecoPin ?? '—'}
+                                            {enrollmentStatus.rp_id ?? 'WebAuthn'}
                                         </p>
                                     </div>
                                 </div>

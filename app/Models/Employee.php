@@ -27,6 +27,11 @@ class Employee extends Model
         'employment_status',
         'supervisor_id',
         'zkteco_pin',
+        'webauthn_credential_id',
+        'webauthn_public_key',
+        'webauthn_sign_count',
+        'webauthn_user_handle',
+        'webauthn_enrolled_at',
         'manual_punch_enabled',
         'manual_punch_reason',
         'manual_punch_start_date',
@@ -41,6 +46,8 @@ class Employee extends Model
     {
         return [
             'manual_punch_enabled' => 'boolean',
+            'webauthn_sign_count' => 'integer',
+            'webauthn_enrolled_at' => 'datetime',
             'date_hired' => 'date',
         ];
     }

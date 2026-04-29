@@ -14,10 +14,10 @@ import {
     type AttendancePolicy,
 } from '@/components/attendance-policy-card';
 import { AttendanceTable } from '@/components/attendance-table';
+import PageIntro from '@/components/page-intro';
 import AppLayout from '@/layouts/app-layout';
 import * as admin from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types';
-import PageIntro from '@/components/page-intro';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
