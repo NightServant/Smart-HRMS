@@ -201,18 +201,6 @@ export function AttendanceTable({
 
     return (
         <>
-            <PageIntro
-                eyebrow="HR Personnel · Attendance Management"
-                title="Daily Attendance Records"
-                description="List of all daily attendance records for the administrative office of the government."
-                className="animate-slide-in-down"
-                actions={
-                    <span className="app-info-pill">
-                        <UserSearch className="size-4 text-primary" />
-                        {pagination.total} total records
-                    </span>
-                }
-            />
             <div className="glass-card app-data-shell mx-auto w-full animate-zoom-in-soft bg-card shadow-sm">
                 <div className="app-filter-bar py-2">
                     <div className="relative w-full max-w-sm animate-fade-in-left">

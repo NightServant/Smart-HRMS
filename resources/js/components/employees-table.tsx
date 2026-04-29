@@ -7,10 +7,8 @@ import {
     Power,
     Search,
     UserCog,
-    UserSearch,
 } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import PageIntro from '@/components/page-intro';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -1179,31 +1177,6 @@ export function EmployeesTable({
 
     return (
         <>
-            <PageIntro
-                eyebrow={`${auth.user.role === 'hr-personnel' ? 'HR Personnel' : 'Evaluator'} · Employee Directory`}
-                title="Employee Data Management"
-                description="Manage employee records, linked accounts, departments, and role-aligned position data."
-                className="animate-slide-in-down"
-                actions={
-                    <div className="flex items-center gap-3">
-                        <span className="app-info-pill">
-                            <UserSearch className="size-4 text-primary" />
-                            {pagination.total} employee records
-                        </span>
-                        {canManageEmployees && (
-                            <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => setIsAddOpen(true)}
-                                className="flex items-center gap-1.5"
-                            >
-                                <Plus className="size-4" />
-                                Add Employee
-                            </Button>
-                        )}
-                    </div>
-                }
-            />
             <div className="glass-card app-data-shell mx-auto w-full animate-zoom-in-soft bg-card shadow-sm">
                 {departments.length > 0 && (
                     <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 pt-4 pb-2">
@@ -1226,17 +1199,32 @@ export function EmployeesTable({
                                 ))}
                             </TabsList>
                         </Tabs>
-                        {canFilterByDepartment && (
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="gap-1.5"
-                                onClick={() => setIsAddDepartmentOpen(true)}
-                            >
-                                <Plus className="size-4" />
-                                Add Department
-                            </Button>
+                        {canManageEmployees && (
+                            <div className="flex items-center gap-2">
+                                {canFilterByDepartment && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        className="gap-1.5"
+                                        onClick={() =>
+                                            setIsAddDepartmentOpen(true)
+                                        }
+                                    >
+                                        <Plus className="size-4" />
+                                        Add Department
+                                    </Button>
+                                )}
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    className="gap-1.5"
+                                    onClick={() => setIsAddOpen(true)}
+                                >
+                                    <Plus className="size-4" />
+                                    Add Employee
+                                </Button>
+                            </div>
                         )}
                     </div>
                 )}

@@ -6,6 +6,7 @@ import {
     Clock3,
     Database,
     HelpCircle,
+    UserSearch,
 } from 'lucide-react';
 import { Doughnut } from 'react-chartjs-2';
 import {
@@ -16,6 +17,7 @@ import { AttendanceTable } from '@/components/attendance-table';
 import AppLayout from '@/layouts/app-layout';
 import * as admin from '@/routes/admin';
 import type { BreadcrumbItem } from '@/types';
+import PageIntro from '@/components/page-intro';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -184,6 +186,18 @@ export default function AttendanceManagement({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Attendance Management" />
             <div className="app-page-shell app-page-stack lg:items-stretch">
+                <PageIntro
+                    eyebrow="HR Personnel · Attendance Management"
+                    title="Daily Attendance Records"
+                    description="List of all daily attendance records for the administrative office of the government."
+                    className="animate-slide-in-down"
+                    actions={
+                        <span className="app-info-pill">
+                            <UserSearch className="size-4 text-primary" />
+                            {pagination.total} total records
+                        </span>
+                    }
+                />
                 <AttendancePolicyCard policy={attendancePolicy} />
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-stretch">
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

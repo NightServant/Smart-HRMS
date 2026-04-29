@@ -57,7 +57,7 @@ export function AttendancePolicyCard({ policy }: { policy: AttendancePolicy }) {
     };
 
     return (
-        <Card className="border-primary/20">
+        <Card className="glass-card">
             <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-3">
                     <div>

@@ -1,9 +1,10 @@
 import { Head, usePage } from '@inertiajs/react';
-import { Briefcase, Clock, Shield, Users } from 'lucide-react';
+import { Briefcase, Clock, Shield, UserSearch, Users } from 'lucide-react';
 import { EmployeesTable } from '@/components/employees-table';
+import PageIntro from '@/components/page-intro';
 import AppLayout from '@/layouts/app-layout';
 import * as admin from '@/routes/admin';
-import type { BreadcrumbItem } from '@/types';
+import type { Auth, BreadcrumbItem } from '@/types';
 
 type Employee = {
     id: number;
@@ -63,6 +64,7 @@ type EmployeeSortKey = 'employee_id' | 'name' | 'email' | 'position';
 type DepartmentPositionRoleMap = Record<string, Record<string, string>>;
 
 type PageProps = {
+    auth: Auth;
     flash: {
         employeeAccountCredentials?: {
             employeeName: string;
@@ -154,13 +156,25 @@ export default function EmployeeDirectory({
     departmentPositionRoleMap?: DepartmentPositionRoleMap;
     defaultEmployeeRole?: string;
 }) {
-    const { flash } = usePage<PageProps>().props;
+    const { auth, flash } = usePage<PageProps>().props;
     const createdAccountCredentials = flash.employeeAccountCredentials;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Employee Directory" />
             <div className="flex w-full flex-col gap-6 p-4 md:p-6 xl:p-8 lg:items-stretch">
+                <PageIntro
+                    eyebrow={`${auth.user.role === 'hr-personnel' ? 'HR Personnel' : 'Evaluator'} · Employee Directory`}
+                    title="Employee Data Management"
+                    description="Manage employee records, linked accounts, departments, and role-aligned position data."
+                    className="animate-slide-in-down"
+                    actions={
+                        <span className="app-info-pill">
+                            <UserSearch className="size-4 text-primary" />
+                            {pagination.total} employee records
+                        </span>
+                    }
+                />
                 {/* Stat Cards */}
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                     <StatCard
