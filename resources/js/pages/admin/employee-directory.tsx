@@ -168,12 +168,6 @@ export default function EmployeeDirectory({
                     title="Employee Data Management"
                     description="Manage employee records, linked accounts, departments, and role-aligned position data."
                     className="animate-slide-in-down"
-                    actions={
-                        <span className="app-info-pill">
-                            <UserSearch className="size-4 text-primary" />
-                            {pagination.total} employee records
-                        </span>
-                    }
                 />
                 {/* Stat Cards */}
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
