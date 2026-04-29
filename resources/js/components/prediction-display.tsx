@@ -3,6 +3,7 @@ import {
     ArrowRight,
     ArrowUp,
     ChartLine,
+    Info,
     Loader2,
     TrendingUp,
 } from 'lucide-react';
@@ -83,38 +84,90 @@ type Props = {
     loading: boolean;
 };
 
-function resolveTrendConfig(trend: string): {
+type TrendKey = 'IMPROVING' | 'STABLE' | 'DECLINING';
+
+type TrendConfig = {
     icon: typeof ArrowRight;
     color: string;
     bg: string;
     label: string;
-} {
-    const normalizedTrend = trend.toUpperCase();
+    description: string;
+};
 
-    if (normalizedTrend === 'IMPROVING') {
-        return {
-            icon: ArrowUp,
-            color: 'text-emerald-600 dark:text-emerald-400',
-            bg: 'border-emerald-300/60 bg-emerald-100/70 dark:border-emerald-700/60 dark:bg-emerald-900/30',
-            label: 'Improving',
-        };
-    }
-
-    if (normalizedTrend === 'DECLINING') {
-        return {
-            icon: ArrowDown,
-            color: 'text-red-600 dark:text-red-400',
-            bg: 'border-red-300/60 bg-red-100/70 dark:border-red-700/60 dark:bg-red-900/30',
-            label: 'Declining',
-        };
-    }
-
-    return {
+const TREND_CONFIGS: Record<TrendKey, TrendConfig> = {
+    IMPROVING: {
+        icon: ArrowUp,
+        color: 'text-emerald-600 dark:text-emerald-400',
+        bg: 'border-emerald-300/60 bg-emerald-100/70 dark:border-emerald-700/60 dark:bg-emerald-900/30',
+        label: 'Improving',
+        description: 'Forecast > recent average by more than 0.10',
+    },
+    STABLE: {
         icon: ArrowRight,
         color: 'text-amber-600 dark:text-amber-400',
         bg: 'border-amber-300/60 bg-amber-100/70 dark:border-amber-700/60 dark:bg-amber-900/30',
-        label: 'Stable',
-    };
+        label: 'Stabilizing',
+        description: 'Forecast within ±0.10 of the recent average',
+    },
+    DECLINING: {
+        icon: ArrowDown,
+        color: 'text-red-600 dark:text-red-400',
+        bg: 'border-red-300/60 bg-red-100/70 dark:border-red-700/60 dark:bg-red-900/30',
+        label: 'Declining',
+        description: 'Forecast < recent average by more than 0.10',
+    },
+};
+
+function resolveTrendConfig(trend: string): TrendConfig {
+    const normalized = trend.toUpperCase() as TrendKey;
+
+    return TREND_CONFIGS[normalized] ?? TREND_CONFIGS.STABLE;
+}
+
+function PredictionGuide({ activeTrend }: { activeTrend: TrendKey }) {
+    const order: TrendKey[] = ['DECLINING', 'STABLE', 'IMPROVING'];
+
+    return (
+        <div className="rounded-2xl border border-border/70 bg-background/60 p-3 mt-5">
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                <Info className="size-3.5" />
+                Prediction Guide
+            </div>
+            <div className="grid gap-2 sm:grid-cols-3">
+                {order.map((key) => {
+                    const config = TREND_CONFIGS[key];
+                    const Icon = config.icon;
+                    const isActive = activeTrend === key;
+
+                    return (
+                        <div
+                            key={key}
+                            className={`flex items-start gap-2 rounded-xl border px-3 py-2 transition-colors ${
+                                isActive
+                                    ? `${config.bg} ${config.color}`
+                                    : 'border-border/60 bg-background/40 text-muted-foreground'
+                            }`}
+                        >
+                            <Icon className="mt-0.5 size-4 shrink-0" />
+                            <div className="min-w-0">
+                                <p className="text-xs font-semibold">
+                                    {config.label}
+                                    {isActive ? (
+                                        <span className="ml-1.5 rounded-full bg-foreground/10 px-1.5 py-0.5 text-[10px] font-bold tracking-wider uppercase">
+                                            Active
+                                        </span>
+                                    ) : null}
+                                </p>
+                                <p className="mt-0.5 text-[11px] leading-snug opacity-80">
+                                    {config.description}
+                                </p>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
 }
 
 function buildForecastYearAverages(
@@ -190,7 +243,6 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
 
     const hasPrediction = prediction !== null;
     const historicalLabels = prediction?.historical?.labels ?? [];
-    const historicalScores = prediction?.historical?.scores ?? [];
     const comparisonRows = prediction?.comparison?.rows ?? [];
     const hasHistorical = historicalLabels.length > 0;
     const hasForecast =
@@ -220,7 +272,10 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
         );
     }
 
-    const trendConfig = resolveTrendConfig(prediction.trend ?? 'STABLE');
+    const trendKey = (
+        prediction.trend ?? 'STABLE'
+    ).toUpperCase() as TrendKey;
+    const trendConfig = resolveTrendConfig(trendKey);
     const TrendIcon = trendConfig.icon;
     const historicalYearLabels = prediction.historical?.yearly_labels ?? [];
     const historicalYearScores = prediction.historical?.yearly_scores ?? [];
@@ -262,10 +317,23 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
         (row) => row.achievement_status === 'needs_improvement',
     ).length;
 
-    const ipcrComparisonRows = comparisonRows.filter(
-        (row) =>
-            typeof row.target_score === 'number' && row.target_score !== null,
-    );
+    const ipcrComparisonRows = comparisonRows
+        .filter(
+            (row) =>
+                typeof row.target_score === 'number' &&
+                row.target_score !== null,
+        )
+        .slice()
+        .sort((left, right) => {
+            if (left.year !== right.year) {
+                return left.year - right.year;
+            }
+
+            const leftPeriod = left.period === 'S2' ? 2 : 1;
+            const rightPeriod = right.period === 'S2' ? 2 : 1;
+
+            return leftPeriod - rightPeriod;
+        });
     const ipcrLabels = ipcrComparisonRows.map(
         (row) =>
             `${row.year} ${row.period === 'S2' ? '2nd Sem' : '1st Sem'}`,
@@ -353,19 +421,20 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
                                       {
                                           label: 'Projected Performance',
                                           data: forecastYearData,
-                                          borderColor: '#2A5A8C',
-                                          backgroundColor: '#4A90D9',
-                                          borderDash: [10, 6],
+                                          borderColor: '#3B82F6',
+                                          backgroundColor: '#60A5FA',
+                                          borderDash: [8, 6],
                                           borderWidth: 3,
-                                          pointRadius: 4,
-                                          pointHoverRadius: 6,
+                                          pointRadius: 5,
+                                          pointHoverRadius: 7,
+                                          spanGaps: true,
                                       },
                                   ]
                                 : []),
                         ]}
                     />
 
-                    <div className="flex flex-wrap items-center gap-4 text-sm">
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-3 text-sm my-4">
                         <span className="text-muted-foreground">
                             Historical avg:{' '}
                             <span className="font-semibold text-foreground">
@@ -384,36 +453,37 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
                                 {historicalLabels.length}
                             </span>
                         </span>
+                        {prediction.error_metrics ? (
+                            <>
+                                <span className="text-muted-foreground">
+                                    RMSE:{' '}
+                                    <span className="font-semibold text-foreground">
+                                        {prediction.error_metrics.rmse.toFixed(
+                                            3,
+                                        )}
+                                    </span>
+                                </span>
+                                <span className="text-muted-foreground">
+                                    MAE:{' '}
+                                    <span className="font-semibold text-foreground">
+                                        {prediction.error_metrics.mae.toFixed(
+                                            3,
+                                        )}
+                                    </span>
+                                </span>
+                                <span className="text-muted-foreground">
+                                    R²:{' '}
+                                    <span className="font-semibold text-foreground">
+                                        {prediction.error_metrics.r2.toFixed(3)}
+                                    </span>
+                                </span>
+                            </>
+                        ) : null}
                     </div>
+
+                    <PredictionGuide activeTrend={trendKey} />
                 </DashboardChartSurface>
             ) : null}
-
-                    <div className="grid gap-3 md:grid-cols-3">
-                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-                            <p className="text-xs font-semibold tracking-[0.18em] text-emerald-700 uppercase dark:text-emerald-300">
-                                Strongly Achieved
-                            </p>
-                            <p className="mt-2 text-2xl font-bold text-emerald-800 dark:text-emerald-200">
-                                {achievedCount}
-                            </p>
-                        </div>
-                        <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
-                            <p className="text-xs font-semibold tracking-[0.18em] text-blue-700 uppercase dark:text-blue-300">
-                                On Track
-                            </p>
-                            <p className="mt-2 text-2xl font-bold text-blue-800 dark:text-blue-200">
-                                {onTrackCount}
-                            </p>
-                        </div>
-                        <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
-                            <p className="text-xs font-semibold tracking-[0.18em] text-amber-700 uppercase dark:text-amber-300">
-                                Needs Improvement
-                            </p>
-                            <p className="mt-2 text-2xl font-bold text-amber-800 dark:text-amber-200">
-                                {needsImprovementCount}
-                            </p>
-                        </div>
-                    </div>
                 </TabsContent>
 
                 <TabsContent value="ipcr" className="mt-4 space-y-4">
@@ -449,9 +519,9 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
                                     {
                                         label: 'IPCR Targets',
                                         data: ipcrTargetData,
-                                        borderColor: '#2A5A8C',
-                                        backgroundColor: '#4A90D9',
-                                        borderDash: [10, 6],
+                                        borderColor: '#3B82F6',
+                                        backgroundColor: '#60A5FA',
+                                        borderDash: [8, 6],
                                         borderWidth: 3,
                                         pointRadius: 4,
                                         pointHoverRadius: 6,
@@ -477,6 +547,42 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
                             </div>
                         )}
                     </DashboardChartSurface>
+
+                    <div className="grid gap-3 md:grid-cols-3">
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                            <p className="text-xs font-semibold tracking-[0.18em] text-emerald-700 uppercase dark:text-emerald-300">
+                                Strongly Achieved
+                            </p>
+                            <p className="mt-2 text-2xl font-bold text-emerald-800 dark:text-emerald-200">
+                                {achievedCount}
+                            </p>
+                            <p className="mt-1 text-xs text-emerald-700/80 dark:text-emerald-300/80">
+                                Periods where the actual result met or exceeded the target.
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
+                            <p className="text-xs font-semibold tracking-[0.18em] text-blue-700 uppercase dark:text-blue-300">
+                                On Track
+                            </p>
+                            <p className="mt-2 text-2xl font-bold text-blue-800 dark:text-blue-200">
+                                {onTrackCount}
+                            </p>
+                            <p className="mt-1 text-xs text-blue-700/80 dark:text-blue-300/80">
+                                Periods within close range of the planned target.
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+                            <p className="text-xs font-semibold tracking-[0.18em] text-amber-700 uppercase dark:text-amber-300">
+                                Needs Improvement
+                            </p>
+                            <p className="mt-2 text-2xl font-bold text-amber-800 dark:text-amber-200">
+                                {needsImprovementCount}
+                            </p>
+                            <p className="mt-1 text-xs text-amber-700/80 dark:text-amber-300/80">
+                                Periods where the actual result fell short of the target.
+                            </p>
+                        </div>
+                    </div>
                 </TabsContent>
             </Tabs>
         </div>

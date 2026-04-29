@@ -12,6 +12,10 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import {
+    AttendanceHistoryTable,
+    type DailyAttendanceRecord,
+} from '@/components/attendance-history-table';
 import { AttendancePolicyHelpDialog } from '@/components/attendance-policy-help-dialog';
 import {
     BiometricEnrollmentDialog,
@@ -28,39 +32,6 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
-
-type DailyAttendanceRecord = {
-    id: number;
-    date: string;
-    time_in: string | null;
-    time_out: string | null;
-    status: 'on_time' | 'late' | 'incomplete';
-    late_minutes: number;
-    source: string;
-};
-
-const STATUS_LABELS: Record<DailyAttendanceRecord['status'], string> = {
-    on_time: 'On Time',
-    late: 'Late',
-    incomplete: 'Incomplete',
-};
-
-const STATUS_CLASSES: Record<DailyAttendanceRecord['status'], string> = {
-    on_time:
-        'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
-    late: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-    incomplete:
-        'bg-zinc-100 text-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300',
-};
 
 function base64UrlToBytes(value: string): Uint8Array<ArrayBuffer> {
     const padded = value.replace(/-/g, '+').replace(/_/g, '/');
@@ -529,73 +500,7 @@ export default function AttendanceScanner({
                 </Card>
             </div>
 
-            <div className="glass-card app-data-shell mx-auto w-full animate-zoom-in-soft overflow-hidden bg-card shadow-sm">
-                <div className="py-4">
-                    <h2 className="flex items-center gap-2 text-lg font-bold">
-                        <Clock className="size-5" />
-                        Recent Attendance
-                    </h2>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                        Daily attendance summary based on biometric and manual
-                        punches.
-                    </p>
-                </div>
-                <Separator className="mb-4" />
-                <div className="overflow-x-auto">
-                    <Table className="w-full min-w-[34rem]">
-                        <TableHeader>
-                            <TableRow className="app-table-head-row text-sm font-bold">
-                                <TableHead>Date</TableHead>
-                                <TableHead>Time In</TableHead>
-                                <TableHead>Time Out</TableHead>
-                                <TableHead>Late (min)</TableHead>
-                                <TableHead>Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {records.map((record, index) => (
-                                <TableRow
-                                    key={record.id}
-                                    style={{
-                                        animationDelay: `${index * 24}ms`,
-                                    }}
-                                    className={`animate-fade-in-up text-sm font-semibold text-foreground ${index % 2 === 0 ? 'app-table-row-even' : 'app-table-row-odd'}`}
-                                >
-                                    <TableCell>{record.date}</TableCell>
-                                    <TableCell className="font-mono">
-                                        {record.time_in ?? '—'}
-                                    </TableCell>
-                                    <TableCell className="font-mono">
-                                        {record.time_out ?? '—'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {record.late_minutes > 0
-                                            ? record.late_minutes
-                                            : '—'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <span
-                                            className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_CLASSES[record.status]}`}
-                                        >
-                                            {STATUS_LABELS[record.status]}
-                                        </span>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {records.length === 0 && (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={5}
-                                        className="app-table-empty px-4 py-6"
-                                    >
-                                        No attendance records found.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-            </div>
+            <AttendanceHistoryTable records={records} />
 
             <BiometricEnrollmentDialog
                 open={isEnrollOpen}

@@ -30,7 +30,6 @@ class AttendanceRecordController extends Controller
         $records = DailyAttendance::query()
             ->where('employee_id', $employeeId)
             ->orderByDesc('date')
-            ->take(50)
             ->get()
             ->map(fn (DailyAttendance $record): array => [
                 'id' => $record->id,

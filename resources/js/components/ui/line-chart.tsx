@@ -46,6 +46,7 @@ type MultiLineDataset = {
   pointRadius?: number;
   pointHoverRadius?: number;
   borderWidth?: number;
+  spanGaps?: boolean;
 };
 
 type MultiLineChartProps = {
@@ -135,7 +136,7 @@ export function MultiLineChart({
       pointHoverRadius: ds.pointHoverRadius ?? 6,
       borderWidth: ds.borderWidth ?? 3,
       pointBorderWidth: 2,
-      spanGaps: false,
+      spanGaps: ds.spanGaps ?? false,
       pointBackgroundColor: ds.backgroundColor,
       pointBorderColor: ds.borderColor,
     })),
