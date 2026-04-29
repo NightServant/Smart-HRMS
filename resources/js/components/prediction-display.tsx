@@ -70,11 +70,11 @@ export type PredictionResult = {
     forecast_avg?: number;
     coefficients?: Record<string, number>;
     error_metrics?: {
-        mse: number;
-        rmse: number;
-        mae: number;
-        r2: number;
-        threshold: number;
+        mse: number | null;
+        rmse: number | null;
+        mae: number | null;
+        r2: number | null;
+        threshold: number | null;
         split_fallback: boolean;
     };
 };
@@ -458,23 +458,25 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
                                 <span className="text-muted-foreground">
                                     RMSE:{' '}
                                     <span className="font-semibold text-foreground">
-                                        {prediction.error_metrics.rmse.toFixed(
+                                        {prediction.error_metrics.rmse?.toFixed(
                                             3,
-                                        )}
+                                        ) ?? '—'}
                                     </span>
                                 </span>
                                 <span className="text-muted-foreground">
                                     MAE:{' '}
                                     <span className="font-semibold text-foreground">
-                                        {prediction.error_metrics.mae.toFixed(
+                                        {prediction.error_metrics.mae?.toFixed(
                                             3,
-                                        )}
+                                        ) ?? '—'}
                                     </span>
                                 </span>
                                 <span className="text-muted-foreground">
                                     R²:{' '}
                                     <span className="font-semibold text-foreground">
-                                        {prediction.error_metrics.r2.toFixed(3)}
+                                        {prediction.error_metrics.r2?.toFixed(
+                                            3,
+                                        ) ?? '—'}
                                     </span>
                                 </span>
                             </>

@@ -30,6 +30,9 @@ Route::middleware(['web', 'auth', 'throttle:60,1'])->prefix('biometrics')->group
     Route::post('clock', [BiometricController::class, 'clock'])
         ->middleware('role:employee')
         ->name('api.biometrics.clock');
+    Route::post('remote-enroll', [BiometricController::class, 'triggerRemoteEnrollment'])
+        ->middleware('role:hr-personnel,employee')
+        ->name('api.biometrics.remote-enroll');
 
     Route::prefix('webauthn')->middleware('role:employee')->group(function (): void {
         Route::get('status', [WebAuthnController::class, 'status'])

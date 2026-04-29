@@ -1108,24 +1108,20 @@ class IwrController extends Controller
 
     public function hrFinalizePage(): Response
     {
+        // "Review" tab — submissions pending HR review (computation check).
         $reviewQueue = IpcrSubmission::query()
-            ->where(function ($query): void {
-                $query
-                    ->where('stage', 'sent_to_hr')
-                    ->orWhereNotNull('hr_reviewer_id');
-            })
+            ->where('stage', 'sent_to_hr')
             ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
             ->latest()
             ->get()
             ->map(fn (IpcrSubmission $submission): array => $this->submissionResource($submission))
             ->all();
 
+        // "Finalized" tab — submissions ready for HR finalization (PMT approved,
+        // not yet finalized). Historical finalized records are excluded so HR
+        // only sees items requiring action.
         $finalizationQueue = IpcrSubmission::query()
-            ->where(function ($query): void {
-                $query
-                    ->where('stage', 'sent_to_hr_finalize')
-                    ->orWhereNotNull('finalized_at');
-            })
+            ->where('stage', 'sent_to_hr_finalize')
             ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
             ->latest()
             ->get()

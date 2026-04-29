@@ -392,37 +392,51 @@ export default function PmtReview({
                                     </div>
                                 )}
 
-                            <div className="flex flex-wrap gap-3">
-                                <Button
-                                    type="button"
-                                    variant={
-                                        decision === 'approved'
-                                            ? 'default'
-                                            : 'outline'
-                                    }
-                                    className={
-                                        decision === 'approved'
-                                            ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                                            : ''
-                                    }
-                                    onClick={() => setDecision('approved')}
-                                >
-                                    <CheckCircle2 className="mr-1.5 size-4" />
-                                    Approve for Finalization
-                                </Button>
-                                <Button
-                                    type="button"
-                                    variant={
-                                        decision === 'rejected'
-                                            ? 'destructive'
-                                            : 'outline'
-                                    }
-                                    onClick={() => setDecision('rejected')}
-                                >
-                                    <RotateCcw className="mr-1.5 size-4" />
-                                    Return to Evaluator
-                                </Button>
-                            </div>
+                            {(() => {
+                                const hasAppeal =
+                                    (selected.appeal_status === 'appealed' ||
+                                        selected.appeal_status === 'submitted') &&
+                                    selected.appeal !== null &&
+                                    selected.appeal !== undefined;
+
+                                return (
+                                    <div className="flex flex-wrap gap-3">
+                                        <Button
+                                            type="button"
+                                            variant={
+                                                decision === 'approved'
+                                                    ? 'default'
+                                                    : 'outline'
+                                            }
+                                            className={
+                                                decision === 'approved'
+                                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                                    : ''
+                                            }
+                                            onClick={() => setDecision('approved')}
+                                        >
+                                            <CheckCircle2 className="mr-1.5 size-4" />
+                                            {hasAppeal
+                                                ? 'Approve for Finalization'
+                                                : 'Approve & Send to HR'}
+                                        </Button>
+                                        {hasAppeal && (
+                                            <Button
+                                                type="button"
+                                                variant={
+                                                    decision === 'rejected'
+                                                        ? 'destructive'
+                                                        : 'outline'
+                                                }
+                                                onClick={() => setDecision('rejected')}
+                                            >
+                                                <RotateCcw className="mr-1.5 size-4" />
+                                                Return to Evaluator
+                                            </Button>
+                                        )}
+                                    </div>
+                                );
+                            })()}
 
                             {decision === 'rejected' && (
                                 <Textarea

@@ -83,7 +83,7 @@ class NotificationController extends Controller
             return route('ipcr.target');
         }
 
-        if ($notification->type === 'training_suggestion') {
+        if ($notification->type === 'training_suggestion' || $notification->type === 'training_suggestion_global') {
             return route('dashboard');
         }
 

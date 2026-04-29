@@ -179,7 +179,7 @@ export default function EvaluatorIpcrTarget() {
     const [decision, setDecision] = useState<'approved' | 'rejected' | ''>('');
     const [remarks, setRemarks] = useState('');
     const [processing, setProcessing] = useState(false);
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
 
     const filteredEmployees = employees.filter((row) => rowMatchesFilter(row, statusFilter));
 

@@ -219,8 +219,10 @@ class SeminarsController extends Controller
 
     public function notifyAllEmployeesTraining(): RedirectResponse
     {
-        NotifyAllEmployeesTrainingJob::dispatch();
+        // Dispatch synchronously so HR sees the notifications hit employees
+        // immediately, regardless of whether a queue worker is running.
+        NotifyAllEmployeesTrainingJob::dispatchSync();
 
-        return back()->with('success', 'Global training notification queued. All employees will be notified shortly.');
+        return back()->with('success', 'Global training notification sent. All employees have been notified.');
     }
 }

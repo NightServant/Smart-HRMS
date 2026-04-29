@@ -45,6 +45,7 @@ return [
         'request_timeout' => (int) env('ZLINK_REQUEST_TIMEOUT', 10),
         'page_size' => (int) env('ZLINK_PAGE_SIZE', 200),
         'default_department_id' => env('ZLINK_DEFAULT_DEPARTMENT_ID'),
+        'default_device_sn' => env('ZLINK_DEFAULT_DEVICE_SN'),
     ],
 
 ];

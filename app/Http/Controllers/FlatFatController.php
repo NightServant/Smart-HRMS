@@ -147,8 +147,20 @@ class FlatFatController extends Controller
             $attendanceRecords = AttendanceRecord::whereBetween('date', [$startOfMonth, $endOfMonth])->get();
 
             $totalEmployees = Employee::count();
-            $presentCount = $attendanceRecords->where('status', 'Present')->count();
-            $lateCount = $attendanceRecords->where('status', 'Late')->count();
+            $monthlyPresentCount = $attendanceRecords->where('status', 'Present')->count();
+
+            // Today-only Present and Late counts (one row per employee for the
+            // point-in-time date, so multiple punches collapse to a single status).
+            $todayRecords = $attendanceRecords->filter(
+                fn (AttendanceRecord $record): bool => $record->date?->toDateString() === $pointInTime->toDateString()
+            );
+            $todayStatusByEmployee = $todayRecords
+                ->groupBy('employee_id')
+                ->map(function ($records) {
+                    return $records->contains('status', 'Late') ? 'Late' : 'Present';
+                });
+            $presentCount = $todayStatusByEmployee->filter(fn (string $status): bool => $status === 'Present')->count();
+            $lateCount = $todayStatusByEmployee->filter(fn (string $status): bool => $status === 'Late')->count();
 
             // Employees on approved leave on the point-in-time date
             $onLeaveCount = LeaveRequest::where('status', 'approved')
@@ -157,24 +169,18 @@ class FlatFatController extends Controller
                 ->count();
 
             // Employees with attendance record on the point-in-time date
-            $employeesWithRecordToday = $attendanceRecords
-                ->filter(
-                    fn (AttendanceRecord $record): bool => $record->date?->toDateString() === $pointInTime->toDateString()
-                )
-                ->pluck('employee_id')
-                ->unique()
-                ->count();
+            $employeesWithRecordToday = $todayStatusByEmployee->count();
             $absentCount = max(0, $totalEmployees - $employeesWithRecordToday - $onLeaveCount);
 
             $totalDays = $attendanceRecords->count();
-            $attendancePct = $totalDays > 0 ? ($presentCount / $totalDays) * 100 : 0;
+            $attendancePct = $totalDays > 0 ? ($monthlyPresentCount / $totalDays) * 100 : 0;
 
             return response()->json([
                 'status' => 'success',
                 'data' => [
                     'attendance_pct' => round($attendancePct, 2),
                     'total_days' => $totalDays,
-                    'present_days' => $presentCount,
+                    'present_days' => $monthlyPresentCount,
                     'late_count' => $lateCount,
                     'absent_count' => $absentCount,
                     'on_leave_count' => $onLeaveCount,

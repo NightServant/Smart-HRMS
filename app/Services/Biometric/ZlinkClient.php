@@ -107,6 +107,61 @@ class ZlinkClient
     }
 
     /**
+     * Push the given employee codes to a specific biometric terminal so that
+     * users can enroll their fingerprint at that terminal.
+     *
+     * @param  array<int, string>  $employeeCodes
+     * @return array<string, mixed>
+     */
+    public function pushEmployeesToDevice(string $deviceSn, array $employeeCodes): array
+    {
+        return $this->postJson('/open-apis/devices/v1/devices/employees/sync', [
+            'sn' => $deviceSn,
+            'employeeCodes' => array_values($employeeCodes),
+        ]);
+    }
+
+    /**
+     * Trigger a remote fingerprint enrollment session on the given device for
+     * a single employee. The device will prompt the user to place their
+     * finger; the captured template is pushed back to Zlink.
+     *
+     * @return array<string, mixed>
+     */
+    public function triggerRemoteFingerprintEnrollment(string $deviceSn, string $employeeCode, int $fingerIndex = 1): array
+    {
+        return $this->postJson('/open-apis/biometric/v1/remote-enroll', [
+            'sn' => $deviceSn,
+            'employeeCode' => $employeeCode,
+            'biometricType' => 'fingerprint',
+            'fingerIndex' => $fingerIndex,
+        ]);
+    }
+
+    /**
+     * List enrolled fingerprint templates for an employee.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listEmployeeFingerprints(string $employeeCode): array
+    {
+        $payload = $this->postJson('/open-apis/biometric/v1/fingerprints/search', [
+            'employeeCode' => $employeeCode,
+            'pageNumber' => 1,
+            'pageSize' => 20,
+        ]);
+
+        $data = (array) ($payload['data'] ?? []);
+        $items = $data['fingerprints'] ?? $data['list'] ?? [];
+
+        if (! is_array($items)) {
+            return [];
+        }
+
+        return array_values(array_map(static fn ($row): array => (array) $row, $items));
+    }
+
+    /**
      * @return array<int, array<string, mixed>>
      */
     public function listDepartments(): array

@@ -161,6 +161,22 @@ class BiometricController extends Controller
         ]);
     }
 
+    public function triggerRemoteEnrollment(Request $request): JsonResponse
+    {
+        $employeeId = $request->user()?->role === 'employee'
+            ? $request->user()->employee_id
+            : $request->string('employee_id')->toString();
+
+        $employee = Employee::query()->findOrFail($employeeId);
+        $deviceSn = $request->filled('device_sn')
+            ? $request->string('device_sn')->toString()
+            : null;
+
+        return response()->json(
+            $this->enrollmentService->triggerRemoteEnrollment($employee, $deviceSn),
+        );
+    }
+
     private function authorizeEmployeeAccess(Request $request, Employee $employee): void
     {
         $user = $request->user();
