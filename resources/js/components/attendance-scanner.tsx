@@ -209,8 +209,10 @@ export default function AttendanceScanner({
                             Biometric Scanner
                         </CardTitle>
                         <CardDescription>
-                            Record your attendance using the ZKTeco biometric
-                            fingerprint terminal.
+                            Record your attendance via the ZKTeco terminal.
+                            Enrollment is managed in the ZK BIO Time portal —
+                            the device must be online and bound to this tenant
+                            for scans to sync back.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-4">
@@ -339,13 +341,16 @@ export default function AttendanceScanner({
                                     Manage biometric enrollment
                                 </button>
 
-                                <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/50 px-3 py-2">
-                                    <RefreshCw className="size-3.5 shrink-0 text-muted-foreground" />
-                                    <p className="text-xs text-muted-foreground">
-                                        Reload this page to fetch the latest
-                                        records.
-                                    </p>
-                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={refreshAttendance}
+                                    className="self-start gap-2 text-xs text-muted-foreground hover:text-foreground"
+                                >
+                                    <RefreshCw className="size-3.5" />
+                                    Re-fetch enrollment & attendance data
+                                </Button>
                             </div>
                         )}
                     </CardContent>

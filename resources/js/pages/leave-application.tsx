@@ -13,6 +13,7 @@ import {
     LeaveDetailDialog,
     type LeaveRequestDetail,
 } from '@/components/leave-detail-dialog';
+import { LeavePolicyHelpDialog } from '@/components/leave-policy-help-dialog';
 import LeaveRequestForm from '@/components/leave-request-form';
 import PageIntro from '@/components/page-intro';
 import { Button } from '@/components/ui/button';
@@ -255,6 +256,7 @@ export default function LeaveApplication({
                     eyebrow="Employee · Leave Application"
                     title="Plan, submit, and monitor leave requests"
                     description="Review your leave activity, file a request with the right supporting details, and track routing progress from evaluator to HR."
+                    actions={<LeavePolicyHelpDialog />}
                 />
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                     <div className="min-w-0 space-y-6">

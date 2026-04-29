@@ -162,12 +162,16 @@ test('employee directory supports page and per page query parameters', function 
             ->where('pagination.total', 6));
 });
 
-test('leave management filters records by leave type status and stage', function () {
+test('leave management shows only pending requests and filters by leave type', function () {
     $evaluatorUser = User::factory()->asEvaluator()->create();
 
-    $pendingEmployee = User::factory()->create([
-        'name' => 'Pending Evaluator Employee',
-        'email' => 'pending-evaluator@example.com',
+    $pendingVacation = User::factory()->create([
+        'name' => 'Pending Vacation Employee',
+        'email' => 'pending-vacation@example.com',
+    ]);
+    $pendingSick = User::factory()->create([
+        'name' => 'Pending Sick Employee',
+        'email' => 'pending-sick@example.com',
     ]);
     $approvedEmployee = User::factory()->create([
         'name' => 'Approved Evaluator Employee',
@@ -179,7 +183,7 @@ test('leave management filters records by leave type status and stage', function
     ]);
 
     LeaveRequest::query()->create([
-        'user_id' => $pendingEmployee->id,
+        'user_id' => $pendingVacation->id,
         'leave_type' => 'vacation-leave',
         'start_date' => '2026-04-10',
         'end_date' => '2026-04-12',
@@ -187,6 +191,17 @@ test('leave management filters records by leave type status and stage', function
         'status' => 'routed',
         'stage' => 'sent_to_department_head',
         'days_requested' => 3,
+    ]);
+
+    LeaveRequest::query()->create([
+        'user_id' => $pendingSick->id,
+        'leave_type' => 'sick-leave',
+        'start_date' => '2026-04-15',
+        'end_date' => '2026-04-16',
+        'reason' => 'Recovering at home.',
+        'status' => 'routed',
+        'stage' => 'sent_to_department_head',
+        'days_requested' => 2,
     ]);
 
     LeaveRequest::query()->create([
@@ -217,25 +232,21 @@ test('leave management filters records by leave type status and stage', function
     $this->actingAs($evaluatorUser)
         ->get(route('admin.leave-management', [
             'leaveTypeFilter' => 'sick-leave',
-            'statusFilter' => 'completed',
-            'stageFilter' => 'completed',
         ]))
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/leave-management')
             ->where('leaveTypeFilter', 'sick-leave')
-            ->where('statusFilter', 'completed')
-            ->where('stageFilter', 'completed')
             ->where('leaveTypeOptions', ['emergency-leave', 'sick-leave', 'vacation-leave'])
-            ->where('statusOptions', ['completed', 'returned', 'routed'])
-            ->where('stageOptions', ['completed', 'sent_to_department_head'])
+            ->missing('statusFilter')
+            ->missing('stageFilter')
+            ->missing('statusOptions')
+            ->missing('stageOptions')
             ->has('leaveRequests', 1)
-            ->where('leaveRequests.0.name', 'Approved Evaluator Employee')
-            ->where('leaveRequests.0.leaveType', 'sick-leave')
-            ->where('leaveRequests.0.status', 'completed')
-            ->where('leaveRequests.0.leaveAccrual', fn ($value) => (float) $value === 2.0));
+            ->where('leaveRequests.0.name', 'Pending Sick Employee')
+            ->where('leaveRequests.0.leaveType', 'sick-leave'));
 });
 
-test('leave management treats fully approved records as completed even when the stored status is stale', function () {
+test('leave management excludes resolved records from the pending list', function () {
     $evaluatorUser = User::factory()->asEvaluator()->create();
 
     $employee = User::factory()->create([
@@ -257,53 +268,22 @@ test('leave management treats fully approved records as completed even when the 
     ]);
 
     $this->actingAs($evaluatorUser)
-        ->get(route('admin.leave-management', [
-            'statusFilter' => 'completed',
-            'stageFilter' => 'completed',
-        ]))
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('admin/leave-management')
-            ->where('leaveRequests.0.name', 'Stale Approval Employee')
-            ->where('leaveRequests.0.status', 'completed'));
-});
-
-test('leave management normalizes rejected records as returned', function () {
-    $evaluatorUser = User::factory()->asEvaluator()->create();
-
-    $employee = User::factory()->create([
-        'name' => 'Returned Status Employee',
-        'email' => 'returned-status@example.com',
-    ]);
-
-    LeaveRequest::query()->create([
-        'user_id' => $employee->id,
-        'leave_type' => 'vacation-leave',
-        'start_date' => '2026-04-10',
-        'end_date' => '2026-04-12',
-        'reason' => 'Personal reasons.',
-        'status' => 'completed',
-        'stage' => 'completed',
-        'dh_decision' => 2,
-        'hr_decision' => 0,
-        'days_requested' => 3,
-        'has_rejection_reason' => 1,
-        'rejection_reason_text' => 'Please revise the dates.',
-    ]);
-
-    $this->actingAs($evaluatorUser)
         ->get(route('admin.leave-management'))
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/leave-management')
-            ->where('leaveRequests.0.status', 'returned')
-            ->where('stats.returnedByDh', 1));
+            ->has('leaveRequests', 0));
 });
 
-test('hr leave management filters records by leave type status and stage', function () {
+test('hr leave management shows only pending hr requests and filters by leave type', function () {
     $hrUser = User::factory()->asHrPersonnel()->create();
 
-    $pendingEmployee = User::factory()->create([
-        'name' => 'Pending HR Employee',
-        'email' => 'pending-hr@example.com',
+    $pendingForce = User::factory()->create([
+        'name' => 'Pending Force Employee',
+        'email' => 'pending-force@example.com',
+    ]);
+    $pendingSick = User::factory()->create([
+        'name' => 'Pending HR Sick Employee',
+        'email' => 'pending-hr-sick@example.com',
     ]);
     $completedEmployee = User::factory()->create([
         'name' => 'Completed HR Employee',
@@ -315,7 +295,7 @@ test('hr leave management filters records by leave type status and stage', funct
     ]);
 
     LeaveRequest::query()->create([
-        'user_id' => $pendingEmployee->id,
+        'user_id' => $pendingForce->id,
         'leave_type' => 'force-leave',
         'start_date' => '2026-05-02',
         'end_date' => '2026-05-04',
@@ -324,6 +304,18 @@ test('hr leave management filters records by leave type status and stage', funct
         'stage' => 'sent_to_hr',
         'dh_decision' => 1,
         'days_requested' => 3,
+    ]);
+
+    LeaveRequest::query()->create([
+        'user_id' => $pendingSick->id,
+        'leave_type' => 'sick-leave',
+        'start_date' => '2026-05-08',
+        'end_date' => '2026-05-09',
+        'reason' => 'Recovery.',
+        'status' => 'routed',
+        'stage' => 'sent_to_hr',
+        'dh_decision' => 1,
+        'days_requested' => 2,
     ]);
 
     LeaveRequest::query()->create([
@@ -346,7 +338,7 @@ test('hr leave management filters records by leave type status and stage', funct
         'end_date' => '2026-05-23',
         'reason' => 'Medical recovery.',
         'status' => 'returned',
-        'stage' => 'sent_to_hr',
+        'stage' => 'completed',
         'dh_decision' => 1,
         'hr_decision' => 2,
         'days_requested' => 2,
@@ -355,21 +347,18 @@ test('hr leave management filters records by leave type status and stage', funct
     $this->actingAs($hrUser)
         ->get(route('admin.hr-leave-management', [
             'leaveTypeFilter' => 'force-leave',
-            'statusFilter' => 'routed',
-            'stageFilter' => 'sent_to_hr',
         ]))
         ->assertInertia(fn (Assert $page) => $page
             ->component('admin/hr-leave-management')
             ->where('leaveTypeFilter', 'force-leave')
-            ->where('statusFilter', 'routed')
-            ->where('stageFilter', 'sent_to_hr')
             ->where('leaveTypeOptions', ['force-leave', 'maternity-leave', 'sick-leave'])
-            ->where('statusOptions', ['completed', 'returned', 'routed'])
-            ->where('stageOptions', ['completed', 'sent_to_hr'])
+            ->missing('statusFilter')
+            ->missing('stageFilter')
+            ->missing('statusOptions')
+            ->missing('stageOptions')
             ->has('leaveRequests', 1)
-            ->where('leaveRequests.0.name', 'Pending HR Employee')
+            ->where('leaveRequests.0.name', 'Pending Force Employee')
             ->where('leaveRequests.0.leaveType', 'force-leave')
-            ->where('leaveRequests.0.status', 'routed')
             ->where('leaveRequests.0.leaveAccrual', fn ($value) => (float) $value === 3.0));
 });
 

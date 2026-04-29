@@ -153,13 +153,27 @@ export function BiometricEnrollmentDialog({
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Fingerprint className="size-5 text-primary" />
-                        Biometric Enrollment
+                        Manage Authentication Methods (ZK BIO Time)
                     </DialogTitle>
                     <DialogDescription>
-                        Complete a one-time setup so your attendance can be
-                        recorded by the biometric terminal.
+                        Smart HRMS routes enrollment through the connected
+                        ZK BIO Time platform. The actual capture of your
+                        credential — fingerprint, face, palm, card or PIN —
+                        happens on the ZK BIO Time portal or terminal. Use
+                        this dialog to register your profile and re-fetch
+                        your enrollment data once the device captures it.
                     </DialogDescription>
                 </DialogHeader>
+
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                    <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                        Supported credential methods
+                    </p>
+                    <p className="mt-1.5 text-xs text-foreground/80">
+                        Fingerprint · Visible Light Face · Near-Infrared Face
+                        · Visible Light Palm Vein · Palm · Card · PIN Code
+                    </p>
+                </div>
 
                 <div className="grid grid-cols-1 gap-3 lg:grid-cols-1">
                     <div className="grid grid-cols-2 gap-3">
@@ -176,8 +190,9 @@ export function BiometricEnrollmentDialog({
                                     Step 1 — Register
                                 </CardTitle>
                                 <CardDescription className="text-xs">
-                                    Push your profile to ZKBio Zlink so the
-                                    terminals recognize you.
+                                    Push your profile to ZK BIO Time so the
+                                    terminals and the ZK BIO Time portal
+                                    recognize you.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="flex flex-row gap-3">
@@ -209,10 +224,11 @@ export function BiometricEnrollmentDialog({
                             <CardHeader className="pb-3">
                                 <CardTitle className="flex items-center gap-2 text-sm">
                                     <MapPin className="size-4 text-primary" />
-                                    Step 2 — Visit the Device
+                                    Step 2 — Capture in ZK BIO Time
                                 </CardTitle>
                                 <CardDescription className="text-xs">
-                                    Scan your finger on any biometric terminal.
+                                    Open ZK BIO Time (or any connected
+                                    terminal) and capture your credential.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="flex flex-col gap-3 text-sm">
@@ -236,7 +252,7 @@ export function BiometricEnrollmentDialog({
                                         </div>
                                         <p className="text-xs text-muted-foreground">
                                             {pushedResult?.instructions ??
-                                                'Visit any biometric terminal connected to your tenant and follow the on-screen prompts to enroll your fingerprint.'}
+                                                'Open the ZK BIO Time portal (or visit any connected terminal) and follow the on-screen prompts to capture a fingerprint, face, palm, card or PIN credential.'}
                                         </p>
                                         <Button
                                             type="button"
@@ -246,8 +262,8 @@ export function BiometricEnrollmentDialog({
                                             onClick={handleCheckStatus}
                                         >
                                             {checking
-                                                ? 'Checking...'
-                                                : 'Check Status'}
+                                                ? 'Re-fetching...'
+                                                : 'Re-fetch Enrollment Data'}
                                         </Button>
                                     </>
                                 )}

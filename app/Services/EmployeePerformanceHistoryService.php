@@ -183,6 +183,7 @@ class EmployeePerformanceHistoryService
                 'year' => $periodReference['year'],
                 'period' => $periodReference['period'],
                 'evaluation_score' => $score,
+                'target_score' => $target !== null ? 4.00 : null,
                 'achievement_status' => $achievement['status'],
                 'achievement_label' => $achievement['label'],
                 'target_items' => $targetItems,

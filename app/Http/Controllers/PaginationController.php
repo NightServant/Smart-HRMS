@@ -14,7 +14,6 @@ use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\HistoricalDataSyncService;
 use Carbon\Carbon;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -86,30 +85,6 @@ class PaginationController extends Controller
             'hrPersonnelName' => $hrNotification?->user?->name,
             'hrPersonnelDate' => $hrNotification?->created_at?->format('M d, Y g:i A'),
         ];
-    }
-
-    private function applyLeaveStatusFilter(Builder $query, string $statusFilter): void
-    {
-        if ($statusFilter === 'completed') {
-            $query
-                ->where('dh_decision', 1)
-                ->where('hr_decision', 1);
-
-            return;
-        }
-
-        if ($statusFilter === 'returned') {
-            $query->where(function (Builder $statusQuery): void {
-                $statusQuery
-                    ->where('status', 'returned')
-                    ->orWhere('dh_decision', 2)
-                    ->orWhere('hr_decision', 2);
-            });
-
-            return;
-        }
-
-        $query->where('status', $statusFilter);
     }
 
     /**
@@ -213,18 +188,16 @@ class PaginationController extends Controller
     {
         $search = trim((string) $request->string('search'));
         $leaveTypeFilter = trim((string) $request->string('leaveTypeFilter'));
-        $statusFilter = trim((string) $request->string('statusFilter'));
-        $stageFilter = trim((string) $request->string('stageFilter'));
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
 
         $leaveRequests = LeaveRequest::query()
+            ->where('stage', 'sent_to_department_head')
             ->with(['user:id,name,employee_id', 'employee:employee_id,name,job_title'])
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
                     $subQuery
                         ->where('leave_type', 'like', '%'.$search.'%')
                         ->orWhere('reason', 'like', '%'.$search.'%')
-                        ->orWhere('status', 'like', '%'.$search.'%')
                         ->orWhereHas('user', function ($userQuery) use ($search): void {
                             $userQuery->where('name', 'like', '%'.$search.'%');
                         });
@@ -232,12 +205,6 @@ class PaginationController extends Controller
             })
             ->when($leaveTypeFilter !== '', function ($query) use ($leaveTypeFilter): void {
                 $query->where('leave_type', $leaveTypeFilter);
-            })
-            ->when($statusFilter !== '', function ($query) use ($statusFilter): void {
-                $this->applyLeaveStatusFilter($query, $statusFilter);
-            })
-            ->when($stageFilter !== '', function ($query) use ($stageFilter): void {
-                $query->where('stage', $stageFilter);
             })
             ->latest()
             ->paginate($perPage)
@@ -275,11 +242,7 @@ class PaginationController extends Controller
         return Inertia::render('admin/leave-management', [
             'search' => $search,
             'leaveTypeFilter' => $leaveTypeFilter,
-            'statusFilter' => $statusFilter,
-            'stageFilter' => $stageFilter,
             'leaveTypeOptions' => $this->leaveRequestFilterOptions('leave_type'),
-            'statusOptions' => $this->leaveRequestFilterOptions('status'),
-            'stageOptions' => $this->leaveRequestFilterOptions('stage'),
             'leaveRequests' => $leaveRequests->items(),
             'pagination' => [
                 'currentPage' => $leaveRequests->currentPage(),
@@ -295,18 +258,16 @@ class PaginationController extends Controller
     {
         $search = trim((string) $request->string('search'));
         $leaveTypeFilter = trim((string) $request->string('leaveTypeFilter'));
-        $statusFilter = trim((string) $request->string('statusFilter'));
-        $stageFilter = trim((string) $request->string('stageFilter'));
         $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
 
         $leaveRequests = LeaveRequest::query()
+            ->where('stage', 'sent_to_hr')
             ->with(['user:id,name,employee_id', 'employee:employee_id,name,job_title'])
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
                     $subQuery
                         ->where('leave_type', 'like', '%'.$search.'%')
                         ->orWhere('reason', 'like', '%'.$search.'%')
-                        ->orWhere('status', 'like', '%'.$search.'%')
                         ->orWhereHas('user', function ($userQuery) use ($search): void {
                             $userQuery->where('name', 'like', '%'.$search.'%');
                         });
@@ -314,12 +275,6 @@ class PaginationController extends Controller
             })
             ->when($leaveTypeFilter !== '', function ($query) use ($leaveTypeFilter): void {
                 $query->where('leave_type', $leaveTypeFilter);
-            })
-            ->when($statusFilter !== '', function ($query) use ($statusFilter): void {
-                $this->applyLeaveStatusFilter($query, $statusFilter);
-            })
-            ->when($stageFilter !== '', function ($query) use ($stageFilter): void {
-                $query->where('stage', $stageFilter);
             })
             ->latest()
             ->paginate($perPage)
@@ -357,11 +312,7 @@ class PaginationController extends Controller
         return Inertia::render('admin/hr-leave-management', [
             'search' => $search,
             'leaveTypeFilter' => $leaveTypeFilter,
-            'statusFilter' => $statusFilter,
-            'stageFilter' => $stageFilter,
             'leaveTypeOptions' => $this->leaveRequestFilterOptions('leave_type'),
-            'statusOptions' => $this->leaveRequestFilterOptions('status'),
-            'stageOptions' => $this->leaveRequestFilterOptions('stage'),
             'leaveRequests' => $leaveRequests->items(),
             'pagination' => [
                 'currentPage' => $leaveRequests->currentPage(),

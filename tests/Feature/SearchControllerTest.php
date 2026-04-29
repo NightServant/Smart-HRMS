@@ -28,6 +28,8 @@ test('leave management search filters records', function () {
         'start_date' => '2026-03-16',
         'end_date' => '2026-03-18',
         'reason' => 'Family support.',
+        'status' => 'routed',
+        'stage' => 'sent_to_department_head',
     ]);
 
     $this->actingAs($evaluatorUser)

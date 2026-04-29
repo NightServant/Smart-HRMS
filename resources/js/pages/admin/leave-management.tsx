@@ -32,22 +32,14 @@ export default function LeaveManagement({
     leaveRequests,
     search,
     leaveTypeFilter = '',
-    statusFilter = '',
-    stageFilter = '',
     leaveTypeOptions = [],
-    statusOptions = [],
-    stageOptions = [],
     pagination,
     stats,
 }: {
     leaveRequests: LeaveRequestDetail[];
     search: string;
     leaveTypeFilter?: string;
-    statusFilter?: string;
-    stageFilter?: string;
     leaveTypeOptions?: string[];
-    statusOptions?: string[];
-    stageOptions?: string[];
     pagination: PaginationMeta;
     stats: EvalStats;
 }) {
@@ -123,11 +115,7 @@ export default function LeaveManagement({
                     leaveRequests={leaveRequests}
                     search={search}
                     leaveTypeFilter={leaveTypeFilter}
-                    statusFilter={statusFilter}
-                    stageFilter={stageFilter}
                     leaveTypeOptions={leaveTypeOptions}
-                    statusOptions={statusOptions}
-                    stageOptions={stageOptions}
                     pagination={pagination}
                 />
             </div>

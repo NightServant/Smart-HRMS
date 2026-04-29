@@ -9,19 +9,13 @@ import {
 import { DashboardChartSurface } from '@/components/admin-system-dashboard-cards';
 import { Badge } from '@/components/ui/badge';
 import { MultiLineChart } from '@/components/ui/line-chart';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type ComparisonRow = {
     year: number;
     period: string;
     evaluation_score: number;
+    target_score?: number | null;
     achievement_status: string;
     achievement_label: string;
     target_items: string[];
@@ -123,18 +117,6 @@ function resolveTrendConfig(trend: string): {
     };
 }
 
-function resolveAchievementBadge(status: string): string {
-    if (status === 'strongly_achieved') {
-        return 'border-emerald-300/60 bg-emerald-100/80 text-emerald-800 dark:border-emerald-700/60 dark:bg-emerald-900/30 dark:text-emerald-300';
-    }
-
-    if (status === 'on_track') {
-        return 'border-blue-300/60 bg-blue-100/80 text-blue-800 dark:border-blue-700/60 dark:bg-blue-900/30 dark:text-blue-300';
-    }
-
-    return 'border-amber-300/60 bg-amber-100/80 text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-300';
-}
-
 function buildForecastYearAverages(
     labels: string[],
     scores: number[],
@@ -164,30 +146,6 @@ function buildForecastYearAverages(
                 ).toFixed(2),
             ),
         ]),
-    );
-}
-
-function renderItemList(items: string[]) {
-    if (items.length === 0) {
-        return <span className="text-muted-foreground">No data</span>;
-    }
-
-    return (
-        <ul className="space-y-1 text-sm">
-            {items.slice(0, 2).map((item, index) => (
-                <li
-                    key={`${item}-${index}`}
-                    className="leading-relaxed text-foreground"
-                >
-                    {item}
-                </li>
-            ))}
-            {items.length > 2 ? (
-                <li className="text-xs text-muted-foreground">
-                    +{items.length - 2} more
-                </li>
-            ) : null}
-        </ul>
     );
 }
 
@@ -304,6 +262,22 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
         (row) => row.achievement_status === 'needs_improvement',
     ).length;
 
+    const ipcrComparisonRows = comparisonRows.filter(
+        (row) =>
+            typeof row.target_score === 'number' && row.target_score !== null,
+    );
+    const ipcrLabels = ipcrComparisonRows.map(
+        (row) =>
+            `${row.year} ${row.period === 'S2' ? '2nd Sem' : '1st Sem'}`,
+    );
+    const ipcrTargetData = ipcrComparisonRows.map(
+        (row) => row.target_score ?? null,
+    );
+    const ipcrActualData = ipcrComparisonRows.map(
+        (row) => row.evaluation_score ?? null,
+    );
+    const hasIpcrComparison = ipcrComparisonRows.length > 0;
+
     return (
         <div className="space-y-4">
             {prediction.notification ? (
@@ -312,6 +286,17 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
                 </div>
             ) : null}
 
+            <Tabs defaultValue="trends" className="w-full">
+                <TabsList className="w-full sm:w-auto">
+                    <TabsTrigger value="trends">
+                        Yearly Performance Trends
+                    </TabsTrigger>
+                    <TabsTrigger value="ipcr">
+                        IPCR Targets vs Actual Evaluation Results
+                    </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="trends" className="mt-4 space-y-4">
             {hasHistorical ? (
                 <DashboardChartSurface className="flex flex-col gap-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -403,131 +388,97 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
                 </DashboardChartSurface>
             ) : null}
 
-            <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-                    <p className="text-xs font-semibold tracking-[0.18em] text-emerald-700 uppercase dark:text-emerald-300">
-                        Strongly Achieved
-                    </p>
-                    <p className="mt-2 text-2xl font-bold text-emerald-800 dark:text-emerald-200">
-                        {achievedCount}
-                    </p>
-                </div>
-                <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
-                    <p className="text-xs font-semibold tracking-[0.18em] text-blue-700 uppercase dark:text-blue-300">
-                        On Track
-                    </p>
-                    <p className="mt-2 text-2xl font-bold text-blue-800 dark:text-blue-200">
-                        {onTrackCount}
-                    </p>
-                </div>
-                <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
-                    <p className="text-xs font-semibold tracking-[0.18em] text-amber-700 uppercase dark:text-amber-300">
-                        Needs Improvement
-                    </p>
-                    <p className="mt-2 text-2xl font-bold text-amber-800 dark:text-amber-200">
-                        {needsImprovementCount}
-                    </p>
-                </div>
-            </div>
-
-            <div className="rounded-2xl border border-border/70 bg-background/45 p-4">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                        <p className="text-sm font-semibold text-foreground">
-                            IPCR Target vs Actual Comparison
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                            Target and accomplishment details for each finalized
-                            semester. Historical attendance and evaluation
-                            records are synced into the Historical Data page.
-                        </p>
+                    <div className="grid gap-3 md:grid-cols-3">
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                            <p className="text-xs font-semibold tracking-[0.18em] text-emerald-700 uppercase dark:text-emerald-300">
+                                Strongly Achieved
+                            </p>
+                            <p className="mt-2 text-2xl font-bold text-emerald-800 dark:text-emerald-200">
+                                {achievedCount}
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
+                            <p className="text-xs font-semibold tracking-[0.18em] text-blue-700 uppercase dark:text-blue-300">
+                                On Track
+                            </p>
+                            <p className="mt-2 text-2xl font-bold text-blue-800 dark:text-blue-200">
+                                {onTrackCount}
+                            </p>
+                        </div>
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 dark:border-amber-900/40 dark:bg-amber-950/20">
+                            <p className="text-xs font-semibold tracking-[0.18em] text-amber-700 uppercase dark:text-amber-300">
+                                Needs Improvement
+                            </p>
+                            <p className="mt-2 text-2xl font-bold text-amber-800 dark:text-amber-200">
+                                {needsImprovementCount}
+                            </p>
+                        </div>
                     </div>
-                    <Badge variant="outline">
-                        Score bands: &lt;3.00, 3.00-3.74, 3.75+
-                    </Badge>
-                </div>
+                </TabsContent>
 
-                <div className="mt-4 overflow-x-auto">
-                    <Table className="min-w-[78rem]">
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Period</TableHead>
-                                <TableHead>Actual Score</TableHead>
-                                <TableHead>Achievement</TableHead>
-                                <TableHead>Attendance</TableHead>
-                                <TableHead>IPCR Targets</TableHead>
-                                <TableHead>Actual Evaluation</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {comparisonRows.length > 0 ? (
-                                comparisonRows.map((row) => (
-                                    <TableRow
-                                        key={`${row.year}-${row.period}`}
-                                    >
-                                        <TableCell className="font-semibold">
-                                            {row.year} {row.period}
-                                        </TableCell>
-                                        <TableCell>
-                                            {row.evaluation_score.toFixed(2)}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge
-                                                variant="outline"
-                                                className={resolveAchievementBadge(
-                                                    row.achievement_status,
-                                                )}
-                                            >
-                                                {row.achievement_label}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">
-                                            <div>
-                                                Punctuality:{' '}
-                                                <span className="font-semibold text-foreground">
-                                                    {row.attendance_punctuality_rate.toFixed(
-                                                        2,
-                                                    )}
-                                                    %
-                                                </span>
-                                            </div>
-                                            <div>
-                                                Time In/Out complete:{' '}
-                                                <span className="font-semibold text-foreground">
-                                                    {row.complete_days}/
-                                                    {row.recorded_days}
-                                                </span>
-                                            </div>
-                                            <div>
-                                                Late incidents:{' '}
-                                                <span className="font-semibold text-foreground">
-                                                    {row.tardiness_incidents}
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            {renderItemList(row.target_items)}
-                                        </TableCell>
-                                        <TableCell>
-                                            {renderItemList(row.actual_items)}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell
-                                        colSpan={6}
-                                        className="text-center text-muted-foreground"
-                                    >
-                                        No finalized IPCR target-versus-actual
-                                        comparison records are available yet.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </div>
-            </div>
+                <TabsContent value="ipcr" className="mt-4 space-y-4">
+                    <DashboardChartSurface className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                                <p className="flex items-center gap-2 text-sm font-semibold">
+                                    <TrendingUp className="size-4 text-primary" />
+                                    IPCR Targets vs Actual Evaluation Results
+                                </p>
+                                <p className="mt-1 text-sm text-muted-foreground">
+                                    Comparison between IPCR Targets and Actual
+                                    Evaluation Results per finalized semester.
+                                </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <ChartLegendItem
+                                    label="IPCR Targets"
+                                    tone="blue"
+                                    dashed
+                                />
+                                <ChartLegendItem
+                                    label="Actual Results"
+                                    tone="green"
+                                />
+                            </div>
+                        </div>
+
+                        {hasIpcrComparison ? (
+                            <MultiLineChart
+                                labels={ipcrLabels}
+                                datasets={[
+                                    {
+                                        label: 'IPCR Targets',
+                                        data: ipcrTargetData,
+                                        borderColor: '#2A5A8C',
+                                        backgroundColor: '#4A90D9',
+                                        borderDash: [10, 6],
+                                        borderWidth: 3,
+                                        pointRadius: 4,
+                                        pointHoverRadius: 6,
+                                    },
+                                    {
+                                        label: 'Actual Results',
+                                        data: ipcrActualData,
+                                        borderColor: '#4A7C3C',
+                                        backgroundColor: '#91C383',
+                                        borderWidth: 3,
+                                        pointRadius: 4,
+                                        pointHoverRadius: 6,
+                                    },
+                                ]}
+                            />
+                        ) : (
+                            <div className="flex min-h-[12rem] flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-border/70 bg-muted/10 py-12 text-muted-foreground">
+                                <ChartLine className="size-8 opacity-40" />
+                                <p className="text-sm">
+                                    No finalized IPCR target-versus-actual
+                                    records are available yet.
+                                </p>
+                            </div>
+                        )}
+                    </DashboardChartSurface>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

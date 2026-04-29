@@ -99,27 +99,6 @@ function formatLeaveType(type: string): string {
     return type.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatStageLabel(stage: string): string {
-    const labels: Record<string, string> = {
-        sent_to_department_head: 'Evaluator Review',
-        sent_to_hr: 'HR Review',
-        completed: 'Completed',
-    };
-
-    return labels[stage] ?? formatLeaveType(stage);
-}
-
-function formatStatusLabel(status: string): string {
-    const labels: Record<string, string> = {
-        completed: 'Approved',
-        returned: 'Rejected',
-        routed: 'In Review',
-        pending: 'Pending',
-    };
-
-    return labels[status] ?? formatLeaveType(status);
-}
-
 function formatLeaveAccrual(value: number | null): string {
     return value != null ? value.toFixed(2) : '—';
 }
@@ -128,29 +107,18 @@ export default function HrLeaveManagementTable({
     leaveRequests,
     search,
     leaveTypeFilter = '',
-    statusFilter = '',
-    stageFilter = '',
     leaveTypeOptions = [],
-    statusOptions = [],
-    stageOptions = [],
     pagination,
 }: {
     leaveRequests: LeaveRequestDetail[];
     search: string;
     leaveTypeFilter?: string;
-    statusFilter?: string;
-    stageFilter?: string;
     leaveTypeOptions?: string[];
-    statusOptions?: string[];
-    stageOptions?: string[];
     pagination: PaginationMeta;
 }) {
     const [searchTerm, setSearchTerm] = useState(search);
     const [currentLeaveTypeFilter, setCurrentLeaveTypeFilter] =
         useState(leaveTypeFilter);
-    const [currentStatusFilter, setCurrentStatusFilter] =
-        useState(statusFilter);
-    const [currentStageFilter, setCurrentStageFilter] = useState(stageFilter);
     const [selectedLeave, setSelectedLeave] =
         useState<LeaveRequestDetail | null>(null);
 
@@ -159,8 +127,6 @@ export default function HrLeaveManagementTable({
         page?: number;
         perPage?: number;
         leaveTypeFilter?: string;
-        statusFilter?: string;
-        stageFilter?: string;
     }): void => {
         router.get(
             admin.hrLeaveManagement().url,
@@ -170,8 +136,6 @@ export default function HrLeaveManagementTable({
                 perPage: params.perPage ?? pagination.perPage,
                 leaveTypeFilter:
                     params.leaveTypeFilter ?? currentLeaveTypeFilter,
-                statusFilter: params.statusFilter ?? currentStatusFilter,
-                stageFilter: params.stageFilter ?? currentStageFilter,
             },
             {
                 preserveScroll: true,
@@ -181,11 +145,7 @@ export default function HrLeaveManagementTable({
                     'leaveRequests',
                     'search',
                     'leaveTypeFilter',
-                    'statusFilter',
-                    'stageFilter',
                     'leaveTypeOptions',
-                    'statusOptions',
-                    'stageOptions',
                     'pagination',
                 ],
             },
@@ -196,18 +156,6 @@ export default function HrLeaveManagementTable({
         const filterValue = value === 'all' ? '' : value;
         setCurrentLeaveTypeFilter(filterValue);
         visit({ leaveTypeFilter: filterValue, page: 1 });
-    };
-
-    const handleStatusFilterChange = (value: string): void => {
-        const filterValue = value === 'all' ? '' : value;
-        setCurrentStatusFilter(filterValue);
-        visit({ statusFilter: filterValue, page: 1 });
-    };
-
-    const handleStageFilterChange = (value: string): void => {
-        const filterValue = value === 'all' ? '' : value;
-        setCurrentStageFilter(filterValue);
-        visit({ stageFilter: filterValue, page: 1 });
     };
 
     return (
@@ -255,46 +203,6 @@ export default function HrLeaveManagementTable({
                                     {leaveTypeOptions.map((option) => (
                                         <SelectItem key={option} value={option}>
                                             {formatLeaveType(option)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectGroup>
-                            </SelectContent>
-                        </Select>
-                        <Select
-                            value={currentStatusFilter || 'all'}
-                            onValueChange={handleStatusFilterChange}
-                        >
-                            <SelectTrigger className="w-44 shrink-0 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
-                                <SelectValue placeholder="All statuses" />
-                            </SelectTrigger>
-                            <SelectContent align="end">
-                                <SelectGroup>
-                                    <SelectItem value="all">
-                                        All statuses
-                                    </SelectItem>
-                                    {statusOptions.map((option) => (
-                                        <SelectItem key={option} value={option}>
-                                            {formatStatusLabel(option)}
-                                        </SelectItem>
-                                    ))}
-                                </SelectGroup>
-                            </SelectContent>
-                        </Select>
-                        <Select
-                            value={currentStageFilter || 'all'}
-                            onValueChange={handleStageFilterChange}
-                        >
-                            <SelectTrigger className="w-48 shrink-0 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
-                                <SelectValue placeholder="All routing stages" />
-                            </SelectTrigger>
-                            <SelectContent align="end">
-                                <SelectGroup>
-                                    <SelectItem value="all">
-                                        All routing stages
-                                    </SelectItem>
-                                    {stageOptions.map((option) => (
-                                        <SelectItem key={option} value={option}>
-                                            {formatStageLabel(option)}
                                         </SelectItem>
                                     ))}
                                 </SelectGroup>
