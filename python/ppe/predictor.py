@@ -27,6 +27,7 @@ FEATURES = [
     "Absenteeism_Days",
     "Tardiness_Incidents",
     "Training_Completion_Status",
+    "Time_Index",
 ]
 TARGET = "Evaluated_Performance_Score"
 
@@ -34,24 +35,30 @@ TARGET = "Evaluated_Performance_Score"
 # Models with RMSE above this value are flagged as unreliable.
 RMSE_THRESHOLD = 1.0
 
+# Anchor weight: blends the latest actual score into every forecast value so
+# that a recent dip or improvement is visibly reflected in the projection.
+# final_forecast = ANCHOR_WEIGHT * latest_actual + (1 - ANCHOR_WEIGHT) * regression_forecast
+ANCHOR_WEIGHT = 0.6
+
 
 def predict(payload: dict) -> dict:
     employee_name = payload.get("employee_name", "Unknown")
     records = payload.get("records", [])
 
-    # TC-01: Block prediction if fewer than 4 semester records exist
-    if len(records) < 4:
+    if len(records) == 0:
         return {
             "status": "insufficient_data",
             "employee_name": employee_name,
-            "notification": f"Need at least 4 semestral records to generate predictions. Found {len(records)}.",
+            "notification": "No semestral records found for this employee.",
         }
 
     # Build DataFrame and apply column mapping
     df = pd.DataFrame(records).rename(columns=COLUMN_MAP)
 
-    # Ensure numeric types
-    for col in FEATURES + [TARGET]:
+    # Ensure numeric types for HR features and target
+    # (Time_Index is assigned below after sorting, so skip it here)
+    HR_COLS = [f for f in FEATURES if f != "Time_Index"] + [TARGET]
+    for col in HR_COLS:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
     df["Period_Num"] = df["Period"].str.replace("S", "").astype(int)
@@ -81,6 +88,71 @@ def predict(payload: dict) -> dict:
         round(float(df[df["Period_Num"] == 2][TARGET].mean()), 2) if not df[df["Period_Num"] == 2].empty else None,
     ]
 
+    historical_block = {
+        "labels": historical_labels,
+        "scores": historical_scores,
+        "yearly_labels": historical_yearly_labels,
+        "yearly_scores": historical_yearly_scores,
+        "semester_labels": ["First Semester (Jan - June)", "Second Semester (July - Dec)"],
+        "available_years": available_years,
+        "by_year": by_year,
+        "all_year_scores": all_year_semester_scores,
+    }
+
+    n = len(df)
+
+    # -------------------------------------------------------
+    # LOW-CONFIDENCE PATH (fewer than 4 records)
+    # Skip regression entirely; use flat projection from the
+    # mean of all available scores. No RMSE can be computed.
+    # -------------------------------------------------------
+    if n < 4:
+        mean_score = round(float(df[TARGET].mean()), 2)
+        last_year  = int(df["Year"].max())
+        last_period = int(df[df["Year"] == last_year]["Period_Num"].max())
+
+        future_labels = []
+        s, y = last_period, last_year
+        for _ in range(2):
+            s += 1
+            if s > 2:
+                s = 1
+                y += 1
+            future_labels.append(f"{y}-S{s}")
+
+        latest_actual   = round(float(df[TARGET].iloc[-1]), 2)
+        blended         = round(ANCHOR_WEIGHT * latest_actual + (1 - ANCHOR_WEIGHT) * mean_score, 2)
+        forecast_scores = [blended, blended]
+        recent_avg      = mean_score
+        forecast_avg    = blended
+
+        return {
+            "status": "ok",
+            "low_confidence": True,
+            "employee_name": employee_name,
+            "notification": (
+                f"Forecast is based on {n} semestral record(s). "
+                "Results are low-confidence until more records are available."
+            ),
+            "historical": historical_block,
+            "forecast": {
+                "labels": future_labels,
+                "scores": forecast_scores,
+                "semester_labels": ["First Semester (Jan - June)", "Second Semester (July - Dec)"],
+            },
+            "trend": "STABLE",
+            "recent_avg": recent_avg,
+            "forecast_avg": forecast_avg,
+            "error_metrics": {
+                "mse": None,
+                "rmse": None,
+                "mae": None,
+                "r2": None,
+                "threshold": RMSE_THRESHOLD,
+                "split_fallback": True,
+            },
+        }
+
     # ----------------------------------------
     # TRAIN / TEST SPLIT (Chronological)
     # Train on all years before the latest year.
@@ -104,14 +176,20 @@ def predict(payload: dict) -> dict:
     X_test  = test_df[FEATURES]
     y_test  = test_df[TARGET]
 
+    # Recency weights for the training split
+    n_train = len(train_df)
+    train_weights = np.array([0.85 ** (n_train - 1 - i) for i in range(n_train)])
+    train_weights = train_weights / train_weights.sum() * n_train
+
     # Train the performance model
     model = LinearRegression()
-    model.fit(X_train, y_train)
+    model.fit(X_train, y_train, sample_weight=train_weights)
 
     # ----------------------------------------
-    # RMSE THRESHOLD CHECK (restored from test model)
-    # Evaluate model accuracy on the test split
-    # before allowing forecast generation.
+    # RMSE EVALUATION
+    # Compute metrics but only use them as an
+    # informational signal — never block the
+    # forecast when the sample size is small.
     # ----------------------------------------
     y_pred_test = model.predict(X_test)
 
@@ -129,37 +207,29 @@ def predict(payload: dict) -> dict:
         "split_fallback": split_fallback,
     }
 
-    # Block forecast if RMSE exceeds threshold or R² is negative
-    if rmse > RMSE_THRESHOLD:
-        return {
-            "status": "model_unreliable",
-            "employee_name": employee_name,
-            "notification": (
-                f"Model accuracy is below the acceptance threshold. "
-                f"RMSE {rmse:.4f} exceeds the limit of {RMSE_THRESHOLD}. "
-                f"This employee requires more semester records before a reliable "
-                f"forecast can be generated."
-            ),
-            "error_metrics": error_metrics,
-            "historical": {
-                "labels": historical_labels,
-                "scores": historical_scores,
-                "yearly_labels": historical_yearly_labels,
-                "yearly_scores": historical_yearly_scores,
-                "semester_labels": ["First Semester (Jan - June)", "Second Semester (July - Dec)"],
-                "available_years": available_years,
-                "by_year": by_year,
-                "all_year_scores": all_year_semester_scores,
-            },
-        }
+    # Flag low confidence when RMSE exceeds threshold, but still forecast.
+    low_confidence = rmse > RMSE_THRESHOLD
+    notification   = (
+        f"Forecast confidence is low (RMSE {rmse:.4f} exceeds {RMSE_THRESHOLD}). "
+        "More semestral records will improve accuracy."
+        if low_confidence else None
+    )
 
     # ----------------------------------------
     # RETRAIN ON FULL DATASET FOR FORECASTING
-    # After validation passes, retrain on all
-    # records so the latest year contributes
-    # to the forecast coefficients.
+    # After validation, retrain on all records
+    # with recency weighting so the most recent
+    # semesters exert stronger influence on the
+    # regression coefficients.
     # ----------------------------------------
-    model.fit(df[FEATURES], df[TARGET])
+    # Recency weights: exponential decay so the
+    # latest record has weight 1.0 and each prior
+    # record is discounted by 15 % per step.
+    n_all = len(df)
+    recency_weights = np.array([0.85 ** (n_all - 1 - i) for i in range(n_all)])
+    recency_weights = recency_weights / recency_weights.sum() * n_all  # keep scale
+
+    model.fit(df[FEATURES], df[TARGET], sample_weight=recency_weights)
 
     # Extract coefficients
     coefficients = {"intercept": round(float(model.intercept_), 4)}
@@ -168,16 +238,19 @@ def predict(payload: dict) -> dict:
 
     # ----------------------------------------
     # FORECAST FUTURE FEATURE VALUES
-    # Project each HR metric using its own
-    # trend line, then predict score from those.
+    # Project each HR metric (non-time features)
+    # using its own trend line, then predict the
+    # score from those plus the future Time_Index.
     # ----------------------------------------
+    HR_FEATURES = [f for f in FEATURES if f != "Time_Index"]
     future_features = {}
+    last_t = int(df["Time_Index"].max())
 
-    for feat in FEATURES:
+    for feat in HR_FEATURES:
         feat_model = LinearRegression()
         feat_model.fit(df[["Time_Index"]], df[feat])
-        last_t = int(df["Time_Index"].max())
-        future_vals = feat_model.predict([[last_t + i] for i in range(1, 3)])
+        future_t = pd.DataFrame({"Time_Index": [last_t + 1, last_t + 2]})
+        future_vals = feat_model.predict(future_t)
 
         if feat == "Attendance_Rate_Pct":
             future_vals = np.clip(future_vals, 70, 100)
@@ -191,7 +264,10 @@ def predict(payload: dict) -> dict:
 
         future_features[feat] = future_vals
 
-    future_X = pd.DataFrame(future_features)
+    # Supply future Time_Index values directly
+    future_features["Time_Index"] = np.array([last_t + 1, last_t + 2])
+
+    future_X = pd.DataFrame(future_features)[FEATURES]
 
     # Generate future semester labels (TC-04)
     last_year_data = df[df["Year"] == last_year]
@@ -209,6 +285,16 @@ def predict(payload: dict) -> dict:
     # Predict next 2 semesters
     future_preds  = model.predict(future_X)
     future_preds  = np.clip(future_preds, 1.0, 5.0)
+
+    # Anchor blend: pull each forecast value toward the latest actual score so
+    # that recent performance is visibly reflected in the projection.
+    latest_actual = float(df[TARGET].iloc[-1])
+    future_preds  = np.array([
+        ANCHOR_WEIGHT * latest_actual + (1 - ANCHOR_WEIGHT) * v
+        for v in future_preds
+    ])
+    future_preds  = np.clip(future_preds, 1.0, 5.0)
+
     forecast_scores = [round(float(v), 2) for v in future_preds]
 
     # ----------------------------------------
@@ -228,19 +314,10 @@ def predict(payload: dict) -> dict:
     else:
         trend = "STABLE"
 
-    return {
+    result = {
         "status": "ok",
         "employee_name": employee_name,
-        "historical": {
-            "labels": historical_labels,
-            "scores": historical_scores,
-            "yearly_labels": historical_yearly_labels,
-            "yearly_scores": historical_yearly_scores,
-            "semester_labels": ["First Semester (Jan - June)", "Second Semester (July - Dec)"],
-            "available_years": available_years,
-            "by_year": by_year,
-            "all_year_scores": all_year_semester_scores,
-        },
+        "historical": historical_block,
         "forecast": {
             "labels": future_labels,
             "scores": forecast_scores,
@@ -252,3 +329,9 @@ def predict(payload: dict) -> dict:
         "coefficients": coefficients,
         "error_metrics": error_metrics,
     }
+
+    if low_confidence:
+        result["low_confidence"] = True
+        result["notification"]   = notification
+
+    return result

@@ -29,9 +29,16 @@ class DashboardController extends Controller
             $recommendationsEnabled = $submission
                 ? Notification::query()
                     ->where('user_id', auth()->id())
-                    ->where('type', 'training_suggestion')
-                    ->where('document_type', 'ipcr')
-                    ->where('document_id', $submission->id)
+                    ->whereIn('type', ['training_suggestion', 'training_suggestion_global'])
+                    ->where(function ($query) use ($submission): void {
+                        $query
+                            ->where(function ($q) use ($submission): void {
+                                $q->where('type', 'training_suggestion')
+                                    ->where('document_type', 'ipcr')
+                                    ->where('document_id', $submission->id);
+                            })
+                            ->orWhere('type', 'training_suggestion_global');
+                    })
                     ->exists()
                 : false;
 

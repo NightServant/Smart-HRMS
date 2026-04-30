@@ -3,6 +3,7 @@
 namespace App\Http\Responses;
 
 use App\Models\User;
+use App\Support\SafeIntendedRedirect;
 use Illuminate\Contracts\Support\Responsable;
 use Illuminate\Http\Request;
 use Laravel\Fortify\Fortify;
@@ -15,10 +16,20 @@ class RedirectAsIntended implements Responsable
     {
         $user = $request instanceof Request ? $request->user() : null;
 
-        if ($this->name === 'email-verification' && $user instanceof User) {
-            return redirect()->intended(route($user->homeRouteName(), absolute: false));
+        if ($user instanceof User) {
+            $intended = SafeIntendedRedirect::pullForUser($request, $user);
+
+            if ($intended !== null) {
+                return redirect($intended);
+            }
+
+            return redirect(route($user->homeRouteName(), absolute: false));
         }
 
-        return redirect()->intended(Fortify::redirects($this->name));
+        if ($request instanceof Request) {
+            $request->session()->forget('url.intended');
+        }
+
+        return redirect(Fortify::redirects($this->name));
     }
 }

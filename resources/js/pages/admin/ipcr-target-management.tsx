@@ -4,11 +4,13 @@ import {
     Clock3,
     FileCheck2,
     FileSpreadsheet,
+    Filter,
     Megaphone,
     RotateCcw,
+    Search,
     XCircle,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import IpcrTargetReadonly from '@/components/ipcr-target-readonly';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,6 +31,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination';
 import {
     Select,
     SelectContent,
@@ -167,6 +176,14 @@ export default function IpcrTargetManagement() {
     );
     const [notifying, setNotifying] = useState(false);
 
+    // Filter / pagination state for the period detail dialog
+    const [search, setSearch] = useState('');
+    const [decisionFilter, setDecisionFilter] = useState<string>('all');
+    const [appliedSearch, setAppliedSearch] = useState('');
+    const [appliedDecision, setAppliedDecision] = useState<string>('all');
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [currentPage, setCurrentPage] = useState(1);
+
     const allTargets = [...submittedTargets, ...finalizedTargets];
     const uniquePeriods = Array.from(
         new Map(
@@ -185,7 +202,40 @@ export default function IpcrTargetManagement() {
     const filteredFinalized = selectedPeriod
         ? finalizedTargets.filter((t) => t.semester === selectedPeriod.semester && t.target_year === selectedPeriod.year)
         : finalizedTargets;
-    const displayRows = view === 'submitted' ? filteredSubmitted : filteredFinalized;
+    const baseRows = view === 'submitted' ? filteredSubmitted : filteredFinalized;
+
+    const displayRows = useMemo(() => {
+        const term = appliedSearch.trim().toLowerCase();
+        return baseRows.filter((t) => {
+            const decision = t.evaluator_decision ?? 'pending';
+            if (appliedDecision !== 'all' && decision !== appliedDecision) return false;
+            if (!term) return true;
+            const name = (t.employee?.name ?? '').toLowerCase();
+            const empId = String(t.employee_id ?? '').toLowerCase();
+            return name.includes(term) || empId.includes(term);
+        });
+    }, [baseRows, appliedSearch, appliedDecision]);
+
+    const totalPages = Math.max(1, Math.ceil(displayRows.length / rowsPerPage));
+    const safePage = Math.min(currentPage, totalPages);
+    const pageStart = (safePage - 1) * rowsPerPage;
+    const pageRows = displayRows.slice(pageStart, pageStart + rowsPerPage);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [appliedSearch, appliedDecision, rowsPerPage, view, selectedPeriodKey]);
+
+    function applyFilters(): void {
+        setAppliedSearch(search);
+        setAppliedDecision(decisionFilter);
+    }
+
+    function clearFilters(): void {
+        setSearch('');
+        setDecisionFilter('all');
+        setAppliedSearch('');
+        setAppliedDecision('all');
+    }
     function handleFinalize(target: IpcrTarget): void {
         setProcessing(true);
         router.post(
@@ -481,64 +531,160 @@ export default function IpcrTargetManagement() {
                             Finalized ({filteredFinalized.length})
                         </Button>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className={tableHeaderClass}>
-                                    <th>Employee</th>
-                                    <th>Submitted</th>
-                                    <th>Evaluator Decision</th>
-                                    <th>HR Status</th>
-                                    <th className="!text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {displayRows.map((target, index) => (
-                                    <tr key={target.id} className={stripedRows[index % 2]}>
-                                        <td className="px-5 py-3.5 font-medium">
-                                            {target.employee?.name ?? target.employee_id}
-                                        </td>
-                                        <td className="px-5 py-3.5 text-muted-foreground">
-                                            {target.submitted_at
-                                                ? new Date(target.submitted_at).toLocaleDateString()
-                                                : '—'}
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            {decisionBadge(target.evaluator_decision)}
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            {target.hr_finalized ? (
-                                                <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
-                                                    Finalized
-                                                </Badge>
-                                            ) : (
-                                                <Badge variant="outline">Not Recorded</Badge>
-                                            )}
-                                        </td>
-                                        <td className="px-5 py-3.5 text-center">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => setSelectedTarget(target)}
+
+                    <div className="space-y-4">
+                        <div className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
+                            <div className="relative">
+                                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    value={search}
+                                    onChange={(event) => setSearch(event.target.value)}
+                                    placeholder="Search employee name or ID"
+                                    className="border-border bg-background pl-9"
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter') {
+                                            event.preventDefault();
+                                            applyFilters();
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <Select value={decisionFilter} onValueChange={setDecisionFilter}>
+                                <SelectTrigger className="border-border bg-background">
+                                    <SelectValue placeholder="Filter by evaluator decision" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Decisions</SelectItem>
+                                    <SelectItem value="pending">Pending Evaluator</SelectItem>
+                                    <SelectItem value="approved">Approved</SelectItem>
+                                    <SelectItem value="rejected">Returned</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button type="button" variant="outline" onClick={applyFilters}>
+                                <Filter className="size-4" />
+                                Apply Filters
+                            </Button>
+                            <Button type="button" variant="ghost" onClick={clearFilters}>
+                                Clear
+                            </Button>
+                            <Badge variant="outline" className="ml-auto shrink-0">
+                                {displayRows.length} Record{displayRows.length === 1 ? '' : 's'}
+                            </Badge>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className={tableHeaderClass}>
+                                        <th>Employee</th>
+                                        <th>Submitted</th>
+                                        <th>Evaluator Decision</th>
+                                        <th>HR Status</th>
+                                        <th className="!text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pageRows.map((target, index) => (
+                                        <tr key={target.id} className={stripedRows[index % 2]}>
+                                            <td className="px-5 py-3.5 font-medium">
+                                                {target.employee?.name ?? target.employee_id}
+                                            </td>
+                                            <td className="px-5 py-3.5 text-muted-foreground">
+                                                {target.submitted_at
+                                                    ? new Date(target.submitted_at).toLocaleDateString()
+                                                    : '—'}
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                {decisionBadge(target.evaluator_decision)}
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                {target.hr_finalized ? (
+                                                    <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
+                                                        Finalized
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline">Not Recorded</Badge>
+                                                )}
+                                            </td>
+                                            <td className="px-5 py-3.5 text-center">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => setSelectedTarget(target)}
+                                                >
+                                                    View
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {displayRows.length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={5}
+                                                className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
                                             >
-                                                View
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {displayRows.length === 0 && (
-                                    <tr>
-                                        <td
-                                            colSpan={5}
-                                            className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
-                                        >
-                                            No {view === 'submitted' ? 'submitted' : 'finalized'} IPCR targets for this period.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                                No {view === 'submitted' ? 'submitted' : 'finalized'} IPCR targets match the filters.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="app-table-pagination-bar">
+                            <div className="app-table-pagination-shell">
+                                <div className="app-table-pagination-page-size">
+                                    <span>Rows per page</span>
+                                    <Select
+                                        value={String(rowsPerPage)}
+                                        onValueChange={(value) => setRowsPerPage(Number(value))}
+                                    >
+                                        <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent align="start">
+                                            <SelectItem value="5">5</SelectItem>
+                                            <SelectItem value="10">10</SelectItem>
+                                            <SelectItem value="25">25</SelectItem>
+                                            <SelectItem value="50">50</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="app-table-pagination-controls">
+                                    <span className="app-table-pagination-status">
+                                        Page {safePage} of {totalPages}
+                                    </span>
+                                    <Pagination className="app-table-pagination-nav">
+                                        <PaginationContent>
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        setCurrentPage((p) => Math.max(1, p - 1));
+                                                    }}
+                                                    className={safePage === 1 ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        setCurrentPage((p) => Math.min(totalPages, p + 1));
+                                                    }}
+                                                    className={safePage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setSelectedPeriodKey(null)}>Close</Button>
                     </DialogFooter>

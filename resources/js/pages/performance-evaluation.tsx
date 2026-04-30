@@ -1141,13 +1141,53 @@ function HrOverview({
 
     const selectedPeriod = uniquePeriods.find((p) => p.key === selectedPeriodKey) ?? null;
 
-    const reviewRows = (
+    const periodScopedRows = (
         view === 'review'
             ? (hrPanel?.reviewQueue ?? [])
             : (hrPanel?.finalizationQueue ?? [])
     ).filter((s) =>
         selectedPeriod ? (s.form_payload.metadata.period ?? '') === selectedPeriod.key : true,
     );
+
+    // Filter / pagination state for the period detail dialog
+    const [hrSearch, setHrSearch] = useState('');
+    const [hrStageFilter, setHrStageFilter] = useState<string>('all');
+    const [hrAppliedSearch, setHrAppliedSearch] = useState('');
+    const [hrAppliedStage, setHrAppliedStage] = useState<string>('all');
+    const [hrRowsPerPage, setHrRowsPerPage] = useState(10);
+    const [hrCurrentPage, setHrCurrentPage] = useState(1);
+
+    const reviewRows = (() => {
+        const term = hrAppliedSearch.trim().toLowerCase();
+        return periodScopedRows.filter((s) => {
+            if (hrAppliedStage !== 'all' && (s.stage ?? '') !== hrAppliedStage) return false;
+            if (!term) return true;
+            const name = (s.employee?.name ?? '').toLowerCase();
+            const empId = String(s.employee_id ?? '').toLowerCase();
+            const job = (s.employee?.job_title ?? '').toLowerCase();
+            return name.includes(term) || empId.includes(term) || job.includes(term);
+        });
+    })();
+
+    const hrTotalPages = Math.max(1, Math.ceil(reviewRows.length / hrRowsPerPage));
+    const hrSafePage = Math.min(hrCurrentPage, hrTotalPages);
+    const hrPageStart = (hrSafePage - 1) * hrRowsPerPage;
+
+    useEffect(() => {
+        setHrCurrentPage(1);
+    }, [hrAppliedSearch, hrAppliedStage, hrRowsPerPage, view, selectedPeriodKey]);
+
+    function applyHrFilters(): void {
+        setHrAppliedSearch(hrSearch);
+        setHrAppliedStage(hrStageFilter);
+    }
+
+    function clearHrFilters(): void {
+        setHrSearch('');
+        setHrStageFilter('all');
+        setHrAppliedSearch('');
+        setHrAppliedStage('all');
+    }
 
 
     return (
@@ -1440,32 +1480,77 @@ function HrOverview({
                             </Button>
                         </div>
                     )}
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
-                                    <th className="!w-10 !text-center">Rank</th>
-                                    <th>Employee</th>
-                                    <th>Status</th>
-                                    <th>Stage</th>
-                                    <th>Rating</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {(() => {
-                                    const withRatings = reviewRows
-                                        .filter((s) => finalDisplayRating(s) !== null)
-                                        .sort((a, b) => (finalDisplayRating(b) ?? 0) - (finalDisplayRating(a) ?? 0));
-                                    const withoutRatings = reviewRows.filter((s) => finalDisplayRating(s) === null);
-                                    const ranked = [...withRatings, ...withoutRatings];
-                                    const total = withRatings.length;
+                    <div className="space-y-4">
+                        <div className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
+                            <div className="relative">
+                                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    value={hrSearch}
+                                    onChange={(event) => setHrSearch(event.target.value)}
+                                    placeholder="Search employee name, ID, or position"
+                                    className="border-border bg-background pl-9"
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter') {
+                                            event.preventDefault();
+                                            applyHrFilters();
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <Select value={hrStageFilter} onValueChange={setHrStageFilter}>
+                                <SelectTrigger className="border-border bg-background">
+                                    <SelectValue placeholder="Filter by stage" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Stages</SelectItem>
+                                    <SelectItem value="sent_to_hr">Sent To HR</SelectItem>
+                                    <SelectItem value="sent_to_pmt">Sent To PMT</SelectItem>
+                                    <SelectItem value="sent_to_hr_finalize">For Finalization</SelectItem>
+                                    <SelectItem value="finalized">Finalized</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button type="button" variant="outline" onClick={applyHrFilters}>
+                                <Filter className="size-4" />
+                                Apply Filters
+                            </Button>
+                            <Button type="button" variant="ghost" onClick={clearHrFilters}>
+                                Clear
+                            </Button>
+                            <Badge variant="outline" className="ml-auto shrink-0">
+                                {reviewRows.length} Record{reviewRows.length === 1 ? '' : 's'}
+                            </Badge>
+                        </div>
 
-                                    return ranked.map((submission, index) => {
-                                        const rank = index + 1;
-                                        const hasRating = finalDisplayRating(submission) !== null;
-                                        const isTopThree = hasRating && rank <= 3;
-                                        const isBottomThree = hasRating && rank > total - 3 && total > 3;
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
+                                        <th className="!w-10 !text-center">Rank</th>
+                                        <th>Employee</th>
+                                        <th>Status</th>
+                                        <th>Stage</th>
+                                        <th>Rating</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {(() => {
+                                        const withRatings = reviewRows
+                                            .filter((s) => finalDisplayRating(s) !== null)
+                                            .sort((a, b) => (finalDisplayRating(b) ?? 0) - (finalDisplayRating(a) ?? 0));
+                                        const withoutRatings = reviewRows.filter((s) => finalDisplayRating(s) === null);
+                                        const ranked = [...withRatings, ...withoutRatings];
+                                        const total = withRatings.length;
+                                        const paged = ranked.slice(hrPageStart, hrPageStart + hrRowsPerPage);
+
+                                        return paged.map((submission, pageIndex) => {
+                                            const index = hrPageStart + pageIndex;
+                                            const rank = index + 1;
+                                            const hasRating = finalDisplayRating(submission) !== null;
+                                            const isTopThree = hasRating && rank <= 3;
+                                            const isBottomThree = hasRating && rank > total - 3 && total > 3;
 
                                         return (
                                     <tr
@@ -1544,18 +1629,70 @@ function HrOverview({
                                         );
                                     });
                                 })()}
-                                {reviewRows.length === 0 && (
-                                    <tr>
-                                        <td
-                                            colSpan={6}
-                                            className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
-                                        >
-                                            {queueEmptyMessage}
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                    {reviewRows.length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={6}
+                                                className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
+                                            >
+                                                {queueEmptyMessage}
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="app-table-pagination-bar">
+                            <div className="app-table-pagination-shell">
+                                <div className="app-table-pagination-page-size">
+                                    <span>Rows per page</span>
+                                    <Select
+                                        value={String(hrRowsPerPage)}
+                                        onValueChange={(value) => setHrRowsPerPage(Number(value))}
+                                    >
+                                        <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent align="start">
+                                            <SelectItem value="5">5</SelectItem>
+                                            <SelectItem value="10">10</SelectItem>
+                                            <SelectItem value="25">25</SelectItem>
+                                            <SelectItem value="50">50</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="app-table-pagination-controls">
+                                    <span className="app-table-pagination-status">
+                                        Page {hrSafePage} of {hrTotalPages}
+                                    </span>
+                                    <Pagination className="app-table-pagination-nav">
+                                        <PaginationContent>
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        setHrCurrentPage((p) => Math.max(1, p - 1));
+                                                    }}
+                                                    className={hrSafePage === 1 ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        setHrCurrentPage((p) => Math.min(hrTotalPages, p + 1));
+                                                    }}
+                                                    className={hrSafePage === hrTotalPages ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setSelectedPeriodKey(null)}>
@@ -1841,9 +1978,50 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
 
     const selectedPeriod = uniquePeriods.find((p) => p.key === selectedPeriodKey) ?? null;
 
-    const periodRows = allSubmissions.filter((s) =>
+    const periodScopedRows = allSubmissions.filter((s) =>
         selectedPeriod ? (s.form_payload.metadata.period ?? '') === selectedPeriod.key : true,
     );
+
+    const [pmtSearch, setPmtSearch] = useState('');
+    const [pmtAppealFilter, setPmtAppealFilter] = useState<string>('all');
+    const [pmtAppliedSearch, setPmtAppliedSearch] = useState('');
+    const [pmtAppliedAppeal, setPmtAppliedAppeal] = useState<string>('all');
+    const [pmtRowsPerPage, setPmtRowsPerPage] = useState(10);
+    const [pmtCurrentPage, setPmtCurrentPage] = useState(1);
+
+    const periodRows = (() => {
+        const term = pmtAppliedSearch.trim().toLowerCase();
+        return periodScopedRows.filter((s) => {
+            const isAppealed = s.appeal_status === 'appealed' || s.appeal_status === 'submitted';
+            if (pmtAppliedAppeal === 'appealed' && !isAppealed) return false;
+            if (pmtAppliedAppeal === 'no_appeal' && isAppealed) return false;
+            if (!term) return true;
+            const name = (s.employee?.name ?? '').toLowerCase();
+            const empId = String(s.employee_id ?? '').toLowerCase();
+            return name.includes(term) || empId.includes(term);
+        });
+    })();
+
+    const pmtTotalPages = Math.max(1, Math.ceil(periodRows.length / pmtRowsPerPage));
+    const pmtSafePage = Math.min(pmtCurrentPage, pmtTotalPages);
+    const pmtPageStart = (pmtSafePage - 1) * pmtRowsPerPage;
+    const pmtPageRows = periodRows.slice(pmtPageStart, pmtPageStart + pmtRowsPerPage);
+
+    useEffect(() => {
+        setPmtCurrentPage(1);
+    }, [pmtAppliedSearch, pmtAppliedAppeal, pmtRowsPerPage, selectedPeriodKey]);
+
+    function applyPmtFilters(): void {
+        setPmtAppliedSearch(pmtSearch);
+        setPmtAppliedAppeal(pmtAppealFilter);
+    }
+
+    function clearPmtFilters(): void {
+        setPmtSearch('');
+        setPmtAppealFilter('all');
+        setPmtAppliedSearch('');
+        setPmtAppliedAppeal('all');
+    }
 
     return (
         <div className="space-y-6">
@@ -1969,64 +2147,157 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                             Review employee IPCR submissions for this period.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
-                                    <th>Employee</th>
-                                    <th>Appeal</th>
-                                    <th>Stage</th>
-                                    <th>Rating</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {periodRows.map((submission, index) => (
-                                    <tr
-                                        key={submission.id}
-                                        className={cn(
-                                            'text-sm font-semibold text-foreground',
-                                            stripedTableRows[index % 2],
-                                        )}
-                                    >
-                                        <td className="px-5 py-3.5">
-                                            {submission.employee?.name ?? submission.employee_id}
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            {submission.appeal_status === 'appealed' ||
-                                            submission.appeal_status === 'submitted'
-                                                ? 'Appealed'
-                                                : 'No Appeal'}
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            {stageLabel(submission.stage)}
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            {submission.performance_rating?.toFixed(2) ?? 'Pending'}
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                onClick={() => setSelectedSubmission(submission)}
-                                            >
-                                                Open Review
-                                            </Button>
-                                        </td>
+                    <div className="space-y-4">
+                        <div className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
+                            <div className="relative">
+                                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    value={pmtSearch}
+                                    onChange={(event) => setPmtSearch(event.target.value)}
+                                    placeholder="Search employee name or ID"
+                                    className="border-border bg-background pl-9"
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter') {
+                                            event.preventDefault();
+                                            applyPmtFilters();
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <Select value={pmtAppealFilter} onValueChange={setPmtAppealFilter}>
+                                <SelectTrigger className="border-border bg-background">
+                                    <SelectValue placeholder="Filter by appeal status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All</SelectItem>
+                                    <SelectItem value="appealed">Appealed</SelectItem>
+                                    <SelectItem value="no_appeal">No Appeal</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button type="button" variant="outline" onClick={applyPmtFilters}>
+                                <Filter className="size-4" />
+                                Apply Filters
+                            </Button>
+                            <Button type="button" variant="ghost" onClick={clearPmtFilters}>
+                                Clear
+                            </Button>
+                            <Badge variant="outline" className="ml-auto shrink-0">
+                                {periodRows.length} Record{periodRows.length === 1 ? '' : 's'}
+                            </Badge>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
+                                        <th>Employee</th>
+                                        <th>Appeal</th>
+                                        <th>Stage</th>
+                                        <th>Rating</th>
+                                        <th>Action</th>
                                     </tr>
-                                ))}
-                                {periodRows.length === 0 && (
-                                    <tr>
-                                        <td
-                                            colSpan={5}
-                                            className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
+                                </thead>
+                                <tbody>
+                                    {pmtPageRows.map((submission, index) => (
+                                        <tr
+                                            key={submission.id}
+                                            className={cn(
+                                                'text-sm font-semibold text-foreground',
+                                                stripedTableRows[index % 2],
+                                            )}
                                         >
-                                            No submissions for this period.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                            <td className="px-5 py-3.5">
+                                                {submission.employee?.name ?? submission.employee_id}
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                {submission.appeal_status === 'appealed' ||
+                                                submission.appeal_status === 'submitted'
+                                                    ? 'Appealed'
+                                                    : 'No Appeal'}
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                {stageLabel(submission.stage)}
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                {submission.performance_rating?.toFixed(2) ?? 'Pending'}
+                                            </td>
+                                            <td className="px-5 py-3.5">
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    onClick={() => setSelectedSubmission(submission)}
+                                                >
+                                                    Open Review
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {periodRows.length === 0 && (
+                                        <tr>
+                                            <td
+                                                colSpan={5}
+                                                className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
+                                            >
+                                                No submissions match the filters.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="app-table-pagination-bar">
+                            <div className="app-table-pagination-shell">
+                                <div className="app-table-pagination-page-size">
+                                    <span>Rows per page</span>
+                                    <Select
+                                        value={String(pmtRowsPerPage)}
+                                        onValueChange={(value) => setPmtRowsPerPage(Number(value))}
+                                    >
+                                        <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent align="start">
+                                            <SelectItem value="5">5</SelectItem>
+                                            <SelectItem value="10">10</SelectItem>
+                                            <SelectItem value="25">25</SelectItem>
+                                            <SelectItem value="50">50</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="app-table-pagination-controls">
+                                    <span className="app-table-pagination-status">
+                                        Page {pmtSafePage} of {pmtTotalPages}
+                                    </span>
+                                    <Pagination className="app-table-pagination-nav">
+                                        <PaginationContent>
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        setPmtCurrentPage((p) => Math.max(1, p - 1));
+                                                    }}
+                                                    className={pmtSafePage === 1 ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        setPmtCurrentPage((p) => Math.min(pmtTotalPages, p + 1));
+                                                    }}
+                                                    className={pmtSafePage === pmtTotalPages ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setSelectedPeriodKey(null)}>

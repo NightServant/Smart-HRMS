@@ -3,11 +3,13 @@ import {
     CheckCircle2,
     Clock3,
     FileSpreadsheet,
+    Filter,
+    Search,
     Target,
     Users,
     XCircle,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import IpcrTargetReadonly from '@/components/ipcr-target-readonly';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,7 +28,15 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationNext,
+    PaginationPrevious,
+} from '@/components/ui/pagination';
 import {
     Select,
     SelectContent,
@@ -179,9 +189,46 @@ export default function EvaluatorIpcrTarget() {
     const [decision, setDecision] = useState<'approved' | 'rejected' | ''>('');
     const [remarks, setRemarks] = useState('');
     const [processing, setProcessing] = useState(false);
+    const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('pending');
+    const [appliedSearch, setAppliedSearch] = useState('');
+    const [appliedStatus, setAppliedStatus] = useState<StatusFilter>('pending');
+    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [currentPage, setCurrentPage] = useState(1);
 
-    const filteredEmployees = employees.filter((row) => rowMatchesFilter(row, statusFilter));
+    const filteredEmployees = useMemo(() => {
+        const term = appliedSearch.trim().toLowerCase();
+        return employees.filter((row) => {
+            if (!rowMatchesFilter(row, appliedStatus)) return false;
+            if (!term) return true;
+            return (
+                row.employee_id.toLowerCase().includes(term) ||
+                row.name.toLowerCase().includes(term) ||
+                row.job_title.toLowerCase().includes(term)
+            );
+        });
+    }, [employees, appliedSearch, appliedStatus]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / rowsPerPage));
+    const safePage = Math.min(currentPage, totalPages);
+    const pageStart = (safePage - 1) * rowsPerPage;
+    const pageRows = filteredEmployees.slice(pageStart, pageStart + rowsPerPage);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [appliedSearch, appliedStatus, rowsPerPage]);
+
+    function applyFilters(): void {
+        setAppliedSearch(search);
+        setAppliedStatus(statusFilter);
+    }
+
+    function clearFilters(): void {
+        setSearch('');
+        setStatusFilter('all');
+        setAppliedSearch('');
+        setAppliedStatus('all');
+    }
 
     function openReview(row: EmployeeRow): void {
         setSelected(row);
@@ -340,85 +387,162 @@ export default function EvaluatorIpcrTarget() {
                             {semesterLabel(targetPeriod.semester, targetPeriod.year)} — review and approve or return employee targets.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="flex items-center gap-2 py-1">
-                        <Select
-                            value={statusFilter}
-                            onValueChange={(v) => setStatusFilter(v as StatusFilter)}
-                        >
-                            <SelectTrigger className="w-44">
-                                <SelectValue placeholder="Filter by status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All</SelectItem>
-                                <SelectItem value="not_set">Not Set</SelectItem>
-                                <SelectItem value="pending">Pending Review</SelectItem>
-                                <SelectItem value="approved">Approved</SelectItem>
-                                <SelectItem value="returned">Returned</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <Badge variant="outline" className="shrink-0">
-                            {filteredEmployees.length} Employee
-                            {filteredEmployees.length === 1 ? '' : 's'}
-                        </Badge>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1A3D1A] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
-                                    <TableHead>Employee ID</TableHead>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Position</TableHead>
-                                    <TableHead>Target Status</TableHead>
-                                    <TableHead>Submitted</TableHead>
-                                    <TableHead className="text-center">View</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredEmployees.map((row, index) => (
-                                    <TableRow
-                                        key={row.employee_id}
-                                        className={index % 2 === 0
-                                            ? 'border-b border-[#D4EBC8] bg-white transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#18291A]/40 dark:hover:bg-[#243C24]/70'
-                                            : 'border-b border-[#D4EBC8] bg-[#F2FAF0] transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#1D2E1D]/60 dark:hover:bg-[#243C24]/70'}
-                                    >
-                                        <TableCell className="px-5 py-3.5">{row.employee_id}</TableCell>
-                                        <TableCell className="px-5 py-3.5 font-medium">{row.name}</TableCell>
-                                        <TableCell className="px-5 py-3.5 text-muted-foreground">{row.job_title}</TableCell>
-                                        <TableCell className="px-5 py-3.5">{targetStatusBadge(row.target)}</TableCell>
-                                        <TableCell className="px-5 py-3.5 text-muted-foreground">
-                                            {row.target?.submitted_at
-                                                ? new Date(row.target.submitted_at).toLocaleDateString()
-                                                : '—'}
-                                        </TableCell>
-                                        <TableCell className="px-5 py-3.5 text-center">
-                                            {canReview(row) ? (
-                                                <Button size="sm" onClick={() => openReview(row)}>
-                                                    Review
-                                                </Button>
-                                            ) : row.target ? (
-                                                <Button size="sm" variant="outline" onClick={() => openReview(row)}>
-                                                    View
-                                                </Button>
-                                            ) : (
-                                                <span className="text-xs text-muted-foreground">—</span>
-                                            )}
-                                        </TableCell>
+                    <div className="space-y-4">
+                        <div className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
+                            <div className="relative">
+                                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    value={search}
+                                    onChange={(event) => setSearch(event.target.value)}
+                                    placeholder="Search employee ID, name, or position"
+                                    className="border-border bg-background pl-9"
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter') {
+                                            event.preventDefault();
+                                            applyFilters();
+                                        }
+                                    }}
+                                />
+                            </div>
+                            <Select
+                                value={statusFilter}
+                                onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+                            >
+                                <SelectTrigger className="border-border bg-background">
+                                    <SelectValue placeholder="Filter by status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Statuses</SelectItem>
+                                    <SelectItem value="not_set">Not Set</SelectItem>
+                                    <SelectItem value="pending">Pending Review</SelectItem>
+                                    <SelectItem value="approved">Approved</SelectItem>
+                                    <SelectItem value="returned">Returned</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button type="button" variant="outline" onClick={applyFilters}>
+                                <Filter className="size-4" />
+                                Apply Filters
+                            </Button>
+                            <Button type="button" variant="ghost" onClick={clearFilters}>
+                                Clear
+                            </Button>
+                            <Badge variant="outline" className="ml-auto shrink-0">
+                                {filteredEmployees.length} Employee
+                                {filteredEmployees.length === 1 ? '' : 's'}
+                            </Badge>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1A3D1A] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
+                                        <TableHead>Employee ID</TableHead>
+                                        <TableHead>Name</TableHead>
+                                        <TableHead>Position</TableHead>
+                                        <TableHead>Target Status</TableHead>
+                                        <TableHead>Submitted</TableHead>
+                                        <TableHead className="text-center">View</TableHead>
                                     </TableRow>
-                                ))}
-                                {filteredEmployees.length === 0 && (
-                                    <TableRow>
-                                        <TableCell
-                                            colSpan={6}
-                                            className="bg-white py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
+                                </TableHeader>
+                                <TableBody>
+                                    {pageRows.map((row, index) => (
+                                        <TableRow
+                                            key={row.employee_id}
+                                            className={index % 2 === 0
+                                                ? 'border-b border-[#D4EBC8] bg-white transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#18291A]/40 dark:hover:bg-[#243C24]/70'
+                                                : 'border-b border-[#D4EBC8] bg-[#F2FAF0] transition-colors duration-150 hover:bg-[#EBF7E5] dark:border-[#263E26] dark:bg-[#1D2E1D]/60 dark:hover:bg-[#243C24]/70'}
                                         >
-                                            {employees.length === 0
-                                                ? 'No employees are assigned to you as supervisor.'
-                                                : 'No employees match the selected filter.'}
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+                                            <TableCell className="px-5 py-3.5">{row.employee_id}</TableCell>
+                                            <TableCell className="px-5 py-3.5 font-medium">{row.name}</TableCell>
+                                            <TableCell className="px-5 py-3.5 text-muted-foreground">{row.job_title}</TableCell>
+                                            <TableCell className="px-5 py-3.5">{targetStatusBadge(row.target)}</TableCell>
+                                            <TableCell className="px-5 py-3.5 text-muted-foreground">
+                                                {row.target?.submitted_at
+                                                    ? new Date(row.target.submitted_at).toLocaleDateString()
+                                                    : '—'}
+                                            </TableCell>
+                                            <TableCell className="px-5 py-3.5 text-center">
+                                                {canReview(row) ? (
+                                                    <Button size="sm" onClick={() => openReview(row)}>
+                                                        Review
+                                                    </Button>
+                                                ) : row.target ? (
+                                                    <Button size="sm" variant="outline" onClick={() => openReview(row)}>
+                                                        View
+                                                    </Button>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">—</span>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                    {filteredEmployees.length === 0 && (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={6}
+                                                className="bg-white py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
+                                            >
+                                                {employees.length === 0
+                                                    ? 'No employees are assigned to you as supervisor.'
+                                                    : 'No employees match the selected filter.'}
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+
+                        <div className="app-table-pagination-bar">
+                            <div className="app-table-pagination-shell">
+                                <div className="app-table-pagination-page-size">
+                                    <span>Rows per page</span>
+                                    <Select
+                                        value={String(rowsPerPage)}
+                                        onValueChange={(value) => setRowsPerPage(Number(value))}
+                                    >
+                                        <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent align="start">
+                                            <SelectItem value="5">5</SelectItem>
+                                            <SelectItem value="10">10</SelectItem>
+                                            <SelectItem value="25">25</SelectItem>
+                                            <SelectItem value="50">50</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="app-table-pagination-controls">
+                                    <span className="app-table-pagination-status">
+                                        Page {safePage} of {totalPages}
+                                    </span>
+                                    <Pagination className="app-table-pagination-nav">
+                                        <PaginationContent>
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        setCurrentPage((p) => Math.max(1, p - 1));
+                                                    }}
+                                                    className={safePage === 1 ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        setCurrentPage((p) => Math.min(totalPages, p + 1));
+                                                    }}
+                                                    className={safePage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowList(false)}>Close</Button>

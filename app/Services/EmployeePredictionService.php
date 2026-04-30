@@ -31,24 +31,18 @@ class EmployeePredictionService
             ], $history);
         }
 
-        $prediction = count($records) >= 4
-            ? $this->ppeService->predict($employeeName, array_map(
-                fn (array $record): array => [
-                    'year' => $record['year'],
-                    'period' => $record['period'],
-                    'attendance_punctuality_rate' => $record['attendance_punctuality_rate'],
-                    'absenteeism_days' => $record['absenteeism_days'],
-                    'tardiness_incidents' => $record['tardiness_incidents'],
-                    'training_completion_status' => $record['training_completion_status'],
-                    'evaluated_performance_score' => $record['evaluated_performance_score'],
-                ],
-                $records
-            ))
-            : [
-                'status' => 'insufficient_data',
-                'employee_name' => $employeeName,
-                'notification' => 'Need at least 4 semestral records to generate predictions.',
-            ];
+        $prediction = $this->ppeService->predict($employeeName, array_map(
+            fn (array $record): array => [
+                'year' => $record['year'],
+                'period' => $record['period'],
+                'attendance_punctuality_rate' => $record['attendance_punctuality_rate'],
+                'absenteeism_days' => $record['absenteeism_days'],
+                'tardiness_incidents' => $record['tardiness_incidents'],
+                'training_completion_status' => $record['training_completion_status'],
+                'evaluated_performance_score' => $record['evaluated_performance_score'],
+            ],
+            $records
+        ));
 
         return $this->mergeHistoryPayload($prediction, $history);
     }

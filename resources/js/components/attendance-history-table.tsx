@@ -93,7 +93,7 @@ export function AttendanceHistoryTable({
     const [dateFilter, setDateFilter] = useState<string>('');
     const [statusFilter, setStatusFilter] = useState<string>(ALL);
     const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(25);
+    const [pageSize, setPageSize] = useState(10);
     const filterKey = `${searchQuery}|${yearFilter}|${monthFilter}|${dateFilter}|${statusFilter}|${pageSize}`;
     const [lastFilterKey, setLastFilterKey] = useState(filterKey);
 
@@ -442,7 +442,7 @@ export function AttendanceHistoryTable({
                     </div>
                 </div>
 
-                <Pagination className="w-auto justify-end">
+                <Pagination className="w-full justify-end">
                     <PaginationContent className="gap-2">
                         <PaginationItem>
                             <PaginationPrevious

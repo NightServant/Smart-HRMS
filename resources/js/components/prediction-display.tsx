@@ -35,6 +35,7 @@ type ComparisonRow = {
 
 export type PredictionResult = {
     status: string;
+    low_confidence?: boolean;
     employee_name: string;
     notification?: string;
     historical?: {
@@ -246,7 +247,7 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
     const comparisonRows = prediction?.comparison?.rows ?? [];
     const hasHistorical = historicalLabels.length > 0;
     const hasForecast =
-        prediction?.status === 'ok' &&
+        (prediction?.status === 'ok') &&
         (prediction.forecast?.labels?.length ?? 0) > 0;
 
     if (!hasPrediction) {
@@ -349,7 +350,13 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
     return (
         <div className="space-y-4">
             {prediction.notification ? (
-                <div className="rounded-2xl border border-amber-300/60 bg-amber-100/70 px-4 py-3 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-100">
+                <div
+                    className={
+                        prediction.low_confidence
+                            ? 'rounded-2xl border border-blue-300/60 bg-blue-100/70 px-4 py-3 text-sm text-blue-900 dark:border-blue-700/60 dark:bg-blue-900/30 dark:text-blue-100'
+                            : 'rounded-2xl border border-amber-300/60 bg-amber-100/70 px-4 py-3 text-sm text-amber-900 dark:border-amber-700/60 dark:bg-amber-900/30 dark:text-amber-100'
+                    }
+                >
                     {prediction.notification}
                 </div>
             ) : null}
@@ -392,7 +399,11 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
                                 />
                             ) : null}
                             <Badge variant="outline">
-                                {hasForecast ? 'Forecast Ready' : 'Historical Only'}
+                                {hasForecast
+                                    ? prediction.low_confidence
+                                        ? 'Low Confidence Forecast'
+                                        : 'Forecast Ready'
+                                    : 'Historical Only'}
                             </Badge>
                             <Badge
                                 variant="outline"
