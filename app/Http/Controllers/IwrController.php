@@ -1220,6 +1220,7 @@ class IwrController extends Controller
 
         $submittedTargets = IpcrTarget::query()
             ->where('status', 'submitted')
+            ->where('hr_finalized', false)
             ->with(['employee', 'evaluator'])
             ->latest()
             ->get()
@@ -1277,10 +1278,12 @@ class IwrController extends Controller
             ];
         })->all();
 
-        // Aggregate stats across ALL periods for subordinates
+        // Aggregate stats scoped to the active target period so the row labelled
+        // with the current semester/year never inherits counts from prior periods.
         $subordinateIds = $subordinates->pluck('employee_id');
-        $allTargets = IpcrTarget::query()
+        $periodTargets = IpcrTarget::query()
             ->whereIn('employee_id', $subordinateIds)
+            ->forPeriod($targetPeriod['semester'], $targetPeriod['year'])
             ->get();
 
         return Inertia::render('evaluator-ipcr-target', [
@@ -1289,13 +1292,13 @@ class IwrController extends Controller
             'stats' => [
                 'total' => $subordinates->count(),
                 'notSet' => $subordinates->filter(
-                    fn ($e) => $allTargets->where('employee_id', $e->employee_id)->isEmpty()
+                    fn ($e) => $periodTargets->where('employee_id', $e->employee_id)->isEmpty()
                 )->count(),
-                'pending' => $allTargets->filter(
+                'pending' => $periodTargets->filter(
                     fn ($t) => $t->status === 'submitted' && $t->evaluator_decision === null
                 )->count(),
-                'approved' => $allTargets->where('evaluator_decision', 'approved')->count(),
-                'rejected' => $allTargets->where('evaluator_decision', 'rejected')->count(),
+                'approved' => $periodTargets->where('evaluator_decision', 'approved')->count(),
+                'rejected' => $periodTargets->where('evaluator_decision', 'rejected')->count(),
             ],
         ]);
     }

@@ -65,16 +65,41 @@ class SeminarsController extends Controller
             ->whereNotNull('rejection_reason')
             ->where('rejection_reason', '!=', '')
             ->with('employee')
-            ->latest()
+            ->latest('id')
             ->limit(20)
             ->get()
             ->map(fn (IpcrSubmission $submission): array => [
                 'employeeId' => $submission->employee_id,
                 'employeeName' => $submission->employee?->name ?? $submission->employee_id,
-                'date' => $submission->created_at?->format('F j, Y'),
+                'date' => $this->formatSubmissionPeriod($submission),
                 'remark' => $submission->rejection_reason,
             ])
             ->all();
+    }
+
+    private function formatSubmissionPeriod(IpcrSubmission $submission): string
+    {
+        $periodLabel = trim((string) data_get($submission->form_payload, 'metadata.period', ''));
+
+        if ($periodLabel === '') {
+            return $submission->created_at?->format('F j, Y') ?? '';
+        }
+
+        $normalized = strtolower($periodLabel);
+
+        if (preg_match('/(20\d{2})/', $periodLabel, $matches) === 1) {
+            $year = $matches[1];
+
+            if (str_contains($normalized, 'first') || str_contains($normalized, 'january')) {
+                return "First Semester {$year}";
+            }
+
+            if (str_contains($normalized, 'second') || str_contains($normalized, 'july')) {
+                return "Second Semester {$year}";
+            }
+        }
+
+        return $periodLabel;
     }
 
     public function performanceDashboard(Request $request): Response

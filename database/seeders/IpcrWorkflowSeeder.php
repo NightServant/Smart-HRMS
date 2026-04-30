@@ -151,19 +151,6 @@ class IpcrWorkflowSeeder extends Seeder
             $submissionState = $this->submissionStateForIndex($index, $now);
             $payload = $this->buildSubmissionPayload($service, $employee, $submissionState['score']);
 
-            if ($submissionState['stage'] === 'finalized' && $submissionState['finalized_at'] !== null) {
-                $payload = $service->finalize(
-                    $payload,
-                    $submissionState['score'],
-                    $employee,
-                    [
-                        'final_rater_name' => 'Grace Tan',
-                        'head_of_agency_name' => 'Grace Tan',
-                        'finalized_date' => $submissionState['finalized_at']->toIso8601String(),
-                    ],
-                );
-            }
-
             IpcrSubmission::query()->create([
                 'employee_id' => $employee->employee_id,
                 'performance_rating' => $submissionState['score'],
@@ -332,15 +319,14 @@ class IpcrWorkflowSeeder extends Seeder
      */
     private function submissionStateForIndex(int $index, CarbonInterface $now): array
     {
-        $score = match ($index % 5) {
+        $score = match ($index % 4) {
             0 => 4.50,
             1 => 4.25,
             2 => 4.00,
-            3 => 3.75,
-            default => 3.50,
+            default => 3.75,
         };
 
-        return match ($index % 5) {
+        return match ($index % 4) {
             0 => [
                 'score' => $score,
                 'created_at' => $now->copy()->subDays(12 + $index),
@@ -413,7 +399,7 @@ class IpcrWorkflowSeeder extends Seeder
                 'pmt_remarks' => null,
                 'appeal_count' => 0,
             ],
-            3 => [
+            default => [
                 'score' => $score,
                 'created_at' => $now->copy()->subDays(6 + $index),
                 'stage' => 'sent_to_hr_finalize',
@@ -433,30 +419,6 @@ class IpcrWorkflowSeeder extends Seeder
                 'pmt_cycle_count' => 1,
                 'hr_decision' => 'approved',
                 'hr_remarks' => 'Ready for HR final recording.',
-                'pmt_decision' => 'approved',
-                'pmt_remarks' => 'PMT approved the evaluation results.',
-                'appeal_count' => 0,
-            ],
-            default => [
-                'score' => $score,
-                'created_at' => $now->copy()->subDays(4 + $index),
-                'stage' => 'finalized',
-                'status' => 'completed',
-                'routing_action' => 'finalized',
-                'evaluator_gave_remarks' => true,
-                'appeal_status' => null,
-                'appeal_window_opens_at' => null,
-                'appeal_window_closes_at' => null,
-                'is_first_submission' => false,
-                'finalized_at' => $now->copy()->subDays(2),
-                'final_rating' => $score,
-                'adjectival_rating' => app(IpcrFormTemplateService::class)->adjectivalRating($score),
-                'notification' => 'IPCR finalized.',
-                'rejection_reason' => 'Finalized after PMT review.',
-                'hr_cycle_count' => 1,
-                'pmt_cycle_count' => 1,
-                'hr_decision' => 'approved',
-                'hr_remarks' => 'Finalized by HR.',
                 'pmt_decision' => 'approved',
                 'pmt_remarks' => 'PMT approved the evaluation results.',
                 'appeal_count' => 0,

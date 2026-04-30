@@ -529,29 +529,15 @@ function EvaluatorOverview({
 }) {
     const [showList, setShowList] = useState(false);
     const [search, setSearch] = useState(evaluatorPanel?.search ?? '');
-    const [statusFilter, setStatusFilter] = useState(
-        evaluatorPanel?.statusFilter ?? '',
-    );
-    const [stageFilter, setStageFilter] = useState(
-        evaluatorPanel?.stageFilter ?? '',
-    );
 
     useEffect(() => {
         startTransition(() => {
             setSearch(evaluatorPanel?.search ?? '');
-            setStatusFilter(evaluatorPanel?.statusFilter ?? '');
-            setStageFilter(evaluatorPanel?.stageFilter ?? '');
         });
-    }, [
-        evaluatorPanel?.search,
-        evaluatorPanel?.stageFilter,
-        evaluatorPanel?.statusFilter,
-    ]);
+    }, [evaluatorPanel?.search]);
 
     const filters = {
         search,
-        statusFilter,
-        stageFilter,
         page: evaluatorPanel?.pagination.currentPage ?? 1,
         perPage: evaluatorPanel?.pagination.perPage ?? 10,
     };
@@ -563,6 +549,25 @@ function EvaluatorOverview({
             replace: true,
         });
     };
+
+    useEffect(() => {
+        const previousSearch = evaluatorPanel?.search ?? '';
+
+        if (search === previousSearch) {
+            return;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            reload({
+                search,
+                page: 1,
+                perPage: evaluatorPanel?.pagination.perPage ?? 10,
+            });
+        }, 300);
+
+        return () => window.clearTimeout(timeoutId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [search]);
 
     const handleRowsPerPageChange = (value: string): void => {
         reload({
@@ -730,97 +735,16 @@ function EvaluatorOverview({
                     </DialogHeader>
 
                     <div className="space-y-4">
-                        <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.8fr]">
-                            <div className="relative">
-                                <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    value={search}
-                                    onChange={(event) =>
-                                        setSearch(event.target.value)
-                                    }
-                                    placeholder="Search employee ID, name, or position"
-                                    className="border-border bg-background pl-9"
-                                />
-                            </div>
-                            <Select
-                                value={statusFilter || 'all'}
-                                onValueChange={(value) =>
-                                    setStatusFilter(value === 'all' ? '' : value)
+                        <div className="relative max-w-sm">
+                            <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                value={search}
+                                onChange={(event) =>
+                                    setSearch(event.target.value)
                                 }
-                            >
-                                <SelectTrigger className="border-border bg-background">
-                                    <SelectValue placeholder="Filter by status" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">
-                                        All Statuses
-                                    </SelectItem>
-                                    <SelectItem value="pending">Pending</SelectItem>
-                                    <SelectItem value="routed">Routed</SelectItem>
-                                    <SelectItem value="completed">
-                                        Completed
-                                    </SelectItem>
-                                    <SelectItem value="escalated">
-                                        Escalated
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <Select
-                                value={stageFilter || 'all'}
-                                onValueChange={(value) =>
-                                    setStageFilter(value === 'all' ? '' : value)
-                                }
-                            >
-                                <SelectTrigger className="border-border bg-background">
-                                    <SelectValue placeholder="Filter by stage" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">All Stages</SelectItem>
-                                    <SelectItem value="sent_to_evaluator">
-                                        Ready For Evaluator
-                                    </SelectItem>
-                                    <SelectItem value="sent_to_hr">
-                                        Sent To HR
-                                    </SelectItem>
-                                    <SelectItem value="sent_to_pmt">
-                                        Sent To PMT
-                                    </SelectItem>
-                                    <SelectItem value="sent_to_hr_finalize">
-                                        For Finalization
-                                    </SelectItem>
-                                    <SelectItem value="finalized">
-                                        Finalized
-                                    </SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => reload(filters)}
-                            >
-                                <Filter className="size-4" />
-                                Apply Filters
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                onClick={() => {
-                                    setSearch('');
-                                    setStatusFilter('');
-                                    setStageFilter('');
-                                    reload({
-                                        ...filters,
-                                        search: '',
-                                        statusFilter: '',
-                                        stageFilter: '',
-                                    });
-                                }}
-                            >
-                                Clear
-                            </Button>
+                                placeholder="Search employees..."
+                                className="border-border bg-background pl-9"
+                            />
                         </div>
 
                         <div className="overflow-x-auto">
@@ -1128,16 +1052,69 @@ function HrOverview({
         ...(hrPanel?.finalizationQueue ?? []),
     ];
 
-    const uniquePeriods = Array.from(
-        new Map(
-            allQueueSubmissions.map((s) => {
-                const period = s.form_payload.metadata.period ?? '';
-                const isS2 = period.includes('July to December');
-                const year = period.replace('January to June ', '').replace('July to December ', '').trim();
-                return [period, { key: period, semester: isS2 ? '2' : '1', year }] as const;
-            }),
-        ).values(),
-    ).sort((a, b) => Number(b.year) - Number(a.year) || Number(b.semester) - Number(a.semester));
+    const uniquePeriods = (() => {
+        const map = new Map<string, { key: string; semester: '1' | '2'; year: string }>();
+        // Ensure the currently active period always appears, even when no
+        // submissions exist yet for it (newly enabled IPCR workflow).
+        if (currentPeriod?.label) {
+            const activeIsS2 = currentPeriod.label.includes('July to December');
+            const activeYear = String(currentPeriod.year ?? '').trim() ||
+                currentPeriod.label
+                    .replace('January to June ', '')
+                    .replace('July to December ', '')
+                    .trim();
+            map.set(currentPeriod.label, {
+                key: currentPeriod.label,
+                semester: activeIsS2 ? '2' : '1',
+                year: activeYear,
+            });
+        }
+        for (const s of allQueueSubmissions) {
+            const period = s.form_payload.metadata.period ?? '';
+            if (!period || map.has(period)) continue;
+            const isS2 = period.includes('July to December');
+            const year = period
+                .replace('January to June ', '')
+                .replace('July to December ', '')
+                .trim();
+            map.set(period, { key: period, semester: isS2 ? '2' : '1', year });
+        }
+        return Array.from(map.values()).sort(
+            (a, b) =>
+                Number(b.year) - Number(a.year) || Number(b.semester) - Number(a.semester),
+        );
+    })();
+
+    // Filter / pagination state for the outer IPCR Submission Periods table
+    const [periodSemesterFilter, setPeriodSemesterFilter] = useState<string>('all');
+    const [periodYearFilter, setPeriodYearFilter] = useState<string>('all');
+    const [periodRowsPerPage, setPeriodRowsPerPage] = useState(5);
+    const [periodCurrentPage, setPeriodCurrentPage] = useState(1);
+
+    const periodYearOptions = Array.from(
+        new Set(uniquePeriods.map((p) => p.year)),
+    ).sort((a, b) => Number(b) - Number(a));
+
+    const filteredPeriods = uniquePeriods.filter((p) => {
+        if (periodSemesterFilter !== 'all' && p.semester !== periodSemesterFilter) return false;
+        if (periodYearFilter !== 'all' && p.year !== periodYearFilter) return false;
+        return true;
+    });
+
+    const periodTotalPages = Math.max(1, Math.ceil(filteredPeriods.length / periodRowsPerPage));
+    const periodSafePage = Math.min(periodCurrentPage, periodTotalPages);
+    const periodPageStart = (periodSafePage - 1) * periodRowsPerPage;
+    const periodPageRows = filteredPeriods.slice(periodPageStart, periodPageStart + periodRowsPerPage);
+
+    useEffect(() => {
+        setPeriodCurrentPage(1);
+    }, [periodSemesterFilter, periodYearFilter, periodRowsPerPage]);
+
+    useEffect(() => {
+        if (periodYearFilter !== 'all' && !periodYearOptions.includes(periodYearFilter)) {
+            setPeriodYearFilter('all');
+        }
+    }, [periodYearOptions, periodYearFilter]);
 
     const selectedPeriod = uniquePeriods.find((p) => p.key === selectedPeriodKey) ?? null;
 
@@ -1353,8 +1330,49 @@ function HrOverview({
                         Select a period to review or finalize employee IPCR submissions.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
+                <CardContent className="space-y-4 p-4 sm:p-5">
+                    <div className="grid gap-3 md:grid-cols-2 w-1/2">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs tracking-wider text-muted-foreground uppercase">
+                                Semester
+                            </Label>
+                            <Select
+                                value={periodSemesterFilter}
+                                onValueChange={setPeriodSemesterFilter}
+                            >
+                                <SelectTrigger className="border-border bg-background">
+                                    <SelectValue placeholder="All semesters" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Semesters</SelectItem>
+                                    <SelectItem value="1">First Semester (Jan–Jun)</SelectItem>
+                                    <SelectItem value="2">Second Semester (Jul–Dec)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs tracking-wider text-muted-foreground uppercase">
+                                Year
+                            </Label>
+                            <Select
+                                value={periodYearFilter}
+                                onValueChange={setPeriodYearFilter}
+                            >
+                                <SelectTrigger className="border-border bg-background">
+                                    <SelectValue placeholder="All years" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Years</SelectItem>
+                                    {periodYearOptions.map((year) => (
+                                        <SelectItem key={year} value={year}>
+                                            {year}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto rounded-[18px] border border-border">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="bg-[#2F5E2B] dark:bg-[#1A3D1A] hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] [&_th]:px-5 [&_th]:py-3.5 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:tracking-wider [&_th]:uppercase [&_th]:text-white [&_th]:border-r [&_th]:border-white/10">
@@ -1366,7 +1384,7 @@ function HrOverview({
                                 </tr>
                             </thead>
                             <tbody>
-                                {uniquePeriods.map((period, index) => {
+                                {periodPageRows.map((period, index) => {
                                     const inReview = (hrPanel?.reviewQueue ?? []).filter(
                                         (s) => (s.form_payload.metadata.period ?? '') === period.key,
                                     ).length;
@@ -1402,18 +1420,70 @@ function HrOverview({
                                         </tr>
                                     );
                                 })}
-                                {uniquePeriods.length === 0 && (
+                                {filteredPeriods.length === 0 && (
                                     <tr>
                                         <td
                                             colSpan={5}
                                             className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
                                         >
-                                            No IPCR submissions found.
+                                            {uniquePeriods.length === 0
+                                                ? 'No IPCR submissions found.'
+                                                : 'No periods match the selected filters.'}
                                         </td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
+                    </div>
+                    <div className="app-table-pagination-bar">
+                        <div className="app-table-pagination-shell">
+                            <div className="app-table-pagination-page-size">
+                                <span>Rows per page</span>
+                                <Select
+                                    value={String(periodRowsPerPage)}
+                                    onValueChange={(value) => setPeriodRowsPerPage(Number(value))}
+                                >
+                                    <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent align="start">
+                                        <SelectItem value="5">5</SelectItem>
+                                        <SelectItem value="10">10</SelectItem>
+                                        <SelectItem value="25">25</SelectItem>
+                                        <SelectItem value="50">50</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="app-table-pagination-controls">
+                                <span className="app-table-pagination-status">
+                                    Page {periodSafePage} of {periodTotalPages}
+                                </span>
+                                <Pagination className="app-table-pagination-nav">
+                                    <PaginationContent>
+                                        <PaginationItem>
+                                            <PaginationPrevious
+                                                href="#"
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    setPeriodCurrentPage((p) => Math.max(1, p - 1));
+                                                }}
+                                                className={periodSafePage === 1 ? 'pointer-events-none opacity-50' : ''}
+                                            />
+                                        </PaginationItem>
+                                        <PaginationItem>
+                                            <PaginationNext
+                                                href="#"
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    setPeriodCurrentPage((p) => Math.min(periodTotalPages, p + 1));
+                                                }}
+                                                className={periodSafePage === periodTotalPages ? 'pointer-events-none opacity-50' : ''}
+                                            />
+                                        </PaginationItem>
+                                    </PaginationContent>
+                                </Pagination>
+                            </div>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

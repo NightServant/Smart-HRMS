@@ -610,6 +610,8 @@ class PaginationController extends Controller
             ->map(fn (int $number): string => 'EMP-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT))
             ->all();
 
+        $pendingEvaluatorStages = ['sent_to_evaluator', 'data_saved', 'remarks_saved'];
+
         $employees = Employee::query()
             ->with([
                 'user',
@@ -619,6 +621,11 @@ class PaginationController extends Controller
                     ->latest('id'),
             ])
             ->whereIn('employee_id', $employeeIds)
+            ->whereHas('latestSubmission', function ($submissionQuery) use ($pendingEvaluatorStages, $currentPeriodLabel): void {
+                $submissionQuery
+                    ->whereIn('stage', $pendingEvaluatorStages)
+                    ->where('form_payload->metadata->period', $currentPeriodLabel);
+            })
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
                     $subQuery
@@ -632,7 +639,13 @@ class PaginationController extends Controller
                     $submissionQuery->where('status', $statusFilter);
                 });
             })
-            ->when($stageFilter !== '', function ($query) use ($stageFilter): void {
+            ->when($stageFilter !== '', function ($query) use ($stageFilter, $pendingEvaluatorStages): void {
+                if (! in_array($stageFilter, $pendingEvaluatorStages, true)) {
+                    $query->whereRaw('1 = 0');
+
+                    return;
+                }
+
                 $query->whereHas('latestSubmission', function ($submissionQuery) use ($stageFilter): void {
                     $submissionQuery->where('stage', $stageFilter);
                 });
@@ -681,9 +694,24 @@ class PaginationController extends Controller
                 ],
                 'stats' => [
                     'trackedEmployees' => count($employeeIds),
-                    'submitted' => Employee::query()->whereIn('employee_id', $employeeIds)->whereHas('latestSubmission')->count(),
-                    'pendingEvaluation' => Employee::query()->whereIn('employee_id', $employeeIds)->whereHas('latestSubmission', fn ($query) => $query->where('stage', 'sent_to_evaluator'))->count(),
-                    'routedToHr' => Employee::query()->whereIn('employee_id', $employeeIds)->whereHas('latestSubmission', fn ($query) => $query->where('stage', 'sent_to_hr'))->count(),
+                    'submitted' => Employee::query()
+                        ->whereIn('employee_id', $employeeIds)
+                        ->whereHas('latestSubmission', fn ($query) => $query
+                            ->where('stage', '!=', 'finalized')
+                            ->where('form_payload->metadata->period', $currentPeriodLabel))
+                        ->count(),
+                    'pendingEvaluation' => Employee::query()
+                        ->whereIn('employee_id', $employeeIds)
+                        ->whereHas('latestSubmission', fn ($query) => $query
+                            ->where('stage', 'sent_to_evaluator')
+                            ->where('form_payload->metadata->period', $currentPeriodLabel))
+                        ->count(),
+                    'routedToHr' => Employee::query()
+                        ->whereIn('employee_id', $employeeIds)
+                        ->whereHas('latestSubmission', fn ($query) => $query
+                            ->where('stage', 'sent_to_hr')
+                            ->where('form_payload->metadata->period', $currentPeriodLabel))
+                        ->count(),
                 ],
             ],
         ]);

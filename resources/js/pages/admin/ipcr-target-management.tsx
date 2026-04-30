@@ -181,18 +181,72 @@ export default function IpcrTargetManagement() {
     const [decisionFilter, setDecisionFilter] = useState<string>('all');
     const [appliedSearch, setAppliedSearch] = useState('');
     const [appliedDecision, setAppliedDecision] = useState<string>('all');
-    const [rowsPerPage, setRowsPerPage] = useState(10);
+    const [rowsPerPage, setRowsPerPage] = useState(5);
     const [currentPage, setCurrentPage] = useState(1);
 
+    // Filter / pagination state for the outer Target Periods table
+    const [periodSemesterFilter, setPeriodSemesterFilter] = useState<string>('all');
+    const [periodYearFilter, setPeriodYearFilter] = useState<string>('all');
+    const [periodRowsPerPage, setPeriodRowsPerPage] = useState(5);
+    const [periodCurrentPage, setPeriodCurrentPage] = useState(1);
+
     const allTargets = [...submittedTargets, ...finalizedTargets];
-    const uniquePeriods = Array.from(
-        new Map(
-            allTargets.map((t) => [
-                `${t.semester}-${t.target_year}`,
-                { semester: t.semester as 1 | 2, year: t.target_year },
-            ]),
-        ).values(),
-    ).sort((a, b) => b.year - a.year || b.semester - a.semester);
+    const uniquePeriods = useMemo(() => {
+        const map = new Map<string, { semester: 1 | 2; year: number }>();
+        // Ensure the currently active period always appears, even when no
+        // targets exist yet for it (newly enabled IPCR workflow).
+        const activeKey = `${currentTargetPeriod.semester}-${currentTargetPeriod.year}`;
+        map.set(activeKey, {
+            semester: currentTargetPeriod.semester,
+            year: currentTargetPeriod.year,
+        });
+        for (const t of allTargets) {
+            const key = `${t.semester}-${t.target_year}`;
+            if (!map.has(key)) {
+                map.set(key, { semester: t.semester as 1 | 2, year: t.target_year });
+            }
+        }
+        return Array.from(map.values()).sort(
+            (a, b) => b.year - a.year || b.semester - a.semester,
+        );
+    }, [allTargets, currentTargetPeriod.semester, currentTargetPeriod.year]);
+
+    const periodYearOptions = useMemo(
+        () =>
+            Array.from(new Set(uniquePeriods.map((p) => p.year))).sort(
+                (a, b) => b - a,
+            ),
+        [uniquePeriods],
+    );
+
+    const filteredPeriods = useMemo(
+        () =>
+            uniquePeriods.filter((p) => {
+                if (periodSemesterFilter !== 'all' && String(p.semester) !== periodSemesterFilter) {
+                    return false;
+                }
+                if (periodYearFilter !== 'all' && String(p.year) !== periodYearFilter) {
+                    return false;
+                }
+                return true;
+            }),
+        [uniquePeriods, periodSemesterFilter, periodYearFilter],
+    );
+
+    const periodTotalPages = Math.max(1, Math.ceil(filteredPeriods.length / periodRowsPerPage));
+    const periodSafePage = Math.min(periodCurrentPage, periodTotalPages);
+    const periodPageStart = (periodSafePage - 1) * periodRowsPerPage;
+    const periodPageRows = filteredPeriods.slice(periodPageStart, periodPageStart + periodRowsPerPage);
+
+    useEffect(() => {
+        setPeriodCurrentPage(1);
+    }, [periodSemesterFilter, periodYearFilter, periodRowsPerPage]);
+
+    useEffect(() => {
+        if (periodYearFilter !== 'all' && !periodYearOptions.includes(Number(periodYearFilter))) {
+            setPeriodYearFilter('all');
+        }
+    }, [periodYearOptions, periodYearFilter]);
     const selectedPeriod = selectedPeriodKey
         ? uniquePeriods.find((p) => `${p.semester}-${p.year}` === selectedPeriodKey) ?? null
         : null;
@@ -437,8 +491,49 @@ export default function IpcrTargetManagement() {
                             Select a period to view submitted and finalized targets.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="overflow-x-auto">
+                    <CardContent className="space-y-4 p-4 sm:p-5">
+                        <div className="grid gap-3 md:grid-cols-2 w-1/2">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs tracking-wider text-muted-foreground uppercase">
+                                    Semester
+                                </Label>
+                                <Select
+                                    value={periodSemesterFilter}
+                                    onValueChange={setPeriodSemesterFilter}
+                                >
+                                    <SelectTrigger className="border-border bg-background">
+                                        <SelectValue placeholder="All semesters" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Semesters</SelectItem>
+                                        <SelectItem value="1">First Semester</SelectItem>
+                                        <SelectItem value="2">Second Semester</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs tracking-wider text-muted-foreground uppercase">
+                                    Year
+                                </Label>
+                                <Select
+                                    value={periodYearFilter}
+                                    onValueChange={setPeriodYearFilter}
+                                >
+                                    <SelectTrigger className="border-border bg-background">
+                                        <SelectValue placeholder="All years" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">All Years</SelectItem>
+                                        {periodYearOptions.map((year) => (
+                                            <SelectItem key={year} value={String(year)}>
+                                                {year}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto rounded-[18px] border border-border">
                             <table className="w-full text-sm">
                                 <thead>
                                     <tr className={tableHeaderClass}>
@@ -450,7 +545,7 @@ export default function IpcrTargetManagement() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {uniquePeriods.map((period, index) => {
+                                    {periodPageRows.map((period, index) => {
                                         const key = `${period.semester}-${period.year}`;
                                         const submittedCount = submittedTargets.filter(
                                             (t) => t.semester === period.semester && t.target_year === period.year,
@@ -478,18 +573,70 @@ export default function IpcrTargetManagement() {
                                             </tr>
                                         );
                                     })}
-                                    {uniquePeriods.length === 0 && (
+                                    {filteredPeriods.length === 0 && (
                                         <tr>
                                             <td
                                                 colSpan={5}
                                                 className="bg-white px-5 py-10 text-center text-muted-foreground dark:bg-[#18291A]/40"
                                             >
-                                                No target records found.
+                                                {uniquePeriods.length === 0
+                                                    ? 'No target records found.'
+                                                    : 'No periods match the selected filters.'}
                                             </td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
+                        </div>
+                        <div className="app-table-pagination-bar">
+                            <div className="app-table-pagination-shell">
+                                <div className="app-table-pagination-page-size">
+                                    <span>Rows per page</span>
+                                    <Select
+                                        value={String(periodRowsPerPage)}
+                                        onValueChange={(value) => setPeriodRowsPerPage(Number(value))}
+                                    >
+                                        <SelectTrigger className="w-20 bg-white/80 dark:border-[#4A7C3C] dark:bg-[#274827] dark:text-[#EAF7E6]">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent align="start">
+                                            <SelectItem value="5">5</SelectItem>
+                                            <SelectItem value="10">10</SelectItem>
+                                            <SelectItem value="25">25</SelectItem>
+                                            <SelectItem value="50">50</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="app-table-pagination-controls">
+                                    <span className="app-table-pagination-status">
+                                        Page {periodSafePage} of {periodTotalPages}
+                                    </span>
+                                    <Pagination className="app-table-pagination-nav">
+                                        <PaginationContent>
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        setPeriodCurrentPage((p) => Math.max(1, p - 1));
+                                                    }}
+                                                    className={periodSafePage === 1 ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    href="#"
+                                                    onClick={(event) => {
+                                                        event.preventDefault();
+                                                        setPeriodCurrentPage((p) => Math.min(periodTotalPages, p + 1));
+                                                    }}
+                                                    className={periodSafePage === periodTotalPages ? 'pointer-events-none opacity-50' : ''}
+                                                />
+                                            </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
+                                </div>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
