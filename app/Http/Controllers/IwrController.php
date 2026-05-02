@@ -12,6 +12,8 @@ use App\Http\Requests\SubmitIpcrRequest;
 use App\Http\Requests\UpdateIpcrPeriodRequest;
 use App\Models\Employee;
 use App\Models\IpcrAppeal;
+use App\Models\IpcrPeriod;
+use App\Models\IpcrPeriodExtension;
 use App\Models\IpcrSubmission;
 use App\Models\IpcrTarget;
 use App\Models\IwrAuditLog;
@@ -24,6 +26,7 @@ use App\Services\AtreService;
 use App\Services\IpcrFormTemplateService;
 use App\Services\IwrService;
 use App\Services\NotificationService;
+use App\Services\PeriodService;
 use App\Services\PpeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -42,6 +45,7 @@ class IwrController extends Controller
         private IwrService $iwrService,
         private NotificationService $notificationService,
         private IpcrFormTemplateService $ipcrFormTemplateService,
+        private PeriodService $periodService,
     ) {}
 
     public function submitEvaluationPage(Request $request, AtreService $atre, PpeService $ppe): Response
@@ -271,8 +275,19 @@ class IwrController extends Controller
             ->first();
         $isReturnedTarget = $existingTarget?->evaluator_decision === 'rejected';
 
-        if ($semester !== $targetPeriod['semester']
-            || $targetYear !== $targetPeriod['year']) {
+        // A targeted extension (Phase 2) lets this employee submit for a
+        // closed period or one that doesn't match the current global window.
+        // It bypasses the period-mismatch and submission-closed gates below
+        // but does not bypass the "already-submitted is locked" gate.
+        $hasExtension = $this->periodService->hasActiveExtension(
+            IpcrPeriod::TYPE_TARGET,
+            $semester,
+            $targetYear,
+            $employee->employee_id,
+        );
+
+        if (! $hasExtension
+            && ($semester !== $targetPeriod['semester'] || $targetYear !== $targetPeriod['year'])) {
             throw ValidationException::withMessages([
                 'target_period' => 'IPCR target submissions are only available during the '.$targetPeriod['submissionWindowLabel'].' window for '.$targetPeriod['label'].'.',
             ]);
@@ -284,7 +299,7 @@ class IwrController extends Controller
             ]);
         }
 
-        if ($action === 'submit' && ! $targetPeriod['submissionOpen'] && ! $isReturnedTarget) {
+        if ($action === 'submit' && ! $targetPeriod['submissionOpen'] && ! $isReturnedTarget && ! $hasExtension) {
             throw ValidationException::withMessages([
                 'target_period' => 'IPCR target submissions are only available during the '.$targetPeriod['submissionWindowLabel'].' window for '.$targetPeriod['label'].'.',
             ]);
@@ -292,7 +307,8 @@ class IwrController extends Controller
 
         if ($action === 'save'
             && ! $targetPeriod['submissionOpen']
-            && ! $existingTarget) {
+            && ! $existingTarget
+            && ! $hasExtension) {
             throw ValidationException::withMessages([
                 'target_period' => 'Create your IPCR target draft during the active '.$targetPeriod['submissionWindowLabel'].' window for '.$targetPeriod['label'].'.',
             ]);
@@ -441,9 +457,25 @@ class IwrController extends Controller
 
         $currentPeriod = $this->currentPeriod();
         if (! $currentPeriod['isOpen']) {
-            return back()->withErrors([
-                'period' => 'The IPCR submission period is currently closed.',
-            ]);
+            // A targeted extension lets this employee submit for the
+            // requested period even when the global window is closed.
+            [$periodSemester, $periodYear] = $this->resolveSemesterAndYearFromLabel(
+                (string) $period,
+                (int) $currentPeriod['year'],
+            );
+
+            $hasExtension = $this->periodService->hasActiveExtension(
+                IpcrPeriod::TYPE_EVALUATION,
+                $periodSemester,
+                $periodYear,
+                $employeeId,
+            );
+
+            if (! $hasExtension) {
+                return back()->withErrors([
+                    'period' => 'The IPCR submission period is currently closed.',
+                ]);
+            }
         }
 
         $employee = Employee::query()->findOrFail($employeeId);
@@ -1145,6 +1177,8 @@ class IwrController extends Controller
                     'appealWindowOpen' => IpcrSubmission::query()->where('appeal_status', 'appeal_window_open')->count(),
                     'escalated' => IpcrSubmission::query()->where('is_escalated', true)->count(),
                 ],
+                'closedPeriods' => $this->closedPeriodSummaries(IpcrPeriod::TYPE_EVALUATION),
+                'extensions' => $this->extensionSummaries(IpcrPeriod::TYPE_EVALUATION),
             ],
         ]);
     }
@@ -1154,10 +1188,42 @@ class IwrController extends Controller
         $validated = $request->validated();
         $isOpen = $validated['is_open'];
         $userId = $request->user()->id;
+        $year = (int) $validated['year'];
+        $semester = str_contains($validated['label'], 'July to December') ? 2 : 1;
+
+        if ($isOpen) {
+            $isOutOfOrder = $this->periodService->isOutOfOrder(
+                IpcrPeriod::TYPE_EVALUATION,
+                $semester,
+                $year,
+            );
+            $overrideReason = $validated['override_reason'] ?? null;
+
+            if ($isOutOfOrder && ! filled($overrideReason)) {
+                throw ValidationException::withMessages([
+                    'override_reason' => 'A reason is required when opening a period that is not the next eligible one.',
+                ]);
+            }
+
+            $this->periodService->recordOpen(
+                IpcrPeriod::TYPE_EVALUATION,
+                $semester,
+                $year,
+                $userId,
+                $isOutOfOrder ? (string) $overrideReason : null,
+            );
+        } else {
+            $this->periodService->recordClose(
+                IpcrPeriod::TYPE_EVALUATION,
+                $semester,
+                $year,
+                $userId,
+            );
+        }
 
         SystemSetting::set('ipcr_period_open', $isOpen ? 'true' : 'false', $userId);
         SystemSetting::set('ipcr_period_label', $validated['label'], $userId);
-        SystemSetting::set('ipcr_period_year', (string) $validated['year'], $userId);
+        SystemSetting::set('ipcr_period_year', (string) $year, $userId);
 
         if ($isOpen) {
             $this->notifyEvaluationPeriodOpened($validated['label']);
@@ -1170,32 +1236,48 @@ class IwrController extends Controller
 
     public function notifyIpcrTargetWindow(Request $request): RedirectResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'semester' => 'nullable|integer|in:1,2',
             'year' => 'nullable|integer|min:2020|max:2099',
+            'override_reason' => 'nullable|string|max:500',
         ]);
 
-        // Derive from calendar when HR does not supply explicit values.
-        $month = (int) now()->month;
-        $currentYear = (int) now()->year;
-        $defaultSemester = $month === 5 ? 2 : 1;
-        $defaultYear = $month === 5 ? $currentYear : $currentYear + 1;
+        $next = $this->periodService->deriveNextEligible(IpcrPeriod::TYPE_TARGET);
 
         $semester = $request->filled('semester')
-            ? (int) $request->input('semester')
-            : $defaultSemester;
+            ? (int) $validated['semester']
+            : $next['semester'];
         $year = $request->filled('year')
-            ? (int) $request->input('year')
-            : $defaultYear;
+            ? (int) $validated['year']
+            : $next['year'];
+
+        $isOutOfOrder = $this->periodService->isOutOfOrder(IpcrPeriod::TYPE_TARGET, $semester, $year);
+        $overrideReason = $request->input('override_reason');
+
+        if ($isOutOfOrder && ! filled($overrideReason)) {
+            throw ValidationException::withMessages([
+                'override_reason' => 'A reason is required when opening a period that is not the next eligible one.',
+            ]);
+        }
 
         $semesterLabel = $semester === 1 ? 'First Semester' : 'Second Semester';
         $periodLabel = "{$semesterLabel} {$year}";
 
-        SystemSetting::setIpcrTargetMode('open', $request->user()->id);
-        SystemSetting::set('ipcr_target_open', 'true', $request->user()->id);
-        SystemSetting::set('ipcr_target_semester', (string) $semester, $request->user()->id);
-        SystemSetting::set('ipcr_target_year', (string) $year, $request->user()->id);
-        SystemSetting::set('ipcr_target_opened_at', now()->toIso8601String(), $request->user()->id);
+        $userId = $request->user()->id;
+
+        SystemSetting::setIpcrTargetMode('open', $userId);
+        SystemSetting::set('ipcr_target_open', 'true', $userId);
+        SystemSetting::set('ipcr_target_semester', (string) $semester, $userId);
+        SystemSetting::set('ipcr_target_year', (string) $year, $userId);
+        SystemSetting::set('ipcr_target_opened_at', now()->toIso8601String(), $userId);
+
+        $this->periodService->recordOpen(
+            IpcrPeriod::TYPE_TARGET,
+            $semester,
+            $year,
+            $userId,
+            $isOutOfOrder ? (string) $overrideReason : null,
+        );
 
         $this->notifyTargetWindowOpened($periodLabel);
 
@@ -1205,11 +1287,19 @@ class IwrController extends Controller
     public function closeIpcrTargetWindow(Request $request): RedirectResponse
     {
         $currentTargetPeriod = $this->currentTargetSubmissionPeriod();
+        $userId = $request->user()->id;
 
-        SystemSetting::set('ipcr_target_semester', (string) $currentTargetPeriod['semester'], $request->user()->id);
-        SystemSetting::set('ipcr_target_year', (string) $currentTargetPeriod['year'], $request->user()->id);
-        SystemSetting::setIpcrTargetMode('closed', $request->user()->id);
-        SystemSetting::set('ipcr_target_open', 'false', $request->user()->id);
+        SystemSetting::set('ipcr_target_semester', (string) $currentTargetPeriod['semester'], $userId);
+        SystemSetting::set('ipcr_target_year', (string) $currentTargetPeriod['year'], $userId);
+        SystemSetting::setIpcrTargetMode('closed', $userId);
+        SystemSetting::set('ipcr_target_open', 'false', $userId);
+
+        $this->periodService->recordClose(
+            IpcrPeriod::TYPE_TARGET,
+            (int) $currentTargetPeriod['semester'],
+            (int) $currentTargetPeriod['year'],
+            $userId,
+        );
 
         return back()->with('success', 'IPCR target submission window closed.');
     }
@@ -1245,7 +1335,70 @@ class IwrController extends Controller
                 'rejected' => IpcrTarget::query()->where('evaluator_decision', 'rejected')->count(),
                 'finalized' => IpcrTarget::query()->where('hr_finalized', true)->count(),
             ],
+            'closedPeriods' => $this->closedPeriodSummaries(IpcrPeriod::TYPE_TARGET),
+            'extensions' => $this->extensionSummaries(IpcrPeriod::TYPE_TARGET),
         ]);
+    }
+
+    /**
+     * @return list<array{id: int, semester: int, year: int, label: string, status: string, closedAt: ?string}>
+     */
+    private function closedPeriodSummaries(string $type): array
+    {
+        return IpcrPeriod::query()
+            ->ofType($type)
+            ->where('status', '!=', IpcrPeriod::STATUS_OPEN)
+            ->orderByDesc('year')
+            ->orderByDesc('semester')
+            ->get()
+            ->map(function (IpcrPeriod $period): array {
+                $semesterLabel = $period->semester === 1 ? 'First Semester' : 'Second Semester';
+
+                return [
+                    'id' => $period->id,
+                    'semester' => $period->semester,
+                    'year' => $period->year,
+                    'label' => "{$semesterLabel} {$period->year}",
+                    'status' => $period->status,
+                    'closedAt' => $period->closed_at?->toIso8601String(),
+                ];
+            })
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, periodId: int, periodLabel: string, employeeId: string, employeeName: string, reason: string, expiresAt: string, isActive: bool, revokedAt: ?string}>
+     */
+    private function extensionSummaries(string $type): array
+    {
+        return IpcrPeriodExtension::query()
+            ->whereHas('period', fn ($q) => $q->ofType($type))
+            ->with(['period', 'employee'])
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get()
+            ->map(function (IpcrPeriodExtension $ext): array {
+                $period = $ext->period;
+                $semesterLabel = $period && $period->semester === 1
+                    ? 'First Semester'
+                    : 'Second Semester';
+                $periodLabel = $period
+                    ? "{$semesterLabel} {$period->year}"
+                    : 'Unknown period';
+
+                return [
+                    'id' => $ext->id,
+                    'periodId' => $ext->period_id,
+                    'periodLabel' => $periodLabel,
+                    'employeeId' => $ext->employee_id,
+                    'employeeName' => $ext->employee?->name ?? $ext->employee_id,
+                    'reason' => $ext->reason,
+                    'expiresAt' => $ext->expires_at->toIso8601String(),
+                    'isActive' => $ext->isActive(),
+                    'revokedAt' => $ext->revoked_at?->toIso8601String(),
+                ];
+            })
+            ->all();
     }
 
     public function evaluatorIpcrTargetPage(Request $request): Response
@@ -1333,6 +1486,158 @@ class IwrController extends Controller
         return back()->with('success', $request->input('decision') === 'approved'
             ? 'IPCR target approved and employee notified.'
             : 'IPCR target returned to employee.');
+    }
+
+    /**
+     * Grant a targeted submission extension (Phase 2).
+     *
+     * Lets HR re-open a single closed period for a single employee with a
+     * recorded reason and an expiry date. The global period remains closed
+     * for everyone else.
+     */
+    public function grantPeriodExtension(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'type' => 'required|in:target,evaluation',
+            'semester' => 'required|integer|in:1,2',
+            'year' => 'required|integer|min:2020|max:2099',
+            'employee_id' => 'required|string|exists:employees,employee_id',
+            'expires_at' => 'required|date|after:now',
+            'reason' => 'required|string|max:500',
+        ]);
+
+        $period = IpcrPeriod::query()
+            ->ofType($validated['type'])
+            ->forPeriod((int) $validated['semester'], (int) $validated['year'])
+            ->first();
+
+        if ($period === null) {
+            throw ValidationException::withMessages([
+                'period' => 'No record exists for that period — open and close it once before granting an extension.',
+            ]);
+        }
+
+        if ($period->status === IpcrPeriod::STATUS_OPEN) {
+            throw ValidationException::withMessages([
+                'period' => 'That period is currently open — extensions are only meaningful for closed periods.',
+            ]);
+        }
+
+        $extension = $this->periodService->grantExtension(
+            $period,
+            $validated['employee_id'],
+            \Carbon\Carbon::parse($validated['expires_at']),
+            $validated['reason'],
+            $request->user()->id,
+        );
+
+        $semesterLabel = $period->semester === 1 ? 'First Semester' : 'Second Semester';
+        $periodTypeLabel = $period->type === IpcrPeriod::TYPE_TARGET
+            ? 'IPCR target'
+            : 'IPCR evaluation';
+
+        $this->notifyExtensionGranted($extension, $periodTypeLabel, "{$semesterLabel} {$period->year}");
+
+        return back()->with('success', 'Extension granted and the employee was notified.');
+    }
+
+    public function revokePeriodExtension(Request $request, IpcrPeriodExtension $extension): RedirectResponse
+    {
+        if ($extension->revoked_at !== null) {
+            return back()->with('success', 'Extension already revoked.');
+        }
+
+        $this->periodService->revokeExtension($extension, $request->user()->id);
+
+        return back()->with('success', 'Extension revoked.');
+    }
+
+    /**
+     * Phase 3 — Historical Entry: HR records a completed IPCR target for
+     * a past semester directly, without going through the live submission /
+     * evaluator-review flow. The target is created pre-finalized and tagged
+     * `source = backfilled` so analytics can identify it.
+     */
+    public function storeHistoricalTarget(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'employee_id' => 'required|string|exists:employees,employee_id',
+            'semester' => 'required|integer|in:1,2',
+            'year' => 'required|integer|min:2020|max:2099',
+            'form_payload' => 'nullable|array',
+            'note' => 'nullable|string|max:1000',
+        ]);
+
+        $userId = $request->user()->id;
+
+        $this->periodService->recordBackfill(
+            IpcrPeriod::TYPE_TARGET,
+            (int) $validated['semester'],
+            (int) $validated['year'],
+            $userId,
+        );
+
+        IpcrTarget::query()->updateOrCreate(
+            [
+                'employee_id' => $validated['employee_id'],
+                'semester' => $validated['semester'],
+                'target_year' => $validated['year'],
+            ],
+            [
+                'form_payload' => $validated['form_payload'] ?? ['historical_note' => $validated['note'] ?? null],
+                'status' => 'submitted',
+                'submitted_at' => now(),
+                'evaluator_decision' => 'approved',
+                'evaluator_remarks' => $validated['note'] ?? 'Backfilled by HR (historical entry).',
+                'evaluator_reviewed_at' => now(),
+                'hr_finalized' => true,
+                'source' => IpcrTarget::SOURCE_BACKFILLED,
+            ],
+        );
+
+        return back()->with('success', 'Historical IPCR target recorded.');
+    }
+
+    /**
+     * Phase 3 — Historical Entry for evaluation submissions.
+     */
+    public function storeHistoricalEvaluation(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'employee_id' => 'required|string|exists:employees,employee_id',
+            'semester' => 'required|integer|in:1,2',
+            'year' => 'required|integer|min:2020|max:2099',
+            'final_rating' => 'required|numeric|min:0|max:5',
+            'adjectival_rating' => 'nullable|string|max:50',
+            'note' => 'nullable|string|max:1000',
+        ]);
+
+        $userId = $request->user()->id;
+
+        $this->periodService->recordBackfill(
+            IpcrPeriod::TYPE_EVALUATION,
+            (int) $validated['semester'],
+            (int) $validated['year'],
+            $userId,
+        );
+
+        IpcrSubmission::query()->create([
+            'employee_id' => $validated['employee_id'],
+            'performance_rating' => $validated['final_rating'],
+            'final_rating' => $validated['final_rating'],
+            'adjectival_rating' => $validated['adjectival_rating'] ?? null,
+            'form_payload' => [
+                'historical_note' => $validated['note'] ?? null,
+                'semester' => $validated['semester'],
+                'year' => $validated['year'],
+            ],
+            'status' => 'finalized',
+            'stage' => 'finalized',
+            'finalized_at' => now(),
+            'source' => IpcrSubmission::SOURCE_BACKFILLED,
+        ]);
+
+        return back()->with('success', 'Historical IPCR evaluation recorded.');
     }
 
     public function hrFinalizeTarget(Request $request, IpcrTarget $target): RedirectResponse
@@ -1497,10 +1802,18 @@ class IwrController extends Controller
 
     private function currentPeriod(): array
     {
+        $next = $this->periodService->deriveNextEligible(IpcrPeriod::TYPE_EVALUATION);
+        $nextLabel = $next['semester'] === 1 ? 'January to June' : 'July to December';
+
         return [
             'label' => (string) SystemSetting::get('ipcr_period_label', 'January to June '.now()->year),
             'year' => (int) SystemSetting::get('ipcr_period_year', (int) now()->year),
             'isOpen' => SystemSetting::get('ipcr_period_open', false),
+            'nextEligible' => [
+                'semester' => $next['semester'],
+                'year' => $next['year'],
+                'label' => "{$nextLabel} {$next['year']}",
+            ],
         ];
     }
 
@@ -1636,6 +1949,9 @@ class IwrController extends Controller
         $semesterLabel = $semester === 1 ? 'First Semester' : 'Second Semester';
         $deadlineAt = $openedAt ? \Carbon\Carbon::parse($openedAt)->addDays(15)->toIso8601String() : null;
 
+        $next = $this->periodService->deriveNextEligible(IpcrPeriod::TYPE_TARGET);
+        $nextSemesterLabel = $next['semester'] === 1 ? 'First Semester' : 'Second Semester';
+
         return [
             'semester' => $semester,
             'year' => $year,
@@ -1643,6 +1959,11 @@ class IwrController extends Controller
             'submissionOpen' => $submissionOpen,
             'submissionWindowLabel' => $submissionWindowLabel,
             'deadlineAt' => $deadlineAt,
+            'nextEligible' => [
+                'semester' => $next['semester'],
+                'year' => $next['year'],
+                'label' => "{$nextSemesterLabel} {$next['year']}",
+            ],
         ];
     }
 
@@ -2068,6 +2389,34 @@ class IwrController extends Controller
                 'is_important' => true,
             ]);
         }
+    }
+
+    /**
+     * Targeted notification for a single employee whose closed period has
+     * been re-opened just for them (Phase 2 — Targeted Extension Window).
+     */
+    private function notifyExtensionGranted(
+        IpcrPeriodExtension $extension,
+        string $periodTypeLabel,
+        string $periodLabel,
+    ): void {
+        $employeeUser = User::query()
+            ->where('employee_id', $extension->employee_id)
+            ->first();
+
+        if ($employeeUser === null) {
+            return;
+        }
+
+        $expires = $extension->expires_at?->format('M j, Y g:ia') ?? 'the granted deadline';
+
+        Notification::query()->create([
+            'user_id' => $employeeUser->id,
+            'type' => 'ipcr_period_extension_granted',
+            'title' => 'IPCR Submission Window Re-opened',
+            'message' => "HR has granted you an extension to submit your {$periodTypeLabel} for {$periodLabel}. Your submission window closes on {$expires}.",
+            'is_important' => true,
+        ]);
     }
 
     private function logAudit(string $employeeId, string $docType, int $docId, array $iwrResult): void

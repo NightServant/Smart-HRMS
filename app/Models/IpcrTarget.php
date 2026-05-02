@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class IpcrTarget extends Model
 {
+    public const SOURCE_LIVE = 'live';
+
+    public const SOURCE_BACKFILLED = 'backfilled';
+
     protected $fillable = [
         'employee_id',
         'semester',
@@ -20,6 +24,7 @@ class IpcrTarget extends Model
         'evaluator_remarks',
         'evaluator_reviewed_at',
         'hr_finalized',
+        'source',
     ];
 
     /**

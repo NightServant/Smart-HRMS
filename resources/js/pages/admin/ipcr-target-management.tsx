@@ -11,6 +11,11 @@ import {
     XCircle,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import IpcrHistoricalEntry from '@/components/ipcr-historical-entry';
+import IpcrPeriodExtensions, {
+    type ClosedPeriod,
+    type ExtensionRow,
+} from '@/components/ipcr-period-extensions';
 import IpcrTargetReadonly from '@/components/ipcr-target-readonly';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -59,6 +64,11 @@ type CurrentTargetPeriod = {
     label: string;
     submissionOpen: boolean;
     submissionWindowLabel: string;
+    nextEligible: {
+        semester: 1 | 2;
+        year: number;
+        label: string;
+    };
 };
 
 type Stats = {
@@ -73,6 +83,8 @@ type PageProps = {
     submittedTargets: IpcrTarget[];
     finalizedTargets: IpcrTarget[];
     stats: Stats;
+    closedPeriods: ClosedPeriod[];
+    extensions: ExtensionRow[];
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -161,20 +173,33 @@ function StatCard({
 }
 
 export default function IpcrTargetManagement() {
-    const { currentTargetPeriod, submittedTargets, finalizedTargets, stats } =
-        usePage<PageProps>().props;
+    const {
+        currentTargetPeriod,
+        submittedTargets,
+        finalizedTargets,
+        stats,
+        closedPeriods,
+        extensions,
+    } = usePage<PageProps>().props;
 
     const [view, setView] = useState<'submitted' | 'finalized'>('submitted');
     const [selectedTarget, setSelectedTarget] = useState<IpcrTarget | null>(null);
     const [selectedPeriodKey, setSelectedPeriodKey] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
 
-    // Opening control state
-    const [openSemester, setOpenSemester] = useState<string>('1');
-    const [openYear, setOpenYear] = useState<string>(
-        String(currentTargetPeriod.year),
-    );
+    // Opening control state — defaults to the derived next eligible period.
+    // Out-of-order opens go through the override dialog below, which handles
+    // its own state.
     const [notifying, setNotifying] = useState(false);
+    const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
+    const [overrideSemester, setOverrideSemester] = useState<string>(
+        String(currentTargetPeriod.nextEligible.semester),
+    );
+    const [overrideYear, setOverrideYear] = useState<string>(
+        String(currentTargetPeriod.nextEligible.year),
+    );
+    const [overrideReason, setOverrideReason] = useState<string>('');
+    const [overrideError, setOverrideError] = useState<string | null>(null);
 
     // Filter / pagination state for the period detail dialog
     const [search, setSearch] = useState('');
@@ -309,9 +334,44 @@ export default function IpcrTargetManagement() {
         setNotifying(true);
         router.post(
             adminIpcrTarget.notify().url,
-            { semester: Number(openSemester), year: Number(openYear) },
+            {
+                semester: currentTargetPeriod.nextEligible.semester,
+                year: currentTargetPeriod.nextEligible.year,
+            },
             {
                 preserveScroll: true,
+                onFinish: () => setNotifying(false),
+            },
+        );
+    }
+
+    function handleOverrideOpen(): void {
+        setOverrideError(null);
+        if (!overrideReason.trim()) {
+            setOverrideError('Please describe why you need to open this period out of order.');
+            return;
+        }
+        setNotifying(true);
+        router.post(
+            adminIpcrTarget.notify().url,
+            {
+                semester: Number(overrideSemester),
+                year: Number(overrideYear),
+                override_reason: overrideReason.trim(),
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setOverrideDialogOpen(false);
+                    setOverrideReason('');
+                },
+                onError: (errors) => {
+                    setOverrideError(
+                        (errors.override_reason as string | undefined) ??
+                        (errors.year as string | undefined) ??
+                        'Could not open the period. Please try again.',
+                    );
+                },
                 onFinish: () => setNotifying(false),
             },
         );
@@ -431,9 +491,96 @@ export default function IpcrTargetManagement() {
                         <div className="grid gap-4 sm:grid-cols-3 sm:items-end">
                             <div className="space-y-2">
                                 <Label>Semester</Label>
+                                <Input
+                                    readOnly
+                                    value={
+                                        currentTargetPeriod.nextEligible.semester === 1
+                                            ? 'First Semester (Jan–Jun)'
+                                            : 'Second Semester (Jul–Dec)'
+                                    }
+                                    className="border-border bg-muted/40 cursor-not-allowed"
+                                    aria-label="Next eligible semester"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="target-year">Year</Label>
+                                <Input
+                                    id="target-year"
+                                    readOnly
+                                    value={String(currentTargetPeriod.nextEligible.year)}
+                                    className="border-border bg-muted/40 cursor-not-allowed"
+                                    aria-label="Next eligible year"
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-3 pb-0.5">
+                                <Switch
+                                    id="target-form-toggle"
+                                    checked={currentTargetPeriod.submissionOpen}
+                                    onCheckedChange={(checked) =>
+                                        checked ? handleOpenAndNotify() : handleCloseWindow()
+                                    }
+                                    disabled={notifying || closing}
+                                />
+                                <Label htmlFor="target-form-toggle" className="cursor-pointer select-none">
+                                    {(notifying || closing)
+                                        ? 'Saving…'
+                                        : currentTargetPeriod.submissionOpen
+                                            ? 'Enabled'
+                                            : 'Disabled'}
+                                </Label>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1 rounded-md border border-dashed border-border/70 bg-muted/30 p-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                            <span>
+                                The semester and year auto-advance based on the
+                                last closed period. To open a different period
+                                (e.g. re-run an earlier one), you must record a
+                                reason.
+                            </span>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    setOverrideSemester(
+                                        String(currentTargetPeriod.nextEligible.semester),
+                                    );
+                                    setOverrideYear(
+                                        String(currentTargetPeriod.nextEligible.year),
+                                    );
+                                    setOverrideReason('');
+                                    setOverrideError(null);
+                                    setOverrideDialogOpen(true);
+                                }}
+                                disabled={notifying || closing}
+                            >
+                                Open a different period…
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Dialog open={overrideDialogOpen} onOpenChange={setOverrideDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Open period out of order</DialogTitle>
+                            <DialogDescription>
+                                The next eligible period is{' '}
+                                <strong>{currentTargetPeriod.nextEligible.label}</strong>.
+                                Choose a different semester/year and provide a
+                                reason — this will be recorded against the
+                                period for audit.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-2">
+                                <Label>Semester</Label>
                                 <Select
-                                    value={openSemester}
-                                    onValueChange={setOpenSemester}
+                                    value={overrideSemester}
+                                    onValueChange={setOverrideSemester}
                                 >
                                     <SelectTrigger className="border-border bg-background">
                                         <SelectValue />
@@ -448,40 +595,63 @@ export default function IpcrTargetManagement() {
                                     </SelectContent>
                                 </Select>
                             </div>
-
                             <div className="space-y-2">
-                                <Label htmlFor="target-year">Year</Label>
+                                <Label htmlFor="override-year">Year</Label>
                                 <Input
-                                    id="target-year"
-                                    type="text"
-                                    value={openYear}
-                                    onChange={(e) => setOpenYear(e.target.value)}
-                                    placeholder="e.g. 2026"
+                                    id="override-year"
+                                    type="number"
+                                    min={2020}
+                                    max={2099}
+                                    value={overrideYear}
+                                    onChange={(e) => setOverrideYear(e.target.value)}
                                     className="border-border bg-background"
                                 />
                             </div>
-
-                            <div className="flex items-center gap-3 pb-0.5">
-                                <Switch
-                                    id="target-form-toggle"
-                                    checked={currentTargetPeriod.submissionOpen}
-                                    onCheckedChange={(checked) =>
-                                        checked ? handleOpenAndNotify() : handleCloseWindow()
-                                    }
-                                    disabled={notifying || closing || !openYear.trim()}
-                                />
-                                <Label htmlFor="target-form-toggle" className="cursor-pointer select-none">
-                                    {(notifying || closing)
-                                        ? 'Saving…'
-                                        : currentTargetPeriod.submissionOpen
-                                          ? 'Enabled'
-                                          : 'Disabled'}
-                                </Label>
-                            </div>
                         </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="override-reason">Reason (required)</Label>
+                            <textarea
+                                id="override-reason"
+                                value={overrideReason}
+                                onChange={(e) => setOverrideReason(e.target.value)}
+                                rows={3}
+                                maxLength={500}
+                                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                placeholder="e.g. Re-running Sem 2 2025 because submissions were delayed by the system migration."
+                            />
+                            {overrideError ? (
+                                <p className="text-xs text-destructive">{overrideError}</p>
+                            ) : null}
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => setOverrideDialogOpen(false)}
+                                disabled={notifying}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="button"
+                                onClick={handleOverrideOpen}
+                                disabled={notifying || !overrideReason.trim()}
+                            >
+                                {notifying ? 'Opening…' : 'Confirm & open period'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
-                    </CardContent>
-                </Card>
+                <div className="grid gap-6 md:grid-cols-2">
+                    <IpcrPeriodExtensions
+                        type="target"
+                        closedPeriods={closedPeriods}
+                        extensions={extensions}
+                    />
+
+                    <IpcrHistoricalEntry type="target" />
+                </div>
 
                 {/* Period Table */}
                 <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
@@ -852,9 +1022,9 @@ export default function IpcrTargetManagement() {
                             —{' '}
                             {selectedTarget
                                 ? semesterLabel(
-                                      selectedTarget.semester,
-                                      selectedTarget.target_year,
-                                  )
+                                    selectedTarget.semester,
+                                    selectedTarget.target_year,
+                                )
                                 : ''}
                         </DialogDescription>
                     </DialogHeader>

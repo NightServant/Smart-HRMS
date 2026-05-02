@@ -20,6 +20,7 @@ class UpdateIpcrPeriodRequest extends FormRequest
             'is_open' => ['required', 'boolean'],
             'label' => ['required', 'string', 'max:255'],
             'year' => ['required', 'integer', 'min:2020', 'max:2100'],
+            'override_reason' => ['nullable', 'string', 'max:500'],
         ];
     }
 

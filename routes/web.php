@@ -262,6 +262,18 @@ Route::post('admin/ipcr/target-notify', [IwrController::class, 'notifyIpcrTarget
 Route::post('admin/ipcr/target-close', [IwrController::class, 'closeIpcrTargetWindow'])
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.ipcr.target.close');
+Route::post('admin/ipcr/period-extensions', [IwrController::class, 'grantPeriodExtension'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.ipcr.extensions.grant');
+Route::delete('admin/ipcr/period-extensions/{extension}', [IwrController::class, 'revokePeriodExtension'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.ipcr.extensions.revoke');
+Route::post('admin/ipcr/historical-target', [IwrController::class, 'storeHistoricalTarget'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.ipcr.historical.target');
+Route::post('admin/ipcr/historical-evaluation', [IwrController::class, 'storeHistoricalEvaluation'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.ipcr.historical.evaluation');
 Route::get('ipcr/appeal/{submission}', [IwrController::class, 'appealPage'])
     ->middleware(['auth', 'role:employee'])
     ->name('ipcr.appeal');

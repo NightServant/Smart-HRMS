@@ -50,7 +50,14 @@ class IpcrSubmission extends Model
         // Escalation
         'is_escalated',
         'escalation_reason',
+
+        // Phase 3 — Historical Entry / Backfill
+        'source',
     ];
+
+    public const SOURCE_LIVE = 'live';
+
+    public const SOURCE_BACKFILLED = 'backfilled';
 
     protected function casts(): array
     {

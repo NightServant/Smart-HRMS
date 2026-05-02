@@ -15,7 +15,9 @@ import { startTransition, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import AppealCountdown from '@/components/appeal-countdown';
 import EscalationWarning from '@/components/escalation-warning';
+import IpcrHistoricalEntry from '@/components/ipcr-historical-entry';
 import IpcrPaperForm from '@/components/ipcr-paper-form';
+import IpcrPeriodExtensions from '@/components/ipcr-period-extensions';
 import IpcrWorkflowStepper from '@/components/ipcr-workflow-stepper';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -71,6 +73,11 @@ type CurrentPeriod = {
     label: string;
     year: number;
     isOpen: boolean;
+    nextEligible?: {
+        semester: 1 | 2;
+        year: number;
+        label: string;
+    };
 };
 
 type EmployeePanel = {
@@ -124,6 +131,8 @@ type HrPanel = {
         appealWindowOpen: number;
         escalated: number;
     };
+    closedPeriods: import('@/components/ipcr-period-extensions').ClosedPeriod[];
+    extensions: import('@/components/ipcr-period-extensions').ExtensionRow[];
 };
 
 type PmtPanel = {
@@ -155,16 +164,16 @@ type PageProps = {
 function stageLabel(stage: string | null): string {
     return stage
         ? stage
-              .replaceAll('_', ' ')
-              .replace(/\b\w/g, (value) => value.toUpperCase())
+            .replaceAll('_', ' ')
+            .replace(/\b\w/g, (value) => value.toUpperCase())
         : 'No Submission Yet';
 }
 
 function statusLabel(status: string | null): string {
     return status
         ? status
-              .replaceAll('_', ' ')
-              .replace(/\b\w/g, (value) => value.toUpperCase())
+            .replaceAll('_', ' ')
+            .replace(/\b\w/g, (value) => value.toUpperCase())
         : 'Draft';
 }
 
@@ -247,8 +256,8 @@ function evaluatorActionState(
             disabled: false,
             href: employee.employeeId
                 ? evaluationPage({
-                      query: { employee_id: employee.employeeId },
-                  }).url
+                    query: { employee_id: employee.employeeId },
+                }).url
                 : null,
         };
     }
@@ -413,7 +422,7 @@ function EmployeeOverview({
                             {(latestSubmission.appeal_status ===
                                 'appeal_window_open' ||
                                 latestSubmission.stage ===
-                                    'appeal_window_open') &&
+                                'appeal_window_open') &&
                                 latestSubmission.appeal_window_closes_at && (
                                     <div className="flex flex-wrap items-center gap-3">
                                         <AppealCountdown
@@ -766,7 +775,7 @@ function EvaluatorOverview({
                                                 evaluatorActionState(
                                                     employee,
                                                     evaluatorPanel?.periodOpen ??
-                                                        false,
+                                                    false,
                                                 );
 
                                             return (
@@ -855,7 +864,7 @@ function EvaluatorOverview({
                                     <Select
                                         value={String(
                                             evaluatorPanel?.pagination.perPage ??
-                                                10,
+                                            10,
                                         )}
                                         onValueChange={handleRowsPerPageChange}
                                     >
@@ -906,8 +915,8 @@ function EvaluatorOverview({
                                                     className={
                                                         (evaluatorPanel?.pagination
                                                             .currentPage ?? 1) ===
-                                                        (evaluatorPanel?.pagination
-                                                            .lastPage ?? 1)
+                                                            (evaluatorPanel?.pagination
+                                                                .lastPage ?? 1)
                                                             ? 'pointer-events-none opacity-50'
                                                             : ''
                                                     }
@@ -938,14 +947,14 @@ function HrOverview({
 }: {
     currentPeriod: CurrentPeriod | undefined;
     currentTargetPeriod:
-        | {
-              semester: 1 | 2;
-              year: number;
-              label: string;
-              submissionOpen: boolean;
-              submissionWindowLabel: string;
-          }
-        | undefined;
+    | {
+        semester: 1 | 2;
+        year: number;
+        label: string;
+        submissionOpen: boolean;
+        submissionWindowLabel: string;
+    }
+    | undefined;
     hrPanel: HrPanel | null | undefined;
 }) {
     const [view, setView] = useState<'review' | 'finalization'>(
@@ -974,6 +983,78 @@ function HrOverview({
     const [finalRating, setFinalRating] = useState('');
     const [notifyAllOpen, setNotifyAllOpen] = useState(false);
     const [notifyingAll, setNotifyingAll] = useState(false);
+
+    // Override-period dialog state — used when HR wants to open a period that
+    // is not the system-derived next eligible one.
+    const nextEligible = currentPeriod?.nextEligible;
+    const [overrideOpen, setOverrideOpen] = useState(false);
+    const [overrideSemester, setOverrideSemester] = useState<'1' | '2'>(
+        nextEligible
+            ? (String(nextEligible.semester) as '1' | '2')
+            : submissionSemesterFromLabel(currentPeriod?.label),
+    );
+    const [overrideYear, setOverrideYear] = useState<string>(
+        String(nextEligible?.year ?? currentPeriod?.year ?? new Date().getFullYear()),
+    );
+    const [overrideReasonText, setOverrideReasonText] = useState<string>('');
+    const [overrideError, setOverrideError] = useState<string | null>(null);
+
+    function openNextEligiblePeriod(checked: boolean): void {
+        setSavingPeriod(true);
+        setPeriodOpen(checked);
+        const semester = (nextEligible?.semester ?? Number(periodSemester)) as 1 | 2;
+        const year = nextEligible?.year ?? Number(periodYear);
+        router.post(
+            '/admin/ipcr/period',
+            {
+                label: submissionPeriodLabel(String(semester) as '1' | '2', String(year)),
+                year,
+                is_open: checked,
+            },
+            { preserveScroll: true, onFinish: () => setSavingPeriod(false) },
+        );
+    }
+
+    function submitOverridePeriod(): void {
+        setOverrideError(null);
+        if (!overrideReasonText.trim()) {
+            setOverrideError(
+                'Please describe why you need to open this period out of order.',
+            );
+            return;
+        }
+        const year = Number(overrideYear);
+        if (!Number.isInteger(year) || year < 2020 || year > 2099) {
+            setOverrideError('Year must be a 4-digit value between 2020 and 2099.');
+            return;
+        }
+        setSavingPeriod(true);
+        router.post(
+            '/admin/ipcr/period',
+            {
+                label: submissionPeriodLabel(overrideSemester, String(year)),
+                year,
+                is_open: true,
+                override_reason: overrideReasonText.trim(),
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success('Evaluation period opened.');
+                    setOverrideOpen(false);
+                    setOverrideReasonText('');
+                },
+                onError: (errors) => {
+                    setOverrideError(
+                        (errors.override_reason as string | undefined) ??
+                        (errors.year as string | undefined) ??
+                        'Could not open the period. Please try again.',
+                    );
+                },
+                onFinish: () => setSavingPeriod(false),
+            },
+        );
+    }
 
     function notifyAllEmployeesTraining(): void {
         setNotifyingAll(true);
@@ -1018,14 +1099,14 @@ function HrOverview({
                     selectedReview.stage === 'sent_to_hr'
                         ? ''
                         : ((selectedReview.hr_decision as
-                              | 'correct'
-                              | 'incorrect'
-                              | null) ?? ''),
+                            | 'correct'
+                            | 'incorrect'
+                            | null) ?? ''),
                 );
                 setHrRemarks(
                     selectedReview.hr_remarks ??
-                        selectedReview.form_payload.workflow_notes.hr_remarks ??
-                        '',
+                    selectedReview.form_payload.workflow_notes.hr_remarks ??
+                    '',
                 );
             });
         }
@@ -1264,10 +1345,105 @@ function HrOverview({
                     <div className="grid gap-4 md:grid-cols-3 md:items-end">
                         <div className="space-y-2">
                             <Label>Semester</Label>
+                            <Input
+                                readOnly
+                                value={
+                                    nextEligible
+                                        ? nextEligible.semester === 1
+                                            ? 'January to June'
+                                            : 'July to December'
+                                        : (submissionSemesterOptions.find(
+                                            (o) => o.value === periodSemester,
+                                        )?.label ?? 'January to June')
+                                }
+                                className="border-border bg-muted/40 cursor-not-allowed"
+                                aria-label="Next eligible semester"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="period-year">Year</Label>
+                            <Input
+                                id="period-year"
+                                readOnly
+                                value={String(nextEligible?.year ?? periodYear)}
+                                className="border-border bg-muted/40 cursor-not-allowed"
+                                aria-label="Next eligible year"
+                            />
+                        </div>
+                        <div className="flex items-center gap-3 pb-0.5">
+                            <Switch
+                                id="period-status"
+                                checked={currentPeriod?.isOpen ?? false}
+                                onCheckedChange={openNextEligiblePeriod}
+                                disabled={savingPeriod}
+                            />
+                            <Label htmlFor="period-status" className="cursor-pointer select-none">
+                                {savingPeriod ? 'Saving…' : (currentPeriod?.isOpen ? 'Open' : 'Closed')}
+                            </Label>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1 rounded-md border border-dashed border-border/70 bg-muted/30 p-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                        <span>
+                            The semester and year auto-advance based on the
+                            last closed period. To open a different period
+                            (e.g. re-run an earlier one), you must record a
+                            reason.
+                        </span>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                setOverrideSemester(
+                                    nextEligible
+                                        ? (String(nextEligible.semester) as '1' | '2')
+                                        : periodSemester,
+                                );
+                                setOverrideYear(
+                                    String(nextEligible?.year ?? periodYear),
+                                );
+                                setOverrideReasonText('');
+                                setOverrideError(null);
+                                setOverrideOpen(true);
+                            }}
+                            disabled={savingPeriod}
+                        >
+                            Open a different period…
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Dialog open={overrideOpen} onOpenChange={setOverrideOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Open evaluation period out of order</DialogTitle>
+                        <DialogDescription>
+                            {nextEligible ? (
+                                <>
+                                    The next eligible period is{' '}
+                                    <strong>{nextEligible.label}</strong>. Choose
+                                    a different semester/year and provide a reason
+                                    — this will be recorded against the period for
+                                    audit.
+                                </>
+                            ) : (
+                                <>
+                                    Choose a semester/year and provide a reason —
+                                    this will be recorded against the period for
+                                    audit.
+                                </>
+                            )}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                            <Label>Semester</Label>
                             <Select
-                                value={periodSemester}
+                                value={overrideSemester}
                                 onValueChange={(value) =>
-                                    setPeriodSemester(value === '2' ? '2' : '1')
+                                    setOverrideSemester(value === '2' ? '2' : '1')
                                 }
                             >
                                 <SelectTrigger className="border-border bg-background">
@@ -1275,10 +1451,7 @@ function HrOverview({
                                 </SelectTrigger>
                                 <SelectContent>
                                     {submissionSemesterOptions.map((option) => (
-                                        <SelectItem
-                                            key={option.value}
-                                            value={option.value}
-                                        >
+                                        <SelectItem key={option.value} value={option.value}>
                                             {option.label}
                                         </SelectItem>
                                     ))}
@@ -1286,42 +1459,64 @@ function HrOverview({
                             </Select>
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="period-year">Year</Label>
+                            <Label htmlFor="period-override-year">Year</Label>
                             <Input
-                                id="period-year"
-                                type="text"
-                                value={periodYear}
-                                onChange={(e) => setPeriodYear(e.target.value)}
-                                placeholder="e.g. 2026"
+                                id="period-override-year"
+                                type="number"
+                                min={2020}
+                                max={2099}
+                                value={overrideYear}
+                                onChange={(e) => setOverrideYear(e.target.value)}
                                 className="border-border bg-background"
                             />
                         </div>
-                        <div className="flex items-center gap-3 pb-0.5">
-                            <Switch
-                                id="period-status"
-                                checked={currentPeriod?.isOpen ?? false}
-                                onCheckedChange={(checked) => {
-                                    setSavingPeriod(true);
-                                    setPeriodOpen(checked);
-                                    router.post(
-                                        '/admin/ipcr/period',
-                                        {
-                                            label: submissionPeriodLabel(periodSemester, periodYear),
-                                            year: Number(periodYear),
-                                            is_open: checked,
-                                        },
-                                        { preserveScroll: true, onFinish: () => setSavingPeriod(false) },
-                                    );
-                                }}
-                                disabled={savingPeriod || !periodYear.trim()}
-                            />
-                            <Label htmlFor="period-status" className="cursor-pointer select-none">
-                                {savingPeriod ? 'Saving…' : (currentPeriod?.isOpen ? 'Open' : 'Closed')}
-                            </Label>
-                        </div>
                     </div>
-                </CardContent>
-            </Card>
+                    <div className="space-y-2">
+                        <Label htmlFor="period-override-reason">
+                            Reason (required)
+                        </Label>
+                        <textarea
+                            id="period-override-reason"
+                            value={overrideReasonText}
+                            onChange={(e) => setOverrideReasonText(e.target.value)}
+                            rows={3}
+                            maxLength={500}
+                            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            placeholder="e.g. Re-running Sem 2 2025 because submissions were delayed by the system migration."
+                        />
+                        {overrideError ? (
+                            <p className="text-xs text-destructive">{overrideError}</p>
+                        ) : null}
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setOverrideOpen(false)}
+                            disabled={savingPeriod}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={submitOverridePeriod}
+                            disabled={savingPeriod || !overrideReasonText.trim()}
+                        >
+                            {savingPeriod ? 'Opening…' : 'Confirm & open period'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <div className="grid gap-6 sm:grid-cols-2">
+                <IpcrPeriodExtensions
+                    type="evaluation"
+                    closedPeriods={hrPanel?.closedPeriods ?? []}
+                    extensions={hrPanel?.extensions ?? []}
+                />
+
+                <IpcrHistoricalEntry type="evaluation" />
+            </div>
 
             <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
                 <CardHeader className="border-b border-border bg-card">
@@ -1511,7 +1706,7 @@ function HrOverview({
                             size="sm"
                             className={cn(
                                 isReviewView &&
-                                    'bg-[#8CC37C] text-[#10241b] hover:bg-[#7fb76e] dark:bg-[#9ac68e] dark:text-[#10241b] dark:hover:bg-[#8cbf7c]',
+                                'bg-[#8CC37C] text-[#10241b] hover:bg-[#7fb76e] dark:bg-[#9ac68e] dark:text-[#10241b] dark:hover:bg-[#8cbf7c]',
                             )}
                             onClick={() => setView('review')}
                         >
@@ -1524,7 +1719,7 @@ function HrOverview({
                             size="sm"
                             className={cn(
                                 !isReviewView &&
-                                    'bg-[#8CC37C] text-[#10241b] hover:bg-[#7fb76e] dark:bg-[#9ac68e] dark:text-[#10241b] dark:hover:bg-[#8cbf7c]',
+                                'bg-[#8CC37C] text-[#10241b] hover:bg-[#7fb76e] dark:bg-[#9ac68e] dark:text-[#10241b] dark:hover:bg-[#8cbf7c]',
                             )}
                             onClick={() => setView('finalization')}
                         >
@@ -1622,83 +1817,83 @@ function HrOverview({
                                             const isTopThree = hasRating && rank <= 3;
                                             const isBottomThree = hasRating && rank > total - 3 && total > 3;
 
-                                        return (
-                                    <tr
-                                        key={submission.id}
-                                        className={cn(
-                                            'text-sm font-semibold text-foreground',
-                                            stripedTableRows[index % 2],
-                                        )}
-                                    >
-                                        <td className="px-5 py-3.5 text-center">
-                                            {hasRating ? (
-                                                <span className={cn(
-                                                    'inline-flex size-6 items-center justify-center rounded-full text-[11px] font-bold',
-                                                    isTopThree
-                                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-                                                        : isBottomThree
-                                                          ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
-                                                          : 'bg-muted text-muted-foreground',
-                                                )}>
-                                                    {rank}
-                                                </span>
-                                            ) : (
-                                                <span className="text-xs text-muted-foreground">—</span>
-                                            )}
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <div>
-                                                <p className="font-medium">
-                                                    {submission.employee?.name ??
-                                                        submission.employee_id}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {submission.employee?.job_title ??
-                                                        'Administrative Office'}
-                                                </p>
-                                            </div>
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            {statusLabel(submission.status)}
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            {stageLabel(submission.stage)}
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <span className={cn(
-                                                'font-mono',
-                                                isTopThree ? 'text-emerald-600 dark:text-emerald-400' : isBottomThree ? 'text-red-600 dark:text-red-400' : '',
-                                            )}>
-                                                {finalDisplayRating(submission)?.toFixed(2) ?? 'Pending'}
-                                            </span>
-                                        </td>
-                                        <td className="px-5 py-3.5">
-                                            <div className="flex flex-wrap gap-2">
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        if (isReviewView) {
-                                                            setSelectedReview(submission);
-                                                        } else {
-                                                            setSelectedFinalize(submission);
-                                                        }
-                                                    }}
+                                            return (
+                                                <tr
+                                                    key={submission.id}
+                                                    className={cn(
+                                                        'text-sm font-semibold text-foreground',
+                                                        stripedTableRows[index % 2],
+                                                    )}
                                                 >
-                                                    {isReviewView
-                                                        ? submission.stage === 'sent_to_hr'
-                                                            ? queueButtonLabel
-                                                            : 'View Review'
-                                                        : submission.stage === 'sent_to_hr_finalize'
-                                                          ? queueButtonLabel
-                                                          : 'View Finalization'}
-                                                </Button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                        );
-                                    });
-                                })()}
+                                                    <td className="px-5 py-3.5 text-center">
+                                                        {hasRating ? (
+                                                            <span className={cn(
+                                                                'inline-flex size-6 items-center justify-center rounded-full text-[11px] font-bold',
+                                                                isTopThree
+                                                                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+                                                                    : isBottomThree
+                                                                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                                                                        : 'bg-muted text-muted-foreground',
+                                                            )}>
+                                                                {rank}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-muted-foreground">—</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-5 py-3.5">
+                                                        <div>
+                                                            <p className="font-medium">
+                                                                {submission.employee?.name ??
+                                                                    submission.employee_id}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {submission.employee?.job_title ??
+                                                                    'Administrative Office'}
+                                                            </p>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-5 py-3.5">
+                                                        {statusLabel(submission.status)}
+                                                    </td>
+                                                    <td className="px-5 py-3.5">
+                                                        {stageLabel(submission.stage)}
+                                                    </td>
+                                                    <td className="px-5 py-3.5">
+                                                        <span className={cn(
+                                                            'font-mono',
+                                                            isTopThree ? 'text-emerald-600 dark:text-emerald-400' : isBottomThree ? 'text-red-600 dark:text-red-400' : '',
+                                                        )}>
+                                                            {finalDisplayRating(submission)?.toFixed(2) ?? 'Pending'}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-5 py-3.5">
+                                                        <div className="flex flex-wrap gap-2">
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    if (isReviewView) {
+                                                                        setSelectedReview(submission);
+                                                                    } else {
+                                                                        setSelectedFinalize(submission);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                {isReviewView
+                                                                    ? submission.stage === 'sent_to_hr'
+                                                                        ? queueButtonLabel
+                                                                        : 'View Review'
+                                                                    : submission.stage === 'sent_to_hr_finalize'
+                                                                        ? queueButtonLabel
+                                                                        : 'View Finalization'}
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        });
+                                    })()}
                                     {reviewRows.length === 0 && (
                                         <tr>
                                             <td
@@ -1843,8 +2038,8 @@ function HrOverview({
                                                         value === 'none'
                                                             ? ''
                                                             : (value as
-                                                                  | 'correct'
-                                                                  | 'incorrect'),
+                                                                | 'correct'
+                                                                | 'incorrect'),
                                                     )
                                                 }
                                                 disabled={!isReviewEditable}
@@ -1905,7 +2100,7 @@ function HrOverview({
                                                         hr_decision: hrDecision,
                                                         hr_remarks:
                                                             hrDecision ===
-                                                            'incorrect'
+                                                                'incorrect'
                                                                 ? hrRemarks.trim()
                                                                 : null,
                                                     },
@@ -2283,7 +2478,7 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                                             </td>
                                             <td className="px-5 py-3.5">
                                                 {submission.appeal_status === 'appealed' ||
-                                                submission.appeal_status === 'submitted'
+                                                    submission.appeal_status === 'submitted'
                                                     ? 'Appealed'
                                                     : 'No Appeal'}
                                             </td>
@@ -2409,37 +2604,37 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                                     </p>
                                     {(selectedSubmission.appeal.evidence_files
                                         ?.length ?? 0) > 0 && (
-                                        <div className="mt-3 space-y-2">
-                                            <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
-                                                Attached Evidence
-                                            </p>
-                                            <div className="flex flex-wrap gap-2">
-                                                {(selectedSubmission.appeal.evidence_files ?? []).map(
-                                                    (file, index) => (
-                                                        <Button
-                                                            key={`${file}-${index}`}
-                                                            asChild
-                                                            type="button"
-                                                            size="sm"
-                                                            variant="outline"
-                                                        >
-                                                            <a
-                                                                href={getAppealEvidenceUrl(
-                                                                    selectedSubmission
-                                                                        .appeal!.id,
-                                                                    index,
-                                                                )}
-                                                                target="_blank"
-                                                                rel="noreferrer"
+                                            <div className="mt-3 space-y-2">
+                                                <p className="text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                                                    Attached Evidence
+                                                </p>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {(selectedSubmission.appeal.evidence_files ?? []).map(
+                                                        (file, index) => (
+                                                            <Button
+                                                                key={`${file}-${index}`}
+                                                                asChild
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="outline"
                                                             >
-                                                                {getFileName(file)}
-                                                            </a>
-                                                        </Button>
-                                                    ),
-                                                )}
+                                                                <a
+                                                                    href={getAppealEvidenceUrl(
+                                                                        selectedSubmission
+                                                                            .appeal!.id,
+                                                                        index,
+                                                                    )}
+                                                                    target="_blank"
+                                                                    rel="noreferrer"
+                                                                >
+                                                                    {getFileName(file)}
+                                                                </a>
+                                                            </Button>
+                                                        ),
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )}
+                                        )}
                                 </div>
                             )}
                             <div className="grid gap-4 md:grid-cols-2">
@@ -2452,8 +2647,8 @@ function PmtOverview({ pmtPanel }: { pmtPanel: PmtPanel | null | undefined }) {
                                                 value === 'none'
                                                     ? ''
                                                     : (value as
-                                                          | 'approved'
-                                                          | 'rejected'),
+                                                        | 'approved'
+                                                        | 'rejected'),
                                             )
                                         }
                                     >
@@ -2550,10 +2745,10 @@ export default function PerformanceEvaluationPage() {
                 roleView === 'employee'
                     ? submitEvaluation().url
                     : roleView === 'evaluator'
-                      ? documentManagement().url
-                      : roleView === 'pmt'
-                        ? admin.pmtReview().url
-                        : admin.hrReview().url,
+                        ? documentManagement().url
+                        : roleView === 'pmt'
+                            ? admin.pmtReview().url
+                            : admin.hrReview().url,
         },
     ];
 
