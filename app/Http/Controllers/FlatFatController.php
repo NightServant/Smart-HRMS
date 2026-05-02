@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\HistoricalDataRecord;
 use App\Models\IpcrSubmission;
 use App\Models\LeaveRequest;
+use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\FlatFatService;
 use Illuminate\Http\JsonResponse;
@@ -351,42 +352,39 @@ class FlatFatController extends Controller
     /**
      * Get risk summary based on latest evaluation results.
      * Accepts optional `semester` query param: 'S1' (Jan–Jun), 'S2' (Jul–Dec), or 'all' (default).
+     *
+     * S1/S2 filter the configured `ipcr_period_year` against each submission's
+     * `form_payload->metadata->period` label so that updated_at drift cannot
+     * miscategorise a submission into the wrong cycle.
      */
     public function evaluationRiskSummary(Request $request): JsonResponse
     {
         try {
             $semester = strtoupper(trim((string) $request->string('semester', 'all')));
+            $periodYear = (int) SystemSetting::get('ipcr_period_year', (int) now()->year);
 
-            $employees = Employee::query()
+            $latestRated = IpcrSubmission::query()
+                ->whereNotNull('performance_rating')
                 ->whereNotIn('employee_id', self::EXCLUDED_EMPLOYEE_IDS)
-                ->with('latestRatedSubmission')
+                ->when(
+                    $semester === 'S1',
+                    fn ($query) => $query->where('form_payload->metadata->period', "January to June {$periodYear}")
+                )
+                ->when(
+                    $semester === 'S2',
+                    fn ($query) => $query->where('form_payload->metadata->period', "July to December {$periodYear}")
+                )
+                ->orderByDesc('updated_at')
                 ->get()
-                ->filter(function (Employee $employee) use ($semester): bool {
-                    if ($employee->latestRatedSubmission === null) {
-                        return false;
-                    }
-
-                    if ($semester === 'S1' || $semester === 'S2') {
-                        $updatedAt = $employee->latestRatedSubmission->updated_at;
-                        if ($updatedAt === null) {
-                            return false;
-                        }
-                        $month = (int) $updatedAt->format('n');
-                        $inS1 = $month >= 1 && $month <= 6;
-
-                        return $semester === 'S1' ? $inS1 : ! $inS1;
-                    }
-
-                    return true;
-                })
+                ->unique('employee_id')
                 ->values();
 
-            $totalEmployees = $employees->count();
-            $averageRating = round((float) ($employees->avg(
-                fn (Employee $employee): float => (float) $employee->latestRatedSubmission->performance_rating
+            $totalEmployees = $latestRated->count();
+            $averageRating = round((float) ($latestRated->avg(
+                fn (IpcrSubmission $submission): float => (float) $submission->performance_rating
             ) ?? 0), 2);
-            $highRiskCount = $employees->filter(
-                fn (Employee $employee): bool => (float) $employee->latestRatedSubmission->performance_rating < 3.0
+            $highRiskCount = $latestRated->filter(
+                fn (IpcrSubmission $submission): bool => (float) $submission->performance_rating < 3.0
             )->count();
 
             return response()->json([

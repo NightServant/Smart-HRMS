@@ -1,6 +1,5 @@
 import { Head } from '@inertiajs/react';
 import AttendanceScanner from '@/components/attendance-scanner';
-import { type EnrollmentStatus } from '@/components/biometric-enrollment-dialog';
 import AppLayout from '@/layouts/app-layout';
 import type { BreadcrumbItem } from '@/types';
 
@@ -25,15 +24,13 @@ export default function Attendance({
     records,
     employeeId,
     employeeName,
-    enrolledInBiometric = false,
-    enrollmentStatus,
+    enrolledAtTerminal = false,
     manualPunchEnabled = false,
 }: {
     records: DailyAttendanceRecord[];
     employeeId: string;
     employeeName: string;
-    enrolledInBiometric?: boolean;
-    enrollmentStatus: EnrollmentStatus;
+    enrolledAtTerminal?: boolean;
     manualPunchEnabled?: boolean;
 }) {
     return (
@@ -44,8 +41,7 @@ export default function Attendance({
                     records={records}
                     employeeId={employeeId}
                     employeeName={employeeName}
-                    enrolledInBiometric={enrolledInBiometric}
-                    enrollmentStatus={enrollmentStatus}
+                    enrolledAtTerminal={enrolledAtTerminal}
                     manualPunchEnabled={manualPunchEnabled}
                 />
             </div>

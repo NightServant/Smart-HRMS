@@ -92,3 +92,91 @@ test('employee role cannot call the hr enroll endpoint', function () {
 
     $response->assertForbidden();
 });
+
+test('remote enrollment is refused when the employee already has fingerprints on zlink', function () {
+    config(['services.zlink.default_device_sn' => 'DEV-SN-1']);
+
+    Employee::query()->where('employee_id', 'EMP-200')->update(['zkteco_pin' => 'EMP200']);
+
+    Http::fake([
+        'https://zlink-open.test/open-apis/authen/v1/tenantToken/internal' => Http::response([
+            'code' => 'ZCOP0000',
+            'data' => ['tenantToken' => 't-fake', 'expiresIn' => 3600],
+        ], 200),
+        'https://zlink-open.test/open-apis/biometric/v1/fingerprints/search' => Http::response([
+            'code' => 'ZCOP0000',
+            'data' => ['fingerprints' => [['fingerIndex' => 1], ['fingerIndex' => 2]]],
+        ], 200),
+    ]);
+
+    $employee = User::factory()->create([
+        'employee_id' => 'EMP-200',
+        'role' => User::ROLE_EMPLOYEE,
+    ]);
+
+    $response = $this->actingAs($employee)->postJson('/api/biometrics/remote-enroll');
+
+    $response->assertStatus(500);
+    expect($response->json('message') ?? $response->json('error') ?? '')
+        ->toContain('already enrolled');
+
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), '/open-apis/biometric/v1/remote-enroll'));
+});
+
+test('remote enrollment is refused when the fingerprint lookup itself fails', function () {
+    config(['services.zlink.default_device_sn' => 'DEV-SN-1']);
+
+    Employee::query()->where('employee_id', 'EMP-200')->update(['zkteco_pin' => 'EMP200']);
+
+    Http::fake([
+        'https://zlink-open.test/open-apis/authen/v1/tenantToken/internal' => Http::response([
+            'code' => 'ZCOP0000',
+            'data' => ['tenantToken' => 't-fake', 'expiresIn' => 3600],
+        ], 200),
+        'https://zlink-open.test/open-apis/biometric/v1/fingerprints/search' => Http::response('upstream error', 500),
+    ]);
+
+    $employee = User::factory()->create([
+        'employee_id' => 'EMP-200',
+        'role' => User::ROLE_EMPLOYEE,
+    ]);
+
+    $response = $this->actingAs($employee)->postJson('/api/biometrics/remote-enroll');
+
+    $response->assertStatus(500);
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), '/open-apis/biometric/v1/remote-enroll'));
+});
+
+test('remote enrollment proceeds when no fingerprints exist on zlink', function () {
+    config(['services.zlink.default_device_sn' => 'DEV-SN-1']);
+
+    Employee::query()->where('employee_id', 'EMP-200')->update(['zkteco_pin' => 'EMP200']);
+
+    Http::fake([
+        'https://zlink-open.test/open-apis/authen/v1/tenantToken/internal' => Http::response([
+            'code' => 'ZCOP0000',
+            'data' => ['tenantToken' => 't-fake', 'expiresIn' => 3600],
+        ], 200),
+        'https://zlink-open.test/open-apis/biometric/v1/fingerprints/search' => Http::response([
+            'code' => 'ZCOP0000',
+            'data' => ['fingerprints' => []],
+        ], 200),
+        'https://zlink-open.test/open-apis/biometric/v1/remote-enroll' => Http::response([
+            'code' => 'ZCOP0000',
+            'data' => [],
+        ], 200),
+    ]);
+
+    $employee = User::factory()->create([
+        'employee_id' => 'EMP-200',
+        'role' => User::ROLE_EMPLOYEE,
+    ]);
+
+    $response = $this->actingAs($employee)->postJson('/api/biometrics/remote-enroll');
+
+    $response->assertOk();
+    $response->assertJsonPath('device_sn', 'DEV-SN-1');
+    $response->assertJsonPath('device_user_id', 'EMP200');
+
+    Http::assertSent(fn ($request) => str_contains($request->url(), '/open-apis/biometric/v1/remote-enroll'));
+});

@@ -1,26 +1,18 @@
-import { router, useForm } from '@inertiajs/react';
+import { useForm } from '@inertiajs/react';
 import {
     Clock,
     Fingerprint,
     IdCard,
-    LogIn,
-    LogOut,
+    Info,
     Monitor,
-    RefreshCw,
-    ShieldAlert,
     ShieldCheck,
 } from 'lucide-react';
-import { useState } from 'react';
 import { toast } from 'sonner';
 import {
     AttendanceHistoryTable,
     type DailyAttendanceRecord,
 } from '@/components/attendance-history-table';
 import { AttendancePolicyHelpDialog } from '@/components/attendance-policy-help-dialog';
-import {
-    BiometricEnrollmentDialog,
-    type EnrollmentStatus,
-} from '@/components/biometric-enrollment-dialog';
 import PageIntro from '@/components/page-intro';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -33,72 +25,26 @@ import {
 } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 
-function base64UrlToBytes(value: string): Uint8Array<ArrayBuffer> {
-    const padded = value.replace(/-/g, '+').replace(/_/g, '/');
-    const padding = '='.repeat((4 - (padded.length % 4)) % 4);
-    const binary = atob(padded + padding);
-    const buffer = new ArrayBuffer(binary.length);
-    const bytes = new Uint8Array(buffer);
-    for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
-}
-
-function bufferToBase64Url(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-        binary += String.fromCharCode(bytes[i]);
-    }
-    return btoa(binary)
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/, '');
-}
-
-function csrfHeader(): Record<string, string> {
-    return {
-        'X-CSRF-TOKEN':
-            document
-                .querySelector('meta[name="csrf-token"]')
-                ?.getAttribute('content') ?? '',
-    };
-}
-
 export default function AttendanceScanner({
     records,
     employeeId,
-    employeeName,
-    enrolledInBiometric,
-    enrollmentStatus,
+    enrolledAtTerminal = false,
     manualPunchEnabled = false,
 }: {
     records: DailyAttendanceRecord[];
     employeeId: string;
     employeeName: string;
-    enrolledInBiometric: boolean;
-    enrollmentStatus: EnrollmentStatus;
+    enrolledAtTerminal?: boolean;
     manualPunchEnabled?: boolean;
 }) {
     const { data, post, processing } = useForm({
         employee_id: employeeId,
     });
 
-    const [scanning, setScanning] = useState<'in' | 'out' | null>(null);
-    const [isEnrollOpen, setIsEnrollOpen] = useState(false);
-
-    const refreshAttendance = (): void => {
-        router.reload({
-            only: ['records', 'enrolledInBiometric', 'enrollmentStatus'],
-        });
-    };
-
     const handlePunch = (): void => {
         post('/attendance/punch', {
             preserveScroll: true,
             onSuccess: () => {
-                refreshAttendance();
                 toast.success('Attendance recorded successfully.');
             },
             onError: (errors) => {
@@ -107,139 +53,6 @@ export default function AttendanceScanner({
                 toast.error(message);
             },
         });
-    };
-
-    const handleFingerprintScan = async (mode: 'in' | 'out'): Promise<void> => {
-        if (!enrolledInBiometric) {
-            toast.error('Please enroll your fingerprint first.');
-            setIsEnrollOpen(true);
-            return;
-        }
-
-        if (typeof window.PublicKeyCredential === 'undefined') {
-            toast.error(
-                'This browser does not support WebAuthn. Use Chrome, Edge, or Safari with a fingerprint reader.',
-            );
-            return;
-        }
-
-        setScanning(mode);
-
-        try {
-            const optionsResponse = await fetch(
-                '/api/biometrics/webauthn/clock-options',
-                {
-                    method: 'POST',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Accept: 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        ...csrfHeader(),
-                    },
-                    body: JSON.stringify({}),
-                },
-            );
-
-            if (!optionsResponse.ok) {
-                const errPayload = (await optionsResponse
-                    .json()
-                    .catch(() => ({}))) as { error?: string };
-                toast.error(
-                    errPayload.error ??
-                        'Could not start fingerprint verification.',
-                );
-                return;
-            }
-
-            const options = (await optionsResponse.json()) as {
-                challenge: string;
-                rpId: string;
-                timeout: number;
-                userVerification: 'required' | 'preferred' | 'discouraged';
-                allowCredentials: Array<{
-                    type: 'public-key';
-                    id: string;
-                }>;
-            };
-
-            const assertion = (await navigator.credentials.get({
-                publicKey: {
-                    challenge: base64UrlToBytes(options.challenge),
-                    rpId: options.rpId,
-                    timeout: options.timeout,
-                    userVerification: options.userVerification,
-                    allowCredentials: options.allowCredentials.map((entry) => ({
-                        type: 'public-key',
-                        id: base64UrlToBytes(entry.id),
-                    })),
-                },
-            })) as PublicKeyCredential | null;
-
-            if (!assertion) {
-                toast.error('Fingerprint verification was cancelled.');
-                return;
-            }
-
-            const assertionResponse =
-                assertion.response as AuthenticatorAssertionResponse;
-
-            const response = await fetch('/api/biometrics/webauthn/clock', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    ...csrfHeader(),
-                },
-                body: JSON.stringify({
-                    mode,
-                    assertion: {
-                        id: assertion.id,
-                        response: {
-                            clientDataJSON: bufferToBase64Url(
-                                assertionResponse.clientDataJSON,
-                            ),
-                            authenticatorData: bufferToBase64Url(
-                                assertionResponse.authenticatorData,
-                            ),
-                            signature: bufferToBase64Url(
-                                assertionResponse.signature,
-                            ),
-                        },
-                    },
-                }),
-            });
-
-            const payload = (await response.json().catch(() => ({}))) as {
-                message?: string;
-                error?: string;
-            };
-
-            if (!response.ok) {
-                toast.error(
-                    payload.error ??
-                        payload.message ??
-                        'Fingerprint scan could not be confirmed.',
-                );
-                return;
-            }
-
-            toast.success(
-                payload.message ??
-                    `Clock ${mode === 'in' ? 'in' : 'out'} recorded.`,
-            );
-            refreshAttendance();
-        } catch (error) {
-            const message =
-                error instanceof Error
-                    ? error.message
-                    : 'Fingerprint verification failed.';
-            toast.error(message);
-        } finally {
-            setScanning(null);
-        }
     };
 
     const now = new Date();
@@ -267,9 +80,9 @@ export default function AttendanceScanner({
                     <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className="bg-background/70">
                             <Fingerprint className="size-3.5" />
-                            {enrolledInBiometric
-                                ? 'Biometric ready'
-                                : 'Fingerprint not enrolled'}
+                            {enrolledAtTerminal
+                                ? 'Enrolled at terminal'
+                                : 'Not enrolled'}
                         </Badge>
                         <Badge variant="outline" className="bg-background/70">
                             <Clock className="size-3.5" />
@@ -289,10 +102,9 @@ export default function AttendanceScanner({
                             Biometric Scanner
                         </CardTitle>
                         <CardDescription>
-                            Verify with the fingerprint reader on this device.
-                            Smart HRMS uses WebAuthn (FIDO2) so your fingerprint
-                            never leaves your device — only a signed assertion
-                            is sent back to record the punch.
+                            Fingerprint enrollment and clock-in are handled at
+                            the office biometric terminal. Punches sync back to
+                            Smart HRMS automatically.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-4">
@@ -303,130 +115,50 @@ export default function AttendanceScanner({
                                 </div>
                                 <div className="flex-1">
                                     <p className="text-sm font-semibold">
-                                        Built-in Fingerprint Reader
+                                        Office Biometric Terminal
                                     </p>
                                     <p className="mt-0.5 text-xs text-muted-foreground">
-                                        Touch ID, Windows Hello, Android
-                                        fingerprint, or any FIDO2 biometric
-                                        authenticator on this device.
+                                        Place your finger on the ZKTeco
+                                        terminal in the office to clock in or
+                                        clock out.
                                     </p>
                                 </div>
                             </div>
                         </div>
 
-                        {!enrolledInBiometric ? (
-                            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/40 dark:bg-amber-950/20">
+                        {enrolledAtTerminal ? (
+                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
                                 <div className="flex items-start gap-3">
-                                    <ShieldAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                                    <Fingerprint className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                                     <div className="flex-1">
-                                        <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-                                            Fingerprint not registered yet
+                                        <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-200">
+                                            Enrolled at biometric terminal
                                         </p>
-                                        <p className="mt-0.5 text-xs text-amber-700/80 dark:text-amber-400/70">
-                                            Enroll your fingerprint to enable
-                                            biometric clock-in and clock-out
-                                            from this scanner.
+                                        <p className="mt-0.5 text-xs text-emerald-700/80 dark:text-emerald-400/70">
+                                            Your fingerprint is registered on
+                                            the office terminal — punch in and
+                                            out there. No re-enrollment needed.
                                         </p>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            className="mt-3 gap-1.5"
-                                            onClick={() =>
-                                                setIsEnrollOpen(true)
-                                            }
-                                        >
-                                            <Fingerprint className="size-4" />
-                                            Enroll Fingerprint
-                                        </Button>
                                     </div>
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex flex-col gap-3">
-                                <div className="flex items-center gap-2">
-                                    <span className="relative flex size-2.5">
-                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                                        <span className="relative inline-flex size-2.5 rounded-full bg-emerald-500" />
-                                    </span>
-                                    <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
-                                        Active — Verified via WebAuthn
-                                    </span>
-                                </div>
-
-                                <p className="text-sm text-foreground/80">
-                                    Press Clock In or Clock Out below — your
-                                    device will prompt for a fingerprint scan
-                                    to confirm the punch.
-                                </p>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                    <Button
-                                        type="button"
-                                        className="w-full gap-2"
-                                        disabled={scanning !== null}
-                                        onClick={() =>
-                                            handleFingerprintScan('in')
-                                        }
-                                    >
-                                        <LogIn className="size-4" />
-                                        {scanning === 'in'
-                                            ? 'Scanning...'
-                                            : 'Clock In'}
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className="w-full gap-2"
-                                        disabled={scanning !== null}
-                                        onClick={() =>
-                                            handleFingerprintScan('out')
-                                        }
-                                    >
-                                        <LogOut className="size-4" />
-                                        {scanning === 'out'
-                                            ? 'Scanning...'
-                                            : 'Clock Out'}
-                                    </Button>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2 rounded-md border border-border/60 bg-background/40 p-2 text-xs text-muted-foreground">
-                                    <div>
-                                        <p className="text-[10px] uppercase tracking-wide">
-                                            Employee
+                            <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-900/40 dark:bg-sky-950/20">
+                                <div className="flex items-start gap-3">
+                                    <Info className="mt-0.5 size-5 shrink-0 text-sky-600 dark:text-sky-400" />
+                                    <div className="flex-1">
+                                        <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">
+                                            Contact HR to enroll
                                         </p>
-                                        <p className="font-mono text-foreground">
-                                            {employeeId}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] uppercase tracking-wide">
-                                            Authenticator
-                                        </p>
-                                        <p className="font-mono text-foreground">
-                                            {enrollmentStatus.rp_id ?? 'WebAuthn'}
+                                        <p className="mt-0.5 text-xs text-sky-700/80 dark:text-sky-400/70">
+                                            Contact HR to enroll your
+                                            fingerprint at the office terminal.
+                                            Until then, use the manual entry
+                                            fallback if it has been enabled for
+                                            you.
                                         </p>
                                     </div>
                                 </div>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setIsEnrollOpen(true)}
-                                    className="flex items-center gap-2 self-start text-xs text-muted-foreground hover:text-foreground"
-                                >
-                                    <ShieldCheck className="size-3.5" />
-                                    Manage biometric enrollment
-                                </button>
-
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={refreshAttendance}
-                                    className="self-start gap-2 text-xs text-muted-foreground hover:text-foreground"
-                                >
-                                    <RefreshCw className="size-3.5" />
-                                    Re-fetch enrollment & attendance data
-                                </Button>
                             </div>
                         )}
                     </CardContent>
@@ -501,14 +233,6 @@ export default function AttendanceScanner({
             </div>
 
             <AttendanceHistoryTable records={records} />
-
-            <BiometricEnrollmentDialog
-                open={isEnrollOpen}
-                onOpenChange={setIsEnrollOpen}
-                employee={{ employee_id: employeeId, name: employeeName }}
-                initialStatus={enrollmentStatus}
-                onEnrolled={refreshAttendance}
-            />
         </>
     );
 }

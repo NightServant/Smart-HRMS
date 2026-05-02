@@ -116,6 +116,9 @@ class EnrollmentService
      * prompt the user to place their finger; the captured template is pushed
      * back to Zlink.
      *
+     * Refuses if the employee already has fingerprint templates on Zlink, to
+     * prevent duplicate templates that would produce duplicate punches.
+     *
      * @return array{device_sn: string, device_user_id: string}
      */
     public function triggerRemoteEnrollment(Employee $employee, ?string $deviceSn = null): array
@@ -123,6 +126,8 @@ class EnrollmentService
         if (empty($employee->zkteco_pin)) {
             throw new RuntimeException('Employee has not been registered in Zlink yet.');
         }
+
+        $this->guardAgainstDuplicateEnrollment($employee);
 
         $sn = $deviceSn !== null && $deviceSn !== ''
             ? $deviceSn
@@ -138,6 +143,33 @@ class EnrollmentService
             'device_sn' => $sn,
             'device_user_id' => (string) $employee->zkteco_pin,
         ];
+    }
+
+    /**
+     * Fail-closed check: refuse if the employee already has fingerprint
+     * templates on Zlink, or if the count cannot be verified. Either case
+     * could otherwise produce duplicate punches at the terminal.
+     */
+    private function guardAgainstDuplicateEnrollment(Employee $employee): void
+    {
+        try {
+            $count = count($this->client->listEmployeeFingerprints((string) $employee->zkteco_pin));
+        } catch (Throwable $e) {
+            Log::warning('Zlink fingerprint lookup failed; refusing remote enrollment to avoid duplicates.', [
+                'employee_id' => $employee->employee_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new RuntimeException('Could not verify enrollment status with Zlink. Please try again in a moment.');
+        }
+
+        if ($count > 0) {
+            throw new RuntimeException(sprintf(
+                'You are already enrolled in the biometric terminal (%d fingerprint%s on file). Re-enrolling would create duplicate punches.',
+                $count,
+                $count === 1 ? '' : 's',
+            ));
+        }
     }
 
     /**

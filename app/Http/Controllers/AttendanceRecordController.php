@@ -73,6 +73,7 @@ class AttendanceRecordController extends Controller
             'employeeName' => $employee?->name ?? $request->user()->name,
             'hasDevice' => $hasDevice,
             'enrolledInBiometric' => ! empty($employee?->webauthn_credential_id),
+            'enrolledAtTerminal' => ! empty($employee?->zkteco_pin),
             'enrollmentStatus' => $enrollmentStatus,
             'manualPunchEnabled' => (bool) ($employee?->manual_punch_enabled ?? false),
         ]);
