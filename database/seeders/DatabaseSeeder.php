@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             LeaveWorkflowSeeder::class,
             HistoricalPerformanceSeeder::class,
             IpcrWorkflowSeeder::class,
+            IpcrApprovedTargetsSeeder::class,
         ]);
     }
 }

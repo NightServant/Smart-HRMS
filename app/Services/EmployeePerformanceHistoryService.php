@@ -153,6 +153,8 @@ class EmployeePerformanceHistoryService
             ->orderBy('id')
             ->get();
 
+        $processedKeys = [];
+
         foreach ($submissions as $submission) {
             $periodReference = $this->resolveSubmissionPeriod($submission);
 
@@ -198,6 +200,43 @@ class EmployeePerformanceHistoryService
                 'complete_days' => $attendance['complete_days'],
                 'recorded_days' => $attendance['recorded_days'],
                 'source' => 'live',
+            ]);
+
+            $processedKeys[$key] = true;
+        }
+
+        foreach ($targets as $key => $target) {
+            if (isset($processedKeys[$key])) {
+                continue;
+            }
+
+            if ($target->evaluator_decision !== 'approved') {
+                continue;
+            }
+
+            $period = 'S'.$target->semester;
+            $attendance = $attendanceByPeriod->get($key, $this->emptyAttendanceMetrics());
+            $targetItems = $this->collectPayloadItems($target->form_payload, 'accountable');
+
+            $comparisonRows->push([
+                'year' => $target->target_year,
+                'period' => $period,
+                'evaluation_score' => null,
+                'target_score' => 4.00,
+                'achievement_status' => 'pending',
+                'achievement_label' => 'Pending Evaluation',
+                'target_items' => $targetItems,
+                'target_summary' => $this->summarizeItems($targetItems),
+                'actual_items' => [],
+                'actual_summary' => null,
+                'attendance_punctuality_rate' => $attendance['attendance_punctuality_rate'],
+                'tardiness_incidents' => $attendance['tardiness_incidents'],
+                'on_time_days' => $attendance['on_time_days'],
+                'late_days' => $attendance['late_days'],
+                'incomplete_days' => $attendance['incomplete_days'],
+                'complete_days' => $attendance['complete_days'],
+                'recorded_days' => $attendance['recorded_days'],
+                'source' => 'upcoming',
             ]);
         }
 

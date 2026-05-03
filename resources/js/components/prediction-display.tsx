@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 type ComparisonRow = {
     year: number;
     period: string;
-    evaluation_score: number;
+    evaluation_score: number | null;
     target_score?: number | null;
     achievement_status: string;
     achievement_label: string;
