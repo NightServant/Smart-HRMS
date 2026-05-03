@@ -16,6 +16,20 @@ class EnrollmentService
 
     private const DEPARTMENTS_CACHE_TTL_MINUTES = 10;
 
+    private const REMOTE_SESSION_CACHE_PREFIX = 'zlink:portal:remote_session:';
+
+    private const REMOTE_SESSION_TTL_MINUTES = 15;
+
+    /**
+     * TTL for the short-lived "still enrolled" confirmation cache. Set to 5
+     * minutes so that a fingerprint deleted in the Zlink portal is detected
+     * within 5 minutes on the next status poll, while most page-load + poll
+     * ticks still hit the cache and avoid redundant Zlink round-trips.
+     */
+    private const ENROLLMENT_CONFIRMED_TTL_MINUTES = 5;
+
+    private const ENROLLMENT_CONFIRMED_CACHE_PREFIX = 'zlink:enrollment:confirmed:';
+
     public function __construct(
         private readonly ZlinkClient $client,
         private readonly ZlinkPortalClient $portal = new ZlinkPortalClient,
@@ -79,23 +93,86 @@ class EnrollmentService
     }
 
     /**
-     * @return array{enrolled_in_zlink: bool, finger_captured: bool, device_user_id: ?string, fingerprint_count: int}
+     * @return array{enrolled_in_zlink: bool, finger_captured: bool, device_user_id: ?string, fingerprint_count: int, finger_index: ?int, finger_label: ?string}
      */
     public function verificationStatus(Employee $employee): array
     {
         $hasPin = ! empty($employee->zkteco_pin);
+
+        // Short-lived confirmed-enrollment cache (5 min TTL). Avoids Zlink
+        // round-trips on the 3-second poll tick during active sessions, but
+        // still detects deletions in the Zlink portal within 5 minutes —
+        // unlike the old fast-path that never re-validated after first write.
+        if ($hasPin && $employee->fingerprint_enrolled_at !== null) {
+            $confirmedKey = self::ENROLLMENT_CONFIRMED_CACHE_PREFIX.$employee->employee_id;
+
+            if (Cache::has($confirmedKey)) {
+                $fingerIndex = $employee->fingerprint_finger_index;
+
+                return [
+                    'enrolled_in_zlink' => true,
+                    'finger_captured' => true,
+                    'device_user_id' => (string) $employee->zkteco_pin,
+                    'fingerprint_count' => 1,
+                    'finger_index' => $fingerIndex,
+                    'finger_label' => $fingerIndex !== null ? $this->fingerLabelFor($fingerIndex) : null,
+                ];
+            }
+        }
+
         $fingerprintCount = 0;
+        $fingerIndex = null;
 
         if ($hasPin) {
             try {
                 $fingerprints = $this->client->listEmployeeFingerprints((string) $employee->zkteco_pin);
                 $fingerprintCount = count($fingerprints);
+
+                foreach ($fingerprints as $row) {
+                    if (isset($row['fingerIndex']) && is_numeric($row['fingerIndex'])) {
+                        $fingerIndex = (int) $row['fingerIndex'];
+                        break;
+                    }
+                }
+
+                // DIAG: surface the raw fingerprint rows (including empty
+                // results) so we can correlate against the fid we sent to
+                // the portal. Empty results are themselves a signal — they
+                // reveal that the open API isn't seeing what the SPA UI
+                // shows. Remove once the portal `fid` parameter contract
+                // is confirmed.
+                Log::info('zlink.openapi.listEmployeeFingerprints.result', [
+                    'employee_id' => $employee->employee_id,
+                    'zkteco_pin' => (string) $employee->zkteco_pin,
+                    'count' => $fingerprintCount,
+                    'rows' => $fingerprints,
+                    'resolved_finger_index' => $fingerIndex,
+                ]);
             } catch (Throwable $e) {
                 Log::info('Zlink fingerprint status unavailable; falling back to attendance heuristic.', [
                     'employee_id' => $employee->employee_id,
                     'error' => $e->getMessage(),
                 ]);
             }
+        }
+
+        // Second signal (when the open API doesn't expose fingerprints):
+        // ask the portal whether the active remote-registration session has
+        // completed. This is the most reliable on-device-capture signal —
+        // the SPA itself polls the same endpoint to flip its UI.
+        if ($hasPin && $fingerprintCount === 0 && $this->checkActiveRegistrationSession($employee)) {
+            $fingerprintCount = 1;
+        }
+
+        // Third signal: ask the portal which devices hold a fingerprint
+        // credential for this employee. Useful for re-loads after the
+        // session cache has expired, but lags the device->cloud sync so
+        // it can't carry the live enrollment flow on its own. This is also
+        // the only path that exposes which finger was captured.
+        if ($hasPin && ($fingerprintCount === 0 || $fingerIndex === null)) {
+            $portal = $this->inspectPortalFingerprintDevices($employee);
+            $fingerprintCount = max($fingerprintCount, $portal['count']);
+            $fingerIndex ??= $portal['finger_index'];
         }
 
         // Canonical "enrolled" signal: actual fingerprint template on Zlink
@@ -107,11 +184,456 @@ class EnrollmentService
                 ->where('source', 'biometric')
                 ->exists();
 
+        $confirmedKey = self::ENROLLMENT_CONFIRMED_CACHE_PREFIX.$employee->employee_id;
+
+        if ($fingerCaptured && $hasPin) {
+            // Persist the moment we detect enrollment and arm the short-lived
+            // confirmation cache. Subsequent calls within the TTL skip Zlink.
+            if ($employee->fingerprint_enrolled_at === null) {
+                $employee->forceFill([
+                    'fingerprint_enrolled_at' => now(),
+                    'fingerprint_finger_index' => $fingerIndex,
+                ])->save();
+            }
+
+            Cache::put(
+                $confirmedKey,
+                true,
+                now()->addMinutes(self::ENROLLMENT_CONFIRMED_TTL_MINUTES),
+            );
+        } elseif (! $fingerCaptured && $employee->fingerprint_enrolled_at !== null) {
+            // Zlink no longer reports a credential for this employee (deleted
+            // from the portal). Clear the persisted DB column and the cache so
+            // the badge correctly flips back to "Not enrolled".
+            $employee->forceFill([
+                'fingerprint_enrolled_at' => null,
+                'fingerprint_finger_index' => null,
+            ])->save();
+
+            Cache::forget($confirmedKey);
+
+            Log::info('Zlink fingerprint no longer present; cleared enrollment for employee.', [
+                'employee_id' => $employee->employee_id,
+            ]);
+        }
+
         return [
             'enrolled_in_zlink' => $hasPin,
             'finger_captured' => $fingerCaptured,
             'device_user_id' => $hasPin ? (string) $employee->zkteco_pin : null,
             'fingerprint_count' => $fingerprintCount,
+            'finger_index' => $fingerIndex,
+            'finger_label' => $fingerIndex !== null ? $this->fingerLabelFor($fingerIndex) : null,
+        ];
+    }
+
+    /**
+     * ZK SDK / pyzk fingerIndex convention: 0–4 left hand (pinky→thumb), 5–9
+     * right hand (thumb→pinky). Confirmed against the Zlink portal UI on
+     * 2026-05-03 — sending fid=9 lights up the Right Pinky slot in the
+     * "Manage Authentication Methods" dialog. Anything outside 0–9 falls
+     * back to a generic "Finger #N" label.
+     */
+    private function fingerLabelFor(int $fingerIndex): string
+    {
+        return match ($fingerIndex) {
+            0 => 'Left Pinky',
+            1 => 'Left Ring',
+            2 => 'Left Middle',
+            3 => 'Left Index',
+            4 => 'Left Thumb',
+            5 => 'Right Thumb',
+            6 => 'Right Index',
+            7 => 'Right Middle',
+            8 => 'Right Ring',
+            9 => 'Right Pinky',
+            default => 'Finger #'.$fingerIndex,
+        };
+    }
+
+    /**
+     * Poll the portal's remote-registration result endpoint for an active
+     * enrollment session. Returns true once the device has captured the
+     * fingerprint (and clears the cached sessionId). The portal SPA polls
+     * this exact endpoint to flip its own UI, so it's the authoritative
+     * "fingerprint is now on device" signal.
+     */
+    private function checkActiveRegistrationSession(Employee $employee): bool
+    {
+        if (! $this->portal->isConfigured()) {
+            return false;
+        }
+
+        $cacheKey = self::REMOTE_SESSION_CACHE_PREFIX.$employee->employee_id;
+        $sessionId = Cache::get($cacheKey);
+
+        if (! is_string($sessionId) || $sessionId === '') {
+            return false;
+        }
+
+        try {
+            $response = $this->portal->getRemoteRegistrationResult($sessionId);
+        } catch (Throwable $e) {
+            Log::info('Zlink portal remoteRegistration result lookup failed.', [
+                'employee_id' => $employee->employee_id,
+                'session_id' => $sessionId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+
+        // Log every response shape so we can confirm the success-state
+        // detection. Drop this once the badge flips reliably.
+        Log::info('Zlink portal remoteRegistration result.', [
+            'employee_id' => $employee->employee_id,
+            'session_id' => $sessionId,
+            'response_code' => $response['code'] ?? null,
+            'data' => $response['data'] ?? null,
+        ]);
+
+        $state = $this->interpretRegistrationResult($response);
+
+        // Clear the cache on a terminal state so we don't keep polling a
+        // closed session forever.
+        if ($state === 'success' || $state === 'failed') {
+            Cache::forget($cacheKey);
+        }
+
+        return $state === 'success';
+    }
+
+    /**
+     * Defensive interpretation of the result endpoint's payload. The portal
+     * doesn't publish a schema, so accept the common success indicators:
+     * - data.success === true
+     * - data.status / data.state in a known success vocabulary
+     * - data.result === 1
+     * - data.finished === true && data.success !== false
+     *
+     * Treat anything that's clearly "done but not success" as failed; treat
+     * everything else as pending so the poll keeps trying.
+     *
+     * @param  array<string, mixed>  $response
+     */
+    private function interpretRegistrationResult(array $response): string
+    {
+        $code = (string) ($response['code'] ?? '');
+        // Each Zlink subsystem has its own success prefix: ZCOP (open API),
+        // ZCHC (customer hub), DMSI (device management), CMSR (CMS), ZCDC
+        // (device cloud — what the result endpoint actually returns).
+        $successCodes = ['', 'ZCOP0000', 'ZCHC0000', 'DMSI0000', 'CMSR0000', 'ZCDC0000'];
+
+        // Default unknown codes to "pending" instead of "failed". A new
+        // subsystem code we haven't catalogued must not silently terminate
+        // an in-flight enrollment session and clear its cached id.
+        if (! in_array($code, $successCodes, true)) {
+            return 'pending';
+        }
+
+        $data = $response['data'] ?? [];
+
+        if (! is_array($data)) {
+            return 'pending';
+        }
+
+        // ZCDC0000 / device-cloud shape: data.end is "0" while the device is
+        // still capturing presses (num counts up 1->2->3) and "1" once the
+        // session is closed. data.code is the device's own status code, "0"
+        // = ok, anything else = failure (mid-session abort, device offline,
+        // etc). This is what the portal SPA actually polls.
+        if (array_key_exists('end', $data)) {
+            $end = (string) $data['end'];
+            $innerCode = (string) ($data['code'] ?? '0');
+
+            if ($end === '1') {
+                return $innerCode === '0' ? 'success' : 'failed';
+            }
+
+            if ($end === '0') {
+                return 'pending';
+            }
+        }
+
+        if (($data['success'] ?? null) === true) {
+            return 'success';
+        }
+
+        if (($data['success'] ?? null) === false || ($data['failed'] ?? null) === true) {
+            return 'failed';
+        }
+
+        $statusValue = mb_strtoupper((string) ($data['status'] ?? $data['state'] ?? ''));
+
+        if (in_array($statusValue, ['SUCCESS', 'COMPLETED', 'FINISHED', 'OK', 'DONE'], true)) {
+            return 'success';
+        }
+
+        if (in_array($statusValue, ['FAILED', 'CANCELLED', 'CANCELED', 'TIMEOUT', 'EXPIRED', 'ERROR'], true)) {
+            return 'failed';
+        }
+
+        $resultValue = $data['result'] ?? null;
+
+        if (is_int($resultValue) || (is_string($resultValue) && ctype_digit($resultValue))) {
+            $intResult = (int) $resultValue;
+
+            if ($intResult === 1) {
+                return 'success';
+            }
+
+            if ($intResult < 0) {
+                return 'failed';
+            }
+        }
+
+        if (($data['finished'] ?? null) === true) {
+            return ($data['success'] ?? null) === false ? 'failed' : 'success';
+        }
+
+        return 'pending';
+    }
+
+    /**
+     * Inspect the portal SPA's biological-template endpoint for this
+     * employee. Returns the device count holding a fingerprint credential
+     * and the first observed fingerIndex (so callers can label which finger
+     * was captured).
+     *
+     * @return array{count: int, finger_index: ?int}
+     */
+    private function inspectPortalFingerprintDevices(Employee $employee): array
+    {
+        $empty = ['count' => 0, 'finger_index' => null];
+
+        if (! $this->portal->isConfigured()) {
+            Log::info('Skipping portal fingerprint lookup: portal not configured.', [
+                'employee_id' => $employee->employee_id,
+            ]);
+
+            return $empty;
+        }
+
+        $portalEmployeeId = $this->resolvePortalEmployeeId($employee);
+
+        if ($portalEmployeeId === null) {
+            Log::info('Skipping portal fingerprint lookup: could not resolve portal employee id.', [
+                'employee_id' => $employee->employee_id,
+                'pin' => $employee->zkteco_pin,
+            ]);
+
+            return $empty;
+        }
+
+        try {
+            $response = $this->portal->listEmployeeFingerprintDevices($portalEmployeeId);
+        } catch (Throwable $e) {
+            Log::info('Zlink portal fingerprint/devices lookup failed; falling back to attendance heuristic.', [
+                'employee_id' => $employee->employee_id,
+                'portal_employee_id' => $portalEmployeeId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $empty;
+        }
+
+        $devices = $this->extractPortalDeviceList($response);
+
+        // Log every response shape so we can confirm the parser is matching
+        // the real portal envelope. Drop this once the badge flips reliably.
+        Log::info('Zlink portal fingerprint/devices response.', [
+            'employee_id' => $employee->employee_id,
+            'portal_employee_id' => $portalEmployeeId,
+            'response_code' => $response['code'] ?? null,
+            'data_keys' => is_array($response['data'] ?? null) ? array_keys($response['data']) : null,
+            'data' => $response['data'] ?? null,
+            'extracted_count' => count($devices),
+        ]);
+
+        // Real CMS credential entries carry signatureIndex (the ZKTeco slot
+        // 0–9). Older / test shapes use fingerIndex. Try both.
+        $fingerIndex = null;
+
+        foreach ($devices as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            foreach (['signatureIndex', 'fingerIndex'] as $field) {
+                if (isset($entry[$field]) && is_numeric($entry[$field])) {
+                    $fingerIndex = (int) $entry[$field];
+                    break 2;
+                }
+            }
+        }
+
+        return ['count' => count($devices), 'finger_index' => $fingerIndex];
+    }
+
+    /**
+     * The portal returns the fingerprint listing in several shapes depending
+     * on the endpoint version. The biological-template endpoint returns
+     * `data.fingerprintVersionMap` — an object keyed by SIGNATURE VERSION
+     * (e.g. "13.0"), NOT by device serial. Each value contains
+     * `cmsCredentialRespVos[]`, where each credential has `signatureIndex`
+     * (the actual ZKTeco finger slot 0–9). Older endpoints return a flat
+     * list under data / data.list / data.results / data.fingerprints.
+     *
+     * This function flattens to a list of credential entries with at least
+     * `signatureIndex` (or legacy `fingerIndex`) populated.
+     *
+     * Each Zlink subsystem has its own success prefix (open API ZCOP, customer
+     * hub ZCHC, device management DMSI, CMS CMSR) — all are "ok". Anything
+     * else is rejected.
+     *
+     * @param  array<string, mixed>  $response
+     * @return array<int, array<string, mixed>>
+     */
+    private function extractPortalDeviceList(array $response): array
+    {
+        $code = (string) ($response['code'] ?? '');
+        $successCodes = ['', 'ZCOP0000', 'ZCHC0000', 'DMSI0000', 'CMSR0000'];
+
+        if (! in_array($code, $successCodes, true)) {
+            return [];
+        }
+
+        $data = $response['data'] ?? [];
+
+        if (! is_array($data)) {
+            return [];
+        }
+
+        // Modern shape: data.fingerprintVersionMap is keyed by signature
+        // version. Drill into cmsCredentialRespVos[] to get each credential.
+        $versionMap = $data['fingerprintVersionMap'] ?? null;
+
+        if (is_array($versionMap) && $versionMap !== []) {
+            $credentials = [];
+
+            foreach ($versionMap as $versionEntry) {
+                if (! is_array($versionEntry)) {
+                    continue;
+                }
+
+                $vos = $versionEntry['cmsCredentialRespVos'] ?? null;
+
+                if (is_array($vos)) {
+                    foreach ($vos as $vo) {
+                        if (is_array($vo)) {
+                            $credentials[] = $vo;
+                        }
+                    }
+
+                    continue;
+                }
+
+                // Fallback: some legacy/test fixtures put fingerIndex
+                // directly on the version entry. Keep the entry as-is so
+                // the caller's signatureIndex/fingerIndex extractor sees it.
+                $credentials[] = $versionEntry;
+            }
+
+            if ($credentials !== []) {
+                return $credentials;
+            }
+        }
+
+        if (array_is_list($data)) {
+            return $data;
+        }
+
+        foreach (['results', 'list', 'devices', 'fingerprints'] as $key) {
+            $candidate = $data[$key] ?? null;
+
+            if (is_array($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * Delete every fingerprint credential the employee has on Zlink, then
+     * clear local enrollment state. Idempotent: returns {deleted: 0} when
+     * the employee was already not enrolled. Mirrors what happens when an
+     * admin clicks "Delete" on the Zlink portal's biological-template page.
+     *
+     * @return array{deleted: int, credential_ids: array<int, string>, cleared_locally: bool}
+     */
+    public function deleteFingerprint(Employee $employee): array
+    {
+        $clearLocal = function () use ($employee): void {
+            $employee->forceFill([
+                'fingerprint_enrolled_at' => null,
+                'fingerprint_finger_index' => null,
+            ])->save();
+
+            Cache::forget(self::ENROLLMENT_CONFIRMED_CACHE_PREFIX.$employee->employee_id);
+            Cache::forget(self::REMOTE_SESSION_CACHE_PREFIX.$employee->employee_id);
+        };
+
+        if (empty($employee->zkteco_pin)) {
+            $clearLocal();
+
+            return ['deleted' => 0, 'credential_ids' => [], 'cleared_locally' => true];
+        }
+
+        if (! $this->portal->isConfigured()) {
+            Log::warning('Cannot delete fingerprint via Zlink: portal not configured.', [
+                'employee_id' => $employee->employee_id,
+            ]);
+
+            $clearLocal();
+
+            return ['deleted' => 0, 'credential_ids' => [], 'cleared_locally' => true];
+        }
+
+        // Discover credential IDs via the SPA's actual list endpoint
+        // (cms/credential/employee/list filtered by employeeCode). The
+        // older fingerprint/devices endpoint returns null on this tenant
+        // even when credentials exist.
+        $credentialIds = [];
+
+        try {
+            $credentialIds = $this->portal->findCredentialIdsByEmployeeCode(
+                (string) $employee->zkteco_pin,
+                bioType: 1,
+            );
+        } catch (Throwable $e) {
+            Log::warning('Could not list Zlink fingerprint credentials before delete.', [
+                'employee_id' => $employee->employee_id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        if ($credentialIds === []) {
+            // Nothing on Zlink — local state was likely stale. Clear it and
+            // report a clean delete so the UI flips correctly.
+            $clearLocal();
+
+            return ['deleted' => 0, 'credential_ids' => [], 'cleared_locally' => true];
+        }
+
+        try {
+            $this->portal->deleteFingerprintCredentials($credentialIds);
+        } catch (Throwable $e) {
+            Log::error('Zlink fingerprint delete failed.', [
+                'employee_id' => $employee->employee_id,
+                'credential_ids' => $credentialIds,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new RuntimeException('Failed to delete fingerprint on Zlink: '.$e->getMessage(), previous: $e);
+        }
+
+        $clearLocal();
+
+        return [
+            'deleted' => count($credentialIds),
+            'credential_ids' => $credentialIds,
+            'cleared_locally' => true,
         ];
     }
 
@@ -124,9 +646,12 @@ class EnrollmentService
      * Refuses if the employee already has fingerprint templates on Zlink, to
      * prevent duplicate templates that would produce duplicate punches.
      *
+     * @param  int|null  $fingerIndex  ZKTeco finger slot (0–4 right thumb→pinky,
+     *                                 5–9 left thumb→pinky). Defaults to config
+     *                                 value or 1 (Right Index) when not supplied.
      * @return array{device_sn: string, device_user_id: string, remote_triggered: bool, instructions: string}
      */
-    public function triggerRemoteEnrollment(Employee $employee, ?string $deviceSn = null): array
+    public function triggerRemoteEnrollment(Employee $employee, ?string $deviceSn = null, ?int $fingerIndex = null): array
     {
         if (empty($employee->zkteco_pin)) {
             throw new RuntimeException('Employee has not been registered in Zlink yet.');
@@ -142,7 +667,13 @@ class EnrollmentService
             throw new RuntimeException('No biometric terminal configured. Set ZLINK_DEFAULT_DEVICE_SN or pass a device serial.');
         }
 
-        $remoteTriggered = $this->triggerWithBestAvailableTransport($employee, $sn);
+        // Resolve the finger index: caller > config default > 1 (Right Index).
+        // Right Index is the most natural enrollment finger for most users and
+        // is confirmed to work by the portal's biological-template endpoint.
+        $resolvedFingerIndex = $fingerIndex
+            ?? (int) config('services.zlink.default_finger_index', 1);
+
+        $remoteTriggered = $this->triggerWithBestAvailableTransport($employee, $sn, $resolvedFingerIndex);
 
         return [
             'device_sn' => $sn,
@@ -164,10 +695,10 @@ class EnrollmentService
      * client when the open API doesn't expose the endpoint (404). Returns true
      * if either transport succeeded, false if both are unavailable.
      */
-    private function triggerWithBestAvailableTransport(Employee $employee, string $deviceSn): bool
+    private function triggerWithBestAvailableTransport(Employee $employee, string $deviceSn, int $fingerIndex): bool
     {
         try {
-            $this->client->triggerRemoteFingerprintEnrollment($deviceSn, (string) $employee->zkteco_pin);
+            $this->client->triggerRemoteFingerprintEnrollment($deviceSn, (string) $employee->zkteco_pin, $fingerIndex);
 
             return true;
         } catch (RequestException $e) {
@@ -176,10 +707,10 @@ class EnrollmentService
             }
         }
 
-        return $this->triggerViaPortal($employee, $deviceSn);
+        return $this->triggerViaPortal($employee, $deviceSn, $fingerIndex);
     }
 
-    private function triggerViaPortal(Employee $employee, string $deviceSn): bool
+    private function triggerViaPortal(Employee $employee, string $deviceSn, int $fingerIndex = 1): bool
     {
         if (! $this->portal->isConfigured()) {
             Log::info('Zlink portal not configured; falling back to manual on-device enrollment.', [
@@ -215,6 +746,7 @@ class EnrollmentService
                 deviceId: $portalDeviceId,
                 employeeId: $portalEmployeeId,
                 pin: (string) $employee->zkteco_pin,
+                fid: $fingerIndex,
             );
 
             $code = (string) ($response['code'] ?? '');
@@ -246,6 +778,20 @@ class EnrollmentService
                 'device_id' => $portalDeviceId,
                 'response' => $response,
             ]);
+
+            // Stash the registration sessionId so the enrollment-status poll
+            // can ask the portal whether the device has captured a finger
+            // yet. This is more reliable than fingerprintVersionMap, which
+            // lags the device->cloud sync.
+            $sessionId = (string) (($response['data']['results']['sessionId'] ?? '') ?: '');
+
+            if ($sessionId !== '') {
+                Cache::put(
+                    self::REMOTE_SESSION_CACHE_PREFIX.$employee->employee_id,
+                    $sessionId,
+                    now()->addMinutes(self::REMOTE_SESSION_TTL_MINUTES),
+                );
+            }
 
             return true;
         } catch (RequestException $e) {
@@ -281,6 +827,10 @@ class EnrollmentService
      * The portal API expects Zlink's internal employee UUID, not our local
      * employee_id or the device PIN. Look it up from the open-API employee
      * list using the PIN as employeeCode.
+     *
+     * Cached for an hour because the enrollment-status poll (every 3s) and
+     * the duplicate-enrollment guard would otherwise re-paginate the entire
+     * employee list on every call.
      */
     private function resolvePortalEmployeeId(Employee $employee): ?string
     {
@@ -288,6 +838,13 @@ class EnrollmentService
 
         if ($pin === '') {
             return null;
+        }
+
+        $cacheKey = 'zlink:portal:employee_id:'.$employee->employee_id;
+        $cached = Cache::get($cacheKey);
+
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
         }
 
         try {
@@ -303,7 +860,10 @@ class EnrollmentService
 
         foreach ($matches as $row) {
             if (($row['employeeCode'] ?? null) === $pin && isset($row['id'])) {
-                return (string) $row['id'];
+                $id = (string) $row['id'];
+                Cache::put($cacheKey, $id, now()->addHour());
+
+                return $id;
             }
         }
 
@@ -356,11 +916,33 @@ class EnrollmentService
 
     /**
      * Fallback duplicate check when Zlink does not expose a fingerprint
-     * search endpoint. A confirmed biometric punch is the strongest local
-     * signal that the employee already has a template on the device.
+     * search endpoint. Consults two cheaper signals: the persisted DB
+     * column (fastest), the portal's biological-template endpoint (covers
+     * legacy enrollments that predate the persistence migration), and the
+     * biometric-punch heuristic (the original fallback).
      */
     private function guardViaAttendanceHistory(Employee $employee): void
     {
+        if ($employee->fingerprint_enrolled_at !== null) {
+            throw new RuntimeException(
+                'You are already enrolled in the biometric terminal. Re-enrolling would create duplicate punches.'
+            );
+        }
+
+        $portal = $this->inspectPortalFingerprintDevices($employee);
+
+        if ($portal['count'] > 0) {
+            // Persist the legacy enrollment so future loads hit the fast path.
+            $employee->forceFill([
+                'fingerprint_enrolled_at' => now(),
+                'fingerprint_finger_index' => $portal['finger_index'],
+            ])->save();
+
+            throw new RuntimeException(
+                'You are already enrolled in the biometric terminal. Re-enrolling would create duplicate punches.'
+            );
+        }
+
         $hasBiometricPunch = AttendanceRecord::query()
             ->where('employee_id', $employee->employee_id)
             ->where('source', 'biometric')

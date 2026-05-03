@@ -33,6 +33,9 @@ Route::middleware(['web', 'auth', 'throttle:60,1'])->prefix('biometrics')->group
     Route::post('remote-enroll', [BiometricController::class, 'triggerRemoteEnrollment'])
         ->middleware('role:hr-personnel,employee')
         ->name('api.biometrics.remote-enroll');
+    Route::delete('fingerprint', [BiometricController::class, 'deleteFingerprint'])
+        ->middleware('role:hr-personnel,employee')
+        ->name('api.biometrics.delete-fingerprint');
 
     Route::prefix('webauthn')->middleware('role:employee')->group(function (): void {
         Route::get('status', [WebAuthnController::class, 'status'])

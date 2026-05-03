@@ -27,6 +27,7 @@ export default function Attendance({
     enrolledAtTerminal = false,
     zktecoPinAssigned = false,
     manualPunchEnabled = false,
+    fingerLabel = null,
 }: {
     records: DailyAttendanceRecord[];
     employeeId: string;
@@ -34,6 +35,7 @@ export default function Attendance({
     enrolledAtTerminal?: boolean;
     zktecoPinAssigned?: boolean;
     manualPunchEnabled?: boolean;
+    fingerLabel?: string | null;
 }) {
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -46,6 +48,7 @@ export default function Attendance({
                     enrolledAtTerminal={enrolledAtTerminal}
                     zktecoPinAssigned={zktecoPinAssigned}
                     manualPunchEnabled={manualPunchEnabled}
+                    initialFingerLabel={fingerLabel}
                 />
             </div>
         </AppLayout>

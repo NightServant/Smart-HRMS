@@ -8,6 +8,7 @@ import {
     Monitor,
     ShieldCheck,
     TimerOff,
+    Trash2,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -35,6 +36,32 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+
+// ZK SDK / pyzk finger slot convention: 0–4 left hand (pinky→thumb), 5–9
+// right hand (thumb→pinky). Confirmed against the Zlink portal UI on
+// 2026-05-03 — sending fid=9 lights up the Right Pinky slot in the
+// "Manage Authentication Methods" dialog. Mirrors fingerLabelFor on the
+// backend.
+const FINGER_OPTIONS: { value: number; label: string }[] = [
+    { value: 0, label: 'Left Pinky' },
+    { value: 1, label: 'Left Ring' },
+    { value: 2, label: 'Left Middle' },
+    { value: 3, label: 'Left Index' },
+    { value: 4, label: 'Left Thumb' },
+    { value: 5, label: 'Right Thumb' },
+    { value: 6, label: 'Right Index' },
+    { value: 7, label: 'Right Middle' },
+    { value: 8, label: 'Right Ring' },
+    { value: 9, label: 'Right Pinky' },
+];
+const DEFAULT_FINGER_INDEX = 6; // Right Index — matches services.zlink.default_finger_index.
 
 const POLL_INTERVAL_MS = 3000;
 // TEMP: shortened from 5 * 60 * 1000 to 11s for modal verification.
@@ -47,6 +74,7 @@ export default function AttendanceScanner({
     enrolledAtTerminal = false,
     zktecoPinAssigned = false,
     manualPunchEnabled = false,
+    initialFingerLabel = null,
 }: {
     records: DailyAttendanceRecord[];
     employeeId: string;
@@ -54,6 +82,7 @@ export default function AttendanceScanner({
     enrolledAtTerminal?: boolean;
     zktecoPinAssigned?: boolean;
     manualPunchEnabled?: boolean;
+    initialFingerLabel?: string | null;
 }) {
     const { data, post, processing } = useForm({
         employee_id: employeeId,
@@ -62,6 +91,17 @@ export default function AttendanceScanner({
     const [isEnrolling, setIsEnrolling] = useState(false);
     const [isFingerCaptured, setIsFingerCaptured] =
         useState(enrolledAtTerminal);
+    const [fingerLabel, setFingerLabel] = useState<string | null>(
+        initialFingerLabel,
+    );
+    const [selectedFingerIndex, setSelectedFingerIndex] =
+        useState<number>(DEFAULT_FINGER_INDEX);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    useEffect(() => {
+        setFingerLabel(initialFingerLabel);
+    }, [initialFingerLabel]);
     const [isTimeoutModalOpen, setIsTimeoutModalOpen] = useState(false);
     const pollTimerRef = useRef<number | null>(null);
     const timeoutTimerRef = useRef<number | null>(null);
@@ -69,6 +109,56 @@ export default function AttendanceScanner({
     useEffect(() => {
         setIsFingerCaptured(enrolledAtTerminal);
     }, [enrolledAtTerminal]);
+
+    // Backfill check on mount. The badge can show "Not enrolled" if the
+    // user is enrolled in Zlink but the local DB column hasn't been
+    // written yet (legacy enrollments from before the persistence
+    // migration, or device->cloud sync that lagged the original detection).
+    // One status call here lets the backend's verificationStatus persist
+    // the row and flip the badge without forcing the user through
+    // another terminal walk.
+    useEffect(() => {
+        if (enrolledAtTerminal || !zktecoPinAssigned) {
+            return;
+        }
+
+        let cancelled = false;
+
+        void (async () => {
+            try {
+                const response = await fetch(
+                    '/api/biometrics/enrollment-status',
+                    {
+                        headers: { Accept: 'application/json' },
+                        credentials: 'same-origin',
+                    },
+                );
+
+                if (!response.ok || cancelled) {
+                    return;
+                }
+
+                const body = (await response.json()) as {
+                    finger_captured?: boolean;
+                    finger_label?: string | null;
+                };
+
+                if (body.finger_captured === true) {
+                    setIsFingerCaptured(true);
+                    if (typeof body.finger_label === 'string') {
+                        setFingerLabel(body.finger_label);
+                    }
+                }
+            } catch {
+                // Silent — page-mount backfill is best-effort.
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         return () => {
@@ -110,13 +200,22 @@ export default function AttendanceScanner({
 
             const body = (await response.json()) as {
                 finger_captured?: boolean;
+                finger_label?: string | null;
             };
+
+            if (typeof body.finger_label === 'string') {
+                setFingerLabel(body.finger_label);
+            }
 
             if (body.finger_captured === true) {
                 stopPolling();
                 setIsEnrolling(false);
                 setIsFingerCaptured(true);
-                toast.success('Fingerprint enrolled successfully.');
+                toast.success(
+                    body.finger_label
+                        ? `Fingerprint enrolled successfully (${body.finger_label}).`
+                        : 'Fingerprint enrolled successfully.',
+                );
             }
         } catch {
             // Swallow transient network errors and let the next tick retry.
@@ -131,21 +230,31 @@ export default function AttendanceScanner({
         setIsEnrolling(true);
 
         try {
-            const csrf =
-                document
-                    .querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
-                    ?.getAttribute('content') ?? '';
+            // Read the XSRF-TOKEN cookie rather than the meta tag. Laravel
+            // sets this cookie on every response, so it stays fresh across
+            // long-lived sessions. The meta tag is written once on page load
+            // and goes stale when the session rotates while the page is open.
+            const xsrfCookie =
+                document.cookie
+                    .split('; ')
+                    .find((row) => row.startsWith('XSRF-TOKEN='))
+                    ?.split('=')[1] ?? '';
+            const csrf = xsrfCookie
+                ? decodeURIComponent(xsrfCookie)
+                : (document
+                      .querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+                      ?.getAttribute('content') ?? '');
 
             const response = await fetch('/api/biometrics/remote-enroll', {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrf,
+                    'X-XSRF-TOKEN': csrf,
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 credentials: 'same-origin',
-                body: JSON.stringify({}),
+                body: JSON.stringify({ finger_index: selectedFingerIndex }),
             });
 
             if (!response.ok) {
@@ -211,6 +320,76 @@ export default function AttendanceScanner({
         }
     };
 
+    const handleDeleteFingerprint = async (): Promise<void> => {
+        if (isDeleting) {
+            return;
+        }
+
+        setIsDeleting(true);
+
+        try {
+            const xsrfCookie =
+                document.cookie
+                    .split('; ')
+                    .find((row) => row.startsWith('XSRF-TOKEN='))
+                    ?.split('=')[1] ?? '';
+            const csrf = xsrfCookie
+                ? decodeURIComponent(xsrfCookie)
+                : (document
+                      .querySelector<HTMLMetaElement>('meta[name="csrf-token"]')
+                      ?.getAttribute('content') ?? '');
+
+            const response = await fetch('/api/biometrics/fingerprint', {
+                method: 'DELETE',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-XSRF-TOKEN': csrf,
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({}),
+            });
+
+            if (!response.ok) {
+                const body = (await response.json().catch(() => ({}))) as {
+                    error?: string;
+                    message?: string;
+                };
+                toast.error(
+                    body.error ??
+                        body.message ??
+                        'Failed to delete fingerprint.',
+                );
+                return;
+            }
+
+            const body = (await response.json().catch(() => ({}))) as {
+                deleted?: number;
+                message?: string;
+            };
+
+            // Flip local UI state immediately. The next status poll will
+            // confirm against Zlink within the 5-min reconciliation TTL.
+            setIsFingerCaptured(false);
+            setFingerLabel(null);
+            setIsDeleteDialogOpen(false);
+
+            toast.success(
+                body.message ??
+                    (body.deleted && body.deleted > 0
+                        ? 'Fingerprint deleted from the office terminal.'
+                        : 'Local enrollment cleared.'),
+            );
+        } catch {
+            toast.error(
+                'Could not reach the biometric service. Please try again.',
+            );
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const handlePunch = (): void => {
         post('/attendance/punch', {
             preserveScroll: true,
@@ -250,7 +429,11 @@ export default function AttendanceScanner({
                     <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline" className="bg-background/70">
                             <Fingerprint className="size-3.5" />
-                            {isFingerCaptured ? 'Enrolled' : 'Not enrolled'}
+                            {isFingerCaptured
+                                ? fingerLabel
+                                    ? `Enrolled · ${fingerLabel}`
+                                    : 'Enrolled'
+                                : 'Not enrolled'}
                         </Badge>
                         <Badge variant="outline" className="bg-background/70">
                             <Clock className="size-3.5" />
@@ -294,7 +477,7 @@ export default function AttendanceScanner({
                         </div>
 
                         {isFingerCaptured ? (
-                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                            <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
                                 <div className="flex items-start gap-3">
                                     <Fingerprint className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                                     <div className="flex-1">
@@ -302,12 +485,23 @@ export default function AttendanceScanner({
                                             Enrolled
                                         </p>
                                         <p className="mt-0.5 text-xs text-emerald-700/80 dark:text-emerald-400/70">
-                                            Your fingerprint is registered on
-                                            the office terminal — punch in and
-                                            out there. No re-enrollment needed.
+                                            {fingerLabel
+                                                ? `Your ${fingerLabel.toLowerCase()} is registered on the office terminal — punch in and out there. No re-enrollment needed.`
+                                                : 'Your fingerprint is registered on the office terminal — punch in and out there. No re-enrollment needed.'}
                                         </p>
                                     </div>
                                 </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-2 self-start border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-900/40 dark:text-red-400 dark:hover:bg-red-950/30"
+                                    disabled={isDeleting}
+                                    onClick={() => setIsDeleteDialogOpen(true)}
+                                >
+                                    <Trash2 className="size-4" />
+                                    Delete Fingerprint
+                                </Button>
                             </div>
                         ) : (
                             <div className="flex flex-col gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-900/40 dark:bg-sky-950/20">
@@ -323,6 +517,43 @@ export default function AttendanceScanner({
                                             place your finger.
                                         </p>
                                     </div>
+                                </div>
+                                <div className="flex flex-col gap-1.5">
+                                    <Label
+                                        htmlFor="finger-index-select"
+                                        className="text-xs font-medium text-sky-900 dark:text-sky-200"
+                                    >
+                                        Finger to register
+                                    </Label>
+                                    <Select
+                                        value={String(selectedFingerIndex)}
+                                        onValueChange={(value) =>
+                                            setSelectedFingerIndex(Number(value))
+                                        }
+                                        disabled={isEnrolling}
+                                    >
+                                        <SelectTrigger
+                                            id="finger-index-select"
+                                            className="w-full bg-background"
+                                        >
+                                            <SelectValue placeholder="Choose a finger" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {FINGER_OPTIONS.map((option) => (
+                                                <SelectItem
+                                                    key={option.value}
+                                                    value={String(option.value)}
+                                                >
+                                                    {option.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-[11px] text-sky-700/70 dark:text-sky-400/60">
+                                        The terminal will store the template under
+                                        this slot. Pick the finger you'll actually
+                                        press.
+                                    </p>
                                 </div>
                                 <Button
                                     type="button"
@@ -473,6 +704,59 @@ export default function AttendanceScanner({
                         >
                             <Fingerprint className="size-4" />
                             Try Again
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog
+                open={isDeleteDialogOpen}
+                onOpenChange={(open) => {
+                    if (!isDeleting) {
+                        setIsDeleteDialogOpen(open);
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Trash2 className="size-5 text-red-600" />
+                            Delete fingerprint?
+                        </DialogTitle>
+                        <DialogDescription>
+                            This will remove your fingerprint from the office
+                            biometric terminal and clear your enrollment in
+                            Smart HRMS. You will need to re-enroll before you
+                            can punch in or out at the terminal again.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            disabled={isDeleting}
+                            onClick={() => setIsDeleteDialogOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="destructive"
+                            className="gap-2"
+                            disabled={isDeleting}
+                            onClick={() => void handleDeleteFingerprint()}
+                        >
+                            {isDeleting ? (
+                                <>
+                                    <Loader2 className="size-4 animate-spin" />
+                                    Deleting...
+                                </>
+                            ) : (
+                                <>
+                                    <Trash2 className="size-4" />
+                                    Delete Fingerprint
+                                </>
+                            )}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

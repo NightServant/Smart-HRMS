@@ -172,9 +172,48 @@ class BiometricController extends Controller
             ? $request->string('device_sn')->toString()
             : null;
 
+        // Optional finger_index (0–9 ZKTeco convention). Falls back to the
+        // config default when not supplied by the caller. Anything outside
+        // the 0–9 range is rejected outright — Zlink silently defaults to 0
+        // on out-of-range values, which would mask client bugs.
+        $fingerIndex = null;
+
+        if ($request->filled('finger_index')) {
+            $request->validate([
+                'finger_index' => ['integer', 'between:0,9'],
+            ]);
+            $fingerIndex = (int) $request->integer('finger_index');
+        }
+
         return response()->json(
-            $this->enrollmentService->triggerRemoteEnrollment($employee, $deviceSn),
+            $this->enrollmentService->triggerRemoteEnrollment($employee, $deviceSn, $fingerIndex),
         );
+    }
+
+    /**
+     * Delete the employee's fingerprint credential from Zlink and clear the
+     * local enrollment state. Employees may only delete their own; HR may
+     * delete any employee's by passing employee_id.
+     */
+    public function deleteFingerprint(Request $request): JsonResponse
+    {
+        $employeeId = $request->user()?->role === 'employee'
+            ? $request->user()->employee_id
+            : $request->string('employee_id')->toString();
+
+        $employee = Employee::query()->findOrFail($employeeId);
+
+        $this->authorizeEmployeeAccess($request, $employee);
+
+        $result = $this->enrollmentService->deleteFingerprint($employee);
+
+        return response()->json([
+            'deleted' => $result['deleted'],
+            'cleared_locally' => $result['cleared_locally'],
+            'message' => $result['deleted'] > 0
+                ? 'Fingerprint deleted from the office terminal.'
+                : 'No fingerprint was registered on the office terminal; local state cleared.',
+        ]);
     }
 
     private function authorizeEmployeeAccess(Request $request, Employee $employee): void

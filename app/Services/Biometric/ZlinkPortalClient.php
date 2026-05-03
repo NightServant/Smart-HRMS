@@ -6,6 +6,7 @@ use App\Services\SecretRepository;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 /**
@@ -70,13 +71,32 @@ class ZlinkPortalClient
         int $enrollType = 1,
         int $fid = 0,
     ): array {
-        return $this->postJson('/zlink-api/v1.0/zlink/customer/dcc/device/remoteRegistration', [
+        $payload = [
             'deviceId' => $deviceId,
             'employeeId' => $employeeId,
             'enrollType' => $enrollType,
             'fid' => $fid,
             'pin' => $pin,
+        ];
+
+        // DIAG: log exactly what we send. The portal `fid` parameter does not
+        // appear to honor ZKTeco's 0–9 finger slot convention on this tenant —
+        // sending fid:6 (Left Index) still results in slot 1 (Right Index)
+        // being written. Logging both request and response so we can correlate
+        // with what fingerprintVersionMap reports back. Remove once the param
+        // contract is confirmed via portal DevTools capture.
+        Log::info('zlink.portal.remoteRegistration.request', [
+            'payload' => $payload,
         ]);
+
+        $response = $this->postJson('/zlink-api/v1.0/zlink/customer/dcc/device/remoteRegistration', $payload);
+
+        Log::info('zlink.portal.remoteRegistration.response', [
+            'sent_fid' => $fid,
+            'response' => $response,
+        ]);
+
+        return $response;
     }
 
     /**
@@ -89,6 +109,119 @@ class ZlinkPortalClient
         return $this->getJson(
             '/zlink-api/v1.0/zlink/customer/dcc/device/remoteRegistration/result/'.$registrationId,
         );
+    }
+
+    /**
+     * Delete fingerprint credentials by their portal credential ids (the
+     * `id` field on each cmsCredentialRespVos entry returned by
+     * listEmployeeFingerprintDevices). Mirrors the SPA's "Delete" button on
+     * the biological-template page.
+     *
+     * The SPA hits a single batch endpoint:
+     *   DELETE /zlink-api/v2.0/zlink/cms/credentials  body: {"ids": [...]}
+     *
+     * Captured from the SPA's network trace on 2026-05-03. The earlier
+     * per-id v1.0 endpoint (`DELETE /v1.0/.../credential/{id}`) returns 200
+     * but is a no-op: the credential remains visible on /org/biologicalTemplate.
+     *
+     * @param  array<int, string>  $credentialIds
+     * @return array<string, mixed> the single batch response
+     */
+    public function deleteFingerprintCredentials(array $credentialIds): array
+    {
+        $ids = array_values($credentialIds);
+
+        Log::info('zlink.portal.credential.delete.request', [
+            'credential_ids' => $ids,
+        ]);
+
+        $response = $this->deleteJsonWithBody(
+            '/zlink-api/v2.0/zlink/cms/credentials',
+            ['ids' => $ids],
+        );
+
+        Log::info('zlink.portal.credential.delete.response', [
+            'credential_ids' => $ids,
+            'response' => $response,
+        ]);
+
+        return $response;
+    }
+
+    /**
+     * List the credential IDs Zlink has on file for the given employeeCode,
+     * filtered by bioType (1=fingerprint, 2=face, 100=card, etc.). The SPA
+     * uses this exact endpoint to render the rows on /org/biologicalTemplate
+     * — it's the only credential discovery path that actually returns the
+     * `id` values needed for the v2.0 batch DELETE.
+     *
+     * The companion endpoint `cms/credential/fingerprint/devices` returns
+     * `fingerprintVersionMap: null` for this tenant even when credentials
+     * exist; this endpoint does not. Captured from the SPA on 2026-05-03.
+     *
+     * @return array<int, string>
+     */
+    public function findCredentialIdsByEmployeeCode(string $employeeCode, int $bioType = 1): array
+    {
+        if ($employeeCode === '') {
+            return [];
+        }
+
+        $payload = $this->postJson('/zlink-api/v1.0/zlink/cms/credential/employee/list', [
+            'pageNumber' => 1,
+            'pageSize' => 10,
+            'employeeCode' => $employeeCode,
+            'current' => 1,
+        ]);
+
+        $employees = (array) (((array) ($payload['data'] ?? []))['employees'] ?? []);
+        $ids = [];
+
+        foreach ($employees as $employee) {
+            $credentials = (array) ((is_array($employee) ? $employee : [])['credentials'] ?? []);
+
+            foreach ($credentials as $credential) {
+                if (! is_array($credential)) {
+                    continue;
+                }
+
+                $rowBioType = (int) ($credential['bioType'] ?? 0);
+                $id = (string) ($credential['id'] ?? '');
+
+                if ($rowBioType !== $bioType || $id === '') {
+                    continue;
+                }
+
+                $ids[] = $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    /**
+     * List the devices that hold a fingerprint credential for the given
+     * portal employee. Used as the third "is the user enrolled?" signal —
+     * when the open-API fingerprints/search endpoint 404s (face-only Zlink
+     * builds) and no biometric punch exists yet, this is the only way to
+     * detect a successful enrollment that just happened on the terminal.
+     *
+     * The portal SPA's biological-template page calls this exact endpoint
+     * with bioType=1 (fingerprint) and signatureNumber=5 (slot count to
+     * return). A non-empty devices list = enrolled.
+     *
+     * @return array<string, mixed>
+     */
+    public function listEmployeeFingerprintDevices(
+        string $portalEmployeeId,
+        int $bioType = 1,
+        int $signatureNumber = 5,
+    ): array {
+        return $this->postJson('/zlink-api/v2.0/zlink/cms/credential/fingerprint/devices', [
+            'employeeId' => $portalEmployeeId,
+            'bioType' => $bioType,
+            'signatureNumber' => $signatureNumber,
+        ]);
     }
 
     /**
@@ -279,6 +412,50 @@ class ZlinkPortalClient
         if ($response->status() === 401) {
             $this->authenticate(forceRefresh: true);
             $response = $this->authedRequest()->get($this->baseUrl.$path);
+        }
+
+        $response->throw();
+
+        return (array) $response->json();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function deleteJson(string $path): array
+    {
+        $response = $this->authedRequest()->delete($this->baseUrl.$path);
+
+        if ($response->status() === 401) {
+            $this->authenticate(forceRefresh: true);
+            $response = $this->authedRequest()->delete($this->baseUrl.$path);
+        }
+
+        $response->throw();
+
+        return (array) $response->json();
+    }
+
+    /**
+     * Issue a DELETE request with a JSON body. The SPA's batch credential
+     * delete (DELETE /v2.0/.../credentials) sends `{"ids": [...]}` as the
+     * request body — Laravel's HTTP client supports this via the underlying
+     * `send()` driver.
+     *
+     * @param  array<string, mixed>  $body
+     * @return array<string, mixed>
+     */
+    private function deleteJsonWithBody(string $path, array $body): array
+    {
+        $send = fn () => $this->authedRequest()
+            ->withBody(json_encode($body, JSON_THROW_ON_ERROR), 'application/json')
+            ->delete($this->baseUrl.$path);
+
+        $response = $send();
+
+        if ($response->status() === 401) {
+            $this->authenticate(forceRefresh: true);
+            $response = $send();
         }
 
         $response->throw();

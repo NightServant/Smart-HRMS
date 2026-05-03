@@ -40,6 +40,8 @@ class Employee extends Model
         'zlink_synced_at',
         'zlink_sync_status',
         'zlink_sync_error',
+        'fingerprint_enrolled_at',
+        'fingerprint_finger_index',
     ];
 
     /**
@@ -53,7 +55,48 @@ class Employee extends Model
             'webauthn_enrolled_at' => 'datetime',
             'date_hired' => 'date',
             'zlink_synced_at' => 'datetime',
+            'fingerprint_enrolled_at' => 'datetime',
+            'fingerprint_finger_index' => 'integer',
         ];
+    }
+
+    /**
+     * Whether this employee has a fingerprint registered at the terminal.
+     * Persisted by EnrollmentService::verificationStatus once Zlink confirms
+     * a credential exists, so the badge survives logout / new sessions
+     * without forcing every page load to round-trip Zlink.
+     */
+    public function hasFingerprintEnrollment(): bool
+    {
+        return $this->fingerprint_enrolled_at !== null;
+    }
+
+    /**
+     * Human-readable label for the persisted finger index, using the
+     * standard ZKTeco mapping (0–4 right hand thumb→pinky, 5–9 left).
+     * Returns null when no finger has been recorded yet.
+     */
+    public function fingerprintLabel(): ?string
+    {
+        $index = $this->fingerprint_finger_index;
+
+        if ($index === null) {
+            return null;
+        }
+
+        return match ($index) {
+            0 => 'Right Thumb',
+            1 => 'Right Index',
+            2 => 'Right Middle',
+            3 => 'Right Ring',
+            4 => 'Right Pinky',
+            5 => 'Left Thumb',
+            6 => 'Left Index',
+            7 => 'Left Middle',
+            8 => 'Left Ring',
+            9 => 'Left Pinky',
+            default => 'Finger #'.$index,
+        };
     }
 
     public static function nextEmployeeId(string $prefix = 'EMP', bool $lockForUpdate = false): string
