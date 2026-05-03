@@ -86,8 +86,19 @@ class BiometricWebhookController extends Controller
         }
 
         $dedupKey = 'zlink:webhook:'.$requestId;
+        $startedAt = microtime(true);
+
+        Log::channel('biometric')->info('zlink.webhook.received', [
+            'requestId' => $requestId,
+            'eventCode' => $eventCode,
+        ]);
 
         if (Cache::has($dedupKey)) {
+            Log::channel('biometric')->info('zlink.webhook.duplicate', [
+                'requestId' => $requestId,
+                'eventCode' => $eventCode,
+            ]);
+
             return response()->json([
                 'code' => 'ZCOP0000',
                 'message' => 'Already processed',
@@ -98,9 +109,9 @@ class BiometricWebhookController extends Controller
         try {
             $records = $this->extractAttLogs($body);
         } catch (Throwable $e) {
-            Log::warning('BiometricWebhookController: payload parse failed', [
-                'error' => $e->getMessage(),
+            Log::channel('biometric')->warning('zlink.webhook.parse_failed', [
                 'requestId' => $requestId,
+                'error' => $e->getMessage(),
             ]);
 
             return $this->error('ZCOP1005', 'Could not decrypt or parse encryptData.');
@@ -108,11 +119,26 @@ class BiometricWebhookController extends Controller
 
         if ($eventCode === 'open:att_transaction:push' && $records !== []) {
             $device = $this->resolveDevice($body);
-            $this->processor->process($device, $records);
-        } else {
-            Log::info('BiometricWebhookController: unhandled event', [
-                'eventCode' => $eventCode,
+            $result = $this->processor->process($device, $records);
+
+            Log::channel('biometric')->info('zlink.webhook.processed', [
                 'requestId' => $requestId,
+                'device_sn' => $device->serial_number,
+                'received' => count($records),
+                'stored' => $result['stored'],
+                'issues' => $result['issues'],
+                'issue_types' => $result['issue_types'],
+                'pins' => array_values(array_unique(array_map(
+                    static fn (array $r): string => (string) ($r['pin'] ?? ''),
+                    $records,
+                ))),
+                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            ]);
+        } else {
+            Log::channel('biometric')->info('zlink.webhook.unhandled', [
+                'requestId' => $requestId,
+                'eventCode' => $eventCode,
+                'records' => count($records),
             ]);
         }
 

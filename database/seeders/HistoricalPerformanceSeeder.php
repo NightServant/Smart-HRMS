@@ -7,7 +7,7 @@ use App\Models\IpcrSubmission;
 use App\Models\IpcrTarget;
 use App\Models\IwrAuditLog;
 use App\Models\Notification;
-use App\Services\Biometric\EnrollmentService;
+use App\Services\Biometric\ZlinkPortalClient;
 use App\Services\IpcrFormTemplateService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
@@ -26,8 +26,12 @@ use Throwable;
  *     through 2025 (10 finalized periods per fully-tenured Admin Office
  *     employee). Every submission is finalized by HR and PMT.
  *   - Daily attendance + biometric punches for every workday from
- *     2021-01-01 through "today". Records start from each employee's
- *     hire date so newly-hired employees have shorter histories.
+ *     2021-01-01 through the most recent Thursday before today.
+ *     The Friday-onwards window is intentionally left empty so the
+ *     real Zlink webhook can populate it from live device punches
+ *     without colliding with synthetic data. Records start from each
+ *     employee's hire date so newly-hired employees have shorter
+ *     histories.
  */
 class HistoricalPerformanceSeeder extends Seeder
 {
@@ -109,12 +113,15 @@ class HistoricalPerformanceSeeder extends Seeder
      */
     private function seedAttendance(Collection $employees): void
     {
-        $today = CarbonImmutable::today();
+        // Stop at the most recent Thursday strictly before today. Friday →
+        // present is reserved for real webhook-driven punches so the seeded
+        // history and live attendance never overlap on the same date.
+        $cutoff = CarbonImmutable::today()->previous(Carbon::THURSDAY);
         $attendanceLowerBound = CarbonImmutable::parse(self::ATTENDANCE_START);
-        $enrollment = app(EnrollmentService::class);
+        $portal = app(ZlinkPortalClient::class);
 
         foreach ($employees as $index => $employee) {
-            if (! $this->hasZlinkFingerprint($employee, $enrollment)) {
+            if (! $this->hasZlinkFingerprint($employee, $portal)) {
                 $this->command?->info(
                     "Skipping attendance for {$employee->employee_id} — no fingerprint template on Zlink yet."
                 );
@@ -136,7 +143,7 @@ class HistoricalPerformanceSeeder extends Seeder
             $dailyRows = [];
             $punchRows = [];
 
-            while ($cursor->lessThanOrEqualTo($today)) {
+            while ($cursor->lessThanOrEqualTo($cutoff)) {
                 $year = $cursor->year;
                 $holidays = array_flip($this->holidaysFor($year));
                 $dateString = $cursor->toDateString();
@@ -181,20 +188,27 @@ class HistoricalPerformanceSeeder extends Seeder
      * a real fingerprint template on the Zlink terminal get historical
      * attendance backfilled. Re-running the seeder after a new enrollment
      * picks up the just-enrolled employee.
+     *
+     * Uses the SPA-validated `cms/credential/employee/list` endpoint via
+     * ZlinkPortalClient::findCredentialIdsByEmployeeCode. The
+     * fingerprint/devices endpoint and the open-API
+     * /biometric/v1/fingerprints/search both lag behind cloud reality on
+     * this tenant, so they would falsely report "no fingerprint" for
+     * employees that actually have a credential registered.
      */
-    private function hasZlinkFingerprint(Employee $employee, EnrollmentService $enrollment): bool
+    private function hasZlinkFingerprint(Employee $employee, ZlinkPortalClient $portal): bool
     {
         if (empty($employee->zkteco_pin)) {
             return false;
         }
 
         try {
-            $status = $enrollment->verificationStatus($employee);
+            $credentials = $portal->findCredentialIdsByEmployeeCode((string) $employee->zkteco_pin);
         } catch (Throwable) {
             return false;
         }
 
-        return ($status['fingerprint_count'] ?? 0) > 0;
+        return $credentials !== [];
     }
 
     /**

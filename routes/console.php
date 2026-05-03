@@ -10,4 +10,3 @@ Artisan::command('inspire', function () {
 
 Schedule::command('ipcr:expire-appeals')->hourly();
 Schedule::command('attendance:expire-manual-punches')->hourly();
-Schedule::command('attendance:pull-zlink')->everyMinute()->withoutOverlapping();

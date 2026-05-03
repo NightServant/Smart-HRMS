@@ -5,7 +5,6 @@ namespace App\Services\Biometric;
 use App\Services\SecretRepository;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -238,38 +237,6 @@ class ZlinkClient
         }
 
         return array_values(array_map(static fn ($row): array => (array) $row, $items));
-    }
-
-    /**
-     * Pull attendance transaction records from the Zlink open API for the given
-     * time window. The att subsystem accepts `startDateTime` / `endDateTime` in
-     * `Y-m-d H:i:s` format (local time). Returns a flat list of transaction
-     * rows — each row includes at minimum `employeeCode`, `checkTime`, and
-     * `areaName`.
-     *
-     * Field names confirmed via direct probing on 2026-05-03: only
-     * `startDateTime`/`endDateTime` satisfy the validator. The error codes
-     * ZCOP1020/ZCOP1021 ("Access record start/end time is required") are
-     * reported non-deterministically when the names don't match — they are
-     * not reliable for guessing the correct names.
-     *
-     * Note: this endpoint requires the `att/v1` permission to be granted to
-     * the open-API app key in the Zlink developer portal. Without it, calls
-     * return ZKBC0004 ("No permission, please authorize and then use this
-     * feature").
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    public function listAttendanceTransactions(Carbon $since, Carbon $until): array
-    {
-        return $this->paginatedSearch(
-            path: '/open-apis/att/v1/transactions/search',
-            listKey: 'list',
-            extra: [
-                'startDateTime' => $since->format('Y-m-d H:i:s'),
-                'endDateTime' => $until->format('Y-m-d H:i:s'),
-            ],
-        );
     }
 
     /**

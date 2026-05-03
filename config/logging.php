@@ -65,6 +65,15 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Dedicated channel for biometric webhook events. Tail with:
+        //   tail -f storage/logs/biometric.log
+        'biometric' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/biometric.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'replace_placeholders' => true,
+        ],
+
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
