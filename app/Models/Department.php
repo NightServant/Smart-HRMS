@@ -15,7 +15,21 @@ class Department extends Model
      */
     protected $fillable = [
         'name',
+        'zlink_department_id',
+        'zlink_synced_at',
+        'zlink_sync_status',
+        'zlink_sync_error',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'zlink_synced_at' => 'datetime',
+        ];
+    }
 
     public function employees(): \Illuminate\Database\Eloquent\Relations\HasMany
     {

@@ -2,6 +2,7 @@
 
 namespace App\Services\Biometric;
 
+use App\Services\SecretRepository;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
@@ -36,11 +37,14 @@ class ZlinkClient
             throw new RuntimeException('ZLINK_URL is not configured.');
         }
 
-        $appKey = (string) config('services.zlink.app_key');
-        $appSecret = (string) config('services.zlink.app_secret');
+        // Secrets are read from encrypted DB storage when present, with
+        // env fallback for first-run / CI. See app/Services/SecretRepository.
+        $secrets = app(SecretRepository::class);
+        $appKey = $secrets->get('zlink.app_key', 'services.zlink.app_key') ?? '';
+        $appSecret = $secrets->get('zlink.app_secret', 'services.zlink.app_secret') ?? '';
 
         if ($appKey === '' || $appSecret === '') {
-            throw new RuntimeException('ZLINK_APP_KEY and ZLINK_APP_SECRET must be set.');
+            throw new RuntimeException('Zlink open-API credentials are not configured. Run `php artisan zlink:secrets:migrate` or set ZLINK_APP_KEY and ZLINK_APP_SECRET.');
         }
 
         return new self(
@@ -104,6 +108,80 @@ class ZlinkClient
     public function createEmployee(array $payload): array
     {
         return $this->postJson('/open-apis/org/v1/employees', $payload);
+    }
+
+    /**
+     * Update an existing employee in Zlink (matched by employeeCode).
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function updateEmployee(array $payload): array
+    {
+        return $this->postJson('/open-apis/org/v1/employees/update', $payload);
+    }
+
+    /**
+     * Create a department in Zlink. Returns the new departmentId.
+     */
+    public function createDepartment(string $name, ?string $parentId = null): string
+    {
+        $body = ['name' => $name];
+
+        if ($parentId !== null && $parentId !== '') {
+            $body['parentDeptId'] = $parentId;
+        }
+
+        $payload = $this->postJson('/open-apis/org/v1/departments', $body);
+        $data = (array) ($payload['data'] ?? []);
+
+        $id = (string) ($data['departmentId'] ?? $data['id'] ?? '');
+
+        if ($id === '') {
+            throw new RuntimeException('Zlink createDepartment did not return a departmentId.');
+        }
+
+        return $id;
+    }
+
+    /**
+     * Rename / update a department in Zlink by its departmentId.
+     *
+     * @return array<string, mixed>
+     */
+    public function updateDepartment(string $departmentId, string $name): array
+    {
+        return $this->postJson('/open-apis/org/v1/departments/update', [
+            'departmentId' => $departmentId,
+            'name' => $name,
+        ]);
+    }
+
+    /**
+     * Look up an existing department by exact name. Returns the departmentId
+     * or null if not found. Used to avoid creating duplicates.
+     */
+    public function findDepartmentByName(string $name): ?string
+    {
+        $needle = trim(mb_strtolower($name));
+
+        if ($needle === '') {
+            return null;
+        }
+
+        foreach ($this->listDepartments() as $row) {
+            $rowName = trim(mb_strtolower((string) ($row['name'] ?? '')));
+
+            if ($rowName === $needle) {
+                $id = (string) ($row['id'] ?? $row['departmentId'] ?? '');
+
+                if ($id !== '') {
+                    return $id;
+                }
+            }
+        }
+
+        return null;
     }
 
     /**

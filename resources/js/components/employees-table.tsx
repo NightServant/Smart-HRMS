@@ -3,6 +3,7 @@ import {
     ArrowDown,
     ArrowUp,
     ArrowUpDown,
+    Pencil,
     Plus,
     Power,
     Search,
@@ -51,6 +52,7 @@ import employeeDirectoryRoutes from '@/routes/admin/employee-directory';
 import type { Auth } from '@/types';
 import { AddDepartmentDialog } from './add-department-dialog';
 import { AddPositionDialog } from './add-position-dialog';
+import { EditDepartmentDialog } from './edit-department-dialog';
 import PredictivePerformanceModule from './predict-performance-eval-modal';
 
 const ADD_POSITION_FILTER_VALUE = '__add_position__';
@@ -119,7 +121,7 @@ type StoreForm = {
 
 type UpdateForm = StoreForm & {
     is_active: boolean;
-    zkteco_pin: string;
+    zkteco_pin_override: string;
 };
 
 function formatStatus(status: string): string {
@@ -597,14 +599,17 @@ function ManageEmployeeDialog({
             employment_status: 'permanent',
             date_hired: '',
             is_active: true,
-            zkteco_pin: '',
+            zkteco_pin_override: '',
         });
+
+    const [isPinOverrideEnabled, setIsPinOverrideEnabled] = useState(false);
 
     useEffect(() => {
         if (!open || employee === null) {
             return;
         }
 
+        setIsPinOverrideEnabled(false);
         setData({
             name: employee.name,
             email: employee.email,
@@ -619,7 +624,7 @@ function ManageEmployeeDialog({
             employment_status: employee.employment_status,
             date_hired: employee.date_hired,
             is_active: employee.account_is_active,
-            zkteco_pin: employee.zkteco_pin ?? '',
+            zkteco_pin_override: '',
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, employee?.employee_id]);
@@ -841,24 +846,65 @@ function ManageEmployeeDialog({
                                     <Label htmlFor="edit-zkteco-pin">
                                         ZKTeco Person ID{' '}
                                         <span className="font-normal text-muted-foreground">
-                                            (from ZKBio Zlink Person ID column)
+                                            (auto-synced as Zlink emp_code)
                                         </span>
                                     </Label>
                                     <Input
                                         id="edit-zkteco-pin"
                                         type="text"
-                                        placeholder="e.g. EMP002 or 229532"
-                                        value={data.zkteco_pin}
+                                        value={
+                                            isPinOverrideEnabled
+                                                ? data.zkteco_pin_override
+                                                : (employee?.zkteco_pin ?? '')
+                                        }
+                                        readOnly={!isPinOverrideEnabled}
+                                        placeholder={
+                                            isPinOverrideEnabled
+                                                ? 'e.g. EMP002 or 229532'
+                                                : ''
+                                        }
                                         onChange={(event) =>
                                             setData(
-                                                'zkteco_pin',
+                                                'zkteco_pin_override',
                                                 event.target.value,
                                             )
                                         }
+                                        className={
+                                            isPinOverrideEnabled
+                                                ? ''
+                                                : 'border-dashed bg-muted/35 text-foreground'
+                                        }
                                     />
-                                    {errors.zkteco_pin && (
+                                    <div className="flex items-center gap-2 pt-1">
+                                        <Checkbox
+                                            id="edit-zkteco-pin-override"
+                                            checked={isPinOverrideEnabled}
+                                            onCheckedChange={(checked) => {
+                                                const enabled =
+                                                    checked === true;
+                                                setIsPinOverrideEnabled(
+                                                    enabled,
+                                                );
+                                                if (!enabled) {
+                                                    setData(
+                                                        'zkteco_pin_override',
+                                                        '',
+                                                    );
+                                                }
+                                            }}
+                                        />
+                                        <Label
+                                            htmlFor="edit-zkteco-pin-override"
+                                            className="text-xs text-muted-foreground"
+                                        >
+                                            Override ZKTeco Person ID (use
+                                            only if Zlink already has a
+                                            different code for this employee)
+                                        </Label>
+                                    </div>
+                                    {errors.zkteco_pin_override && (
                                         <p className="text-xs text-destructive">
-                                            {errors.zkteco_pin}
+                                            {errors.zkteco_pin_override}
                                         </p>
                                     )}
                                 </div>
@@ -975,6 +1021,7 @@ export function EmployeesTable({
     const [currentPositionFilter, setCurrentPositionFilter] =
         useState(positionFilter);
     const [isAddDepartmentOpen, setIsAddDepartmentOpen] = useState(false);
+    const [isEditDepartmentOpen, setIsEditDepartmentOpen] = useState(false);
     const [isAddPositionOpen, setIsAddPositionOpen] = useState(false);
     const [isPredictiveModalOpen, setIsPredictiveModalOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
@@ -1215,6 +1262,23 @@ export function EmployeesTable({
                                         Add Department
                                     </Button>
                                 )}
+                                {canFilterByDepartment &&
+                                    activeDepartment &&
+                                    !isHrmoActive && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-1.5"
+                                            onClick={() =>
+                                                setIsEditDepartmentOpen(true)
+                                            }
+                                            title="Rename the current department (syncs to Zlink)"
+                                        >
+                                            <Pencil className="size-4" />
+                                            Edit Department
+                                        </Button>
+                                    )}
                                 <Button
                                     type="button"
                                     size="sm"
@@ -1580,6 +1644,12 @@ export function EmployeesTable({
             <AddDepartmentDialog
                 open={isAddDepartmentOpen}
                 onOpenChange={setIsAddDepartmentOpen}
+            />
+            <EditDepartmentDialog
+                open={isEditDepartmentOpen}
+                onOpenChange={setIsEditDepartmentOpen}
+                departmentId={activeDepartment?.id ?? null}
+                departmentName={activeDepartment?.name ?? ''}
             />
             <AddPositionDialog
                 open={isAddPositionOpen}

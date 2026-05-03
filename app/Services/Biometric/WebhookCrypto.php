@@ -2,6 +2,7 @@
 
 namespace App\Services\Biometric;
 
+use App\Services\SecretRepository;
 use RuntimeException;
 
 /**
@@ -25,10 +26,12 @@ class WebhookCrypto
 
     public static function fromConfig(): self
     {
+        $secrets = app(SecretRepository::class);
+
         return new self(
-            signatureToken: (string) config('services.zlink.signature_token'),
-            appKey: (string) config('services.zlink.app_key'),
-            encryptionKey: (string) config('services.zlink.encryption_key'),
+            signatureToken: $secrets->get('zlink.signature_token', 'services.zlink.signature_token') ?? '',
+            appKey: $secrets->get('zlink.app_key', 'services.zlink.app_key') ?? '',
+            encryptionKey: $secrets->get('zlink.encryption_key', 'services.zlink.encryption_key') ?? '',
         );
     }
 

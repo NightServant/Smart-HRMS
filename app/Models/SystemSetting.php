@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 
 class SystemSetting extends Model
 {
@@ -77,6 +78,35 @@ class SystemSetting extends Model
         );
     }
 
+    /**
+     * Store an encrypted string. The plaintext is never persisted — Crypt
+     * uses the application's APP_KEY for AES-256-CBC. Reading back via
+     * SystemSetting::get() automatically decrypts when type === 'encrypted'.
+     */
+    public static function setEncrypted(
+        string $key,
+        string $plaintext,
+        ?int $userId,
+        string $group = 'secrets',
+        string $label = '',
+        ?string $description = null,
+    ): void {
+        static::query()->updateOrCreate(
+            ['key' => $key],
+            [
+                'value' => Crypt::encryptString($plaintext),
+                'type' => 'encrypted',
+                'group' => $group,
+                'label' => $label !== '' ? $label : $key,
+                'description' => $description,
+                'updated_by' => $userId,
+            ],
+        );
+
+        Cache::forget("system_settings.{$key}");
+        Cache::forget("system_settings.group.{$group}");
+    }
+
     private static function castValue(?string $value, string $type): mixed
     {
         if ($value === null) {
@@ -87,6 +117,7 @@ class SystemSetting extends Model
             'integer' => (int) $value,
             'float' => (float) $value,
             'boolean' => filter_var($value, FILTER_VALIDATE_BOOLEAN),
+            'encrypted' => Crypt::decryptString($value),
             default => $value,
         };
     }

@@ -132,6 +132,9 @@ Route::delete('admin/employee-directory/{employee}', [EmployeeDirectoryControlle
 Route::post('admin/departments', [DepartmentController::class, 'store'])
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.departments.store');
+Route::put('admin/departments/{department}', [DepartmentController::class, 'update'])
+    ->middleware(['auth', 'role:hr-personnel'])
+    ->name('admin.departments.update');
 
 Route::post('admin/positions', [PositionController::class, 'store'])
     ->middleware(['auth', 'role:hr-personnel'])

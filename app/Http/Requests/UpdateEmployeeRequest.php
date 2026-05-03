@@ -53,7 +53,10 @@ class UpdateEmployeeRequest extends FormRequest
             'employment_status' => ['required', 'string', Rule::in(['permanent', 'casual', 'job_order'])],
             'date_hired' => ['required', 'date'],
             'is_active' => ['required', 'boolean'],
-            'zkteco_pin' => [
+            // zkteco_pin is auto-derived from employee_id and synced to
+            // Zlink. HR may opt-in to override via this explicit field.
+            'zkteco_pin_override' => [
+                'sometimes',
                 'nullable',
                 'string',
                 'max:50',

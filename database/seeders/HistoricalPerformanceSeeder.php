@@ -7,6 +7,7 @@ use App\Models\IpcrSubmission;
 use App\Models\IpcrTarget;
 use App\Models\IwrAuditLog;
 use App\Models\Notification;
+use App\Services\Biometric\EnrollmentService;
 use App\Services\IpcrFormTemplateService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
@@ -14,6 +15,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Random\Randomizer;
+use Throwable;
 
 /**
  * Seeds the historical IPCR + attendance dataset that powers the historical
@@ -109,8 +111,17 @@ class HistoricalPerformanceSeeder extends Seeder
     {
         $today = CarbonImmutable::today();
         $attendanceLowerBound = CarbonImmutable::parse(self::ATTENDANCE_START);
+        $enrollment = app(EnrollmentService::class);
 
         foreach ($employees as $index => $employee) {
+            if (! $this->hasZlinkFingerprint($employee, $enrollment)) {
+                $this->command?->info(
+                    "Skipping attendance for {$employee->employee_id} — no fingerprint template on Zlink yet."
+                );
+
+                continue;
+            }
+
             $archetype = $this->archetypeFor($index);
 
             $hireDate = $employee->date_hired
@@ -163,6 +174,27 @@ class HistoricalPerformanceSeeder extends Seeder
                 DB::table('attendance_records')->insert($chunk);
             }
         }
+    }
+
+    /**
+     * Canonical "is enrolled" check used by the seeder: only employees with
+     * a real fingerprint template on the Zlink terminal get historical
+     * attendance backfilled. Re-running the seeder after a new enrollment
+     * picks up the just-enrolled employee.
+     */
+    private function hasZlinkFingerprint(Employee $employee, EnrollmentService $enrollment): bool
+    {
+        if (empty($employee->zkteco_pin)) {
+            return false;
+        }
+
+        try {
+            $status = $enrollment->verificationStatus($employee);
+        } catch (Throwable) {
+            return false;
+        }
+
+        return ($status['fingerprint_count'] ?? 0) > 0;
     }
 
     /**

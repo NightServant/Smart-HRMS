@@ -73,7 +73,11 @@ class AttendanceRecordController extends Controller
             'employeeName' => $employee?->name ?? $request->user()->name,
             'hasDevice' => $hasDevice,
             'enrolledInBiometric' => ! empty($employee?->webauthn_credential_id),
-            'enrolledAtTerminal' => ! empty($employee?->zkteco_pin),
+            // True only if real biometric attendance exists. Pre-assigned
+            // zkteco_pin alone does not mean the user has actually enrolled
+            // a fingerprint at the terminal.
+            'enrolledAtTerminal' => $employee?->hasBiometricActivity() ?? false,
+            'zktecoPinAssigned' => ! empty($employee?->zkteco_pin),
             'enrollmentStatus' => $enrollmentStatus,
             'manualPunchEnabled' => (bool) ($employee?->manual_punch_enabled ?? false),
         ]);

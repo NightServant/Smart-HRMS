@@ -5,12 +5,15 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
+use App\Jobs\SyncDepartmentToZlinkJob;
+use App\Jobs\SyncEmployeeToZlinkJob;
 use App\Models\ActivityLog;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeePosition;
 use App\Models\User;
 use App\Notifications\EmployeeAccountCredentialsNotification;
+use App\Services\Biometric\EmployeeSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -53,6 +56,8 @@ class EmployeeDirectoryController extends Controller
                 'position_id' => $position->id,
                 'employment_status' => $validated['employment_status'],
                 'date_hired' => $validated['date_hired'],
+                'zkteco_pin' => EmployeeSyncService::deriveZktecoPin($employeeId),
+                'zlink_sync_status' => 'pending',
             ]);
 
             $user = User::query()->create([
@@ -84,6 +89,10 @@ class EmployeeDirectoryController extends Controller
             temporaryPassword: $temporaryPassword,
         ));
 
+        if ($employee !== null) {
+            SyncEmployeeToZlinkJob::dispatch($employee->employee_id)->afterCommit();
+        }
+
         return back()
             ->with('success', 'Employee created successfully and the linked account is ready to sign in.')
             ->with('employeeAccountCredentials', [
@@ -110,15 +119,29 @@ class EmployeeDirectoryController extends Controller
             $isActive = (bool) $validated['is_active'];
             $linkedUser = $employee->user;
 
-            $employee->update([
+            $update = [
                 'name' => $validated['name'],
                 'job_title' => $position->name,
                 'department_id' => $department->id,
                 'position_id' => $position->id,
                 'employment_status' => $validated['employment_status'],
                 'date_hired' => $validated['date_hired'],
-                'zkteco_pin' => $validated['zkteco_pin'] ?? null,
-            ]);
+                'zlink_sync_status' => 'pending',
+            ];
+
+            // zkteco_pin is the canonical Zlink emp_code and is derived from
+            // employee_id. HR may only override it via the optional
+            // override field; otherwise we keep the existing pin or
+            // backfill from employee_id if missing.
+            if (! empty($validated['zkteco_pin_override'] ?? null)) {
+                $update['zkteco_pin'] = $validated['zkteco_pin_override'];
+            } elseif (empty($employee->zkteco_pin)) {
+                $update['zkteco_pin'] = EmployeeSyncService::deriveZktecoPin(
+                    (string) $employee->employee_id,
+                );
+            }
+
+            $employee->update($update);
 
             if ($linkedUser !== null) {
                 $this->guardHrPersonnelState(
@@ -167,6 +190,8 @@ class EmployeeDirectoryController extends Controller
                 ]
             );
         });
+
+        SyncEmployeeToZlinkJob::dispatch($employee->employee_id)->afterCommit();
 
         if ($createdLinkedAccount) {
             return back()
@@ -219,9 +244,16 @@ class EmployeeDirectoryController extends Controller
     private function resolveDepartment(array $validated): Department
     {
         if (($validated['department_mode'] ?? 'existing') === 'new') {
-            return Department::query()->firstOrCreate([
-                'name' => $validated['department_name'],
-            ]);
+            $department = Department::query()->firstOrCreate(
+                ['name' => $validated['department_name']],
+                ['zlink_sync_status' => 'pending'],
+            );
+
+            if ($department->wasRecentlyCreated) {
+                SyncDepartmentToZlinkJob::dispatch($department->id)->afterCommit();
+            }
+
+            return $department;
         }
 
         return Department::query()->findOrFail($validated['department_id']);

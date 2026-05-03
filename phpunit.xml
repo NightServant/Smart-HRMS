@@ -32,5 +32,9 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="ZLINK_APP_KEY" value=""/>
+        <env name="ZLINK_APP_SECRET" value=""/>
+        <env name="ZLINK_DEFAULT_DEPARTMENT_ID" value=""/>
+        <env name="ZLINK_DEFAULT_DEVICE_SN" value=""/>
     </php>
 </phpunit>

@@ -25,12 +25,14 @@ export default function Attendance({
     employeeId,
     employeeName,
     enrolledAtTerminal = false,
+    zktecoPinAssigned = false,
     manualPunchEnabled = false,
 }: {
     records: DailyAttendanceRecord[];
     employeeId: string;
     employeeName: string;
     enrolledAtTerminal?: boolean;
+    zktecoPinAssigned?: boolean;
     manualPunchEnabled?: boolean;
 }) {
     return (
@@ -42,6 +44,7 @@ export default function Attendance({
                     employeeId={employeeId}
                     employeeName={employeeName}
                     enrolledAtTerminal={enrolledAtTerminal}
+                    zktecoPinAssigned={zktecoPinAssigned}
                     manualPunchEnabled={manualPunchEnabled}
                 />
             </div>

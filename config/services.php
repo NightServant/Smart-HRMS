@@ -46,6 +46,25 @@ return [
         'page_size' => (int) env('ZLINK_PAGE_SIZE', 200),
         'default_department_id' => env('ZLINK_DEFAULT_DEPARTMENT_ID'),
         'default_device_sn' => env('ZLINK_DEFAULT_DEVICE_SN'),
+
+        // Customer admin portal (zlink.minervaiot.com). Used for the unpublished
+        // remote-registration trigger that the open API doesn't expose. Credentials
+        // are an Owner/Admin login on the Zlink web portal.
+        'portal_url' => env('ZLINK_PORTAL_URL', 'https://zlink.minervaiot.com'),
+        'portal_username' => env('ZLINK_PORTAL_USERNAME'),
+        'portal_password' => env('ZLINK_PORTAL_PASSWORD'),
+        'portal_device_id' => env('ZLINK_PORTAL_DEVICE_ID'),
+        'portal_company_id' => env('ZLINK_PORTAL_COMPANY_ID'),
+        'portal_token_ttl_minutes' => (int) env('ZLINK_PORTAL_TOKEN_TTL_MINUTES', 55),
+
+        // Browser-fingerprint headers required by the portal SPA.
+        'portal_device_unique_id' => env('ZLINK_PORTAL_DEVICE_UNIQUE_ID', '00000000-0000-4000-8000-000000000001'),
+        'portal_timezone' => env('ZLINK_PORTAL_TIMEZONE', 'Asia/Manila;dst=0;UTC=+08:00;'),
+
+        // Debugging escape hatch. Paste a Bearer token captured from the Zlink
+        // SPA DevTools to skip the login chain and isolate whether 401s come
+        // from auth or from the request headers.
+        'portal_bearer_override' => env('ZLINK_PORTAL_BEARER_OVERRIDE'),
     ],
 
 ];

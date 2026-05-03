@@ -37,6 +37,9 @@ class Employee extends Model
         'manual_punch_start_date',
         'manual_punch_end_date',
         'date_hired',
+        'zlink_synced_at',
+        'zlink_sync_status',
+        'zlink_sync_error',
     ];
 
     /**
@@ -49,6 +52,7 @@ class Employee extends Model
             'webauthn_sign_count' => 'integer',
             'webauthn_enrolled_at' => 'datetime',
             'date_hired' => 'date',
+            'zlink_synced_at' => 'datetime',
         ];
     }
 
@@ -133,6 +137,19 @@ class Employee extends Model
     public function leaveRequests(): HasMany
     {
         return $this->hasMany(LeaveRequest::class, 'employee_id', 'employee_id');
+    }
+
+    /**
+     * Whether this employee has any biometric attendance activity. This is
+     * the canonical signal that the user is actually enrolled at a terminal,
+     * since Zlink push-back only happens after a successful punch.
+     */
+    public function hasBiometricActivity(): bool
+    {
+        return AttendanceRecord::query()
+            ->where('employee_id', $this->employee_id)
+            ->where('source', 'biometric')
+            ->exists();
     }
 
     /**
