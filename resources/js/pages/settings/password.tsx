@@ -1,7 +1,14 @@
 import { Form, Head, usePage } from '@inertiajs/react';
-import { CheckCircle2, KeyRound, LockKeyhole, ShieldCheck } from 'lucide-react';
+import {
+    CheckCircle2,
+    Eye,
+    EyeOff,
+    KeyRound,
+    LockKeyhole,
+    ShieldCheck,
+} from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { toast } from 'sonner';
 import PasswordController from '@/actions/App/Http/Controllers/Settings/PasswordController';
 import InputError from '@/components/input-error';
@@ -21,6 +28,11 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
+type PasswordVisibilityField =
+    | 'current_password'
+    | 'password'
+    | 'password_confirmation';
+
 function SectionCard({
     title,
     description,
@@ -33,7 +45,9 @@ function SectionCard({
     return (
         <section className="glass-card rounded-[26px] border border-border/70 bg-card/80 p-5 shadow-sm backdrop-blur-md sm:p-6">
             <div className="space-y-1">
-                <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
+                <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                    {title}
+                </h2>
                 <p className="text-sm text-muted-foreground">{description}</p>
             </div>
             <div className="mt-5">{children}</div>
@@ -66,9 +80,22 @@ export default function Password() {
     const { auth } = usePage<{ auth: Auth }>().props;
     const passwordInput = useRef<HTMLInputElement>(null);
     const currentPasswordInput = useRef<HTMLInputElement>(null);
+    const [visiblePasswords, setVisiblePasswords] = useState<
+        Record<PasswordVisibilityField, boolean>
+    >({
+        current_password: false,
+        password: false,
+        password_confirmation: false,
+    });
     const isFirstLoginPasswordChange = Boolean(
         auth.user.must_change_password && auth.user.role === 'employee',
     );
+    const togglePasswordVisibility = (field: PasswordVisibilityField) => {
+        setVisiblePasswords((current) => ({
+            ...current,
+            [field]: !current[field],
+        }));
+    };
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -78,7 +105,7 @@ export default function Password() {
 
             <SettingsLayout contentClassName="max-w-5xl space-y-8">
                 <section className="glass-card overflow-hidden rounded-[28px] border border-border/70 bg-card/85 shadow-sm backdrop-blur-md">
-                    <div className="relative h-28 bg-gradient-to-r from-brand-200/80 via-brand-100/70 to-complement-sky-200/50 dark:from-brand-900/40 dark:via-brand-800/20 dark:to-complement-sky-900/20">
+                    <div className="to-complement-sky-200/50 dark:to-complement-sky-900/20 relative h-28 bg-gradient-to-r from-brand-200/80 via-brand-100/70 dark:from-brand-900/40 dark:via-brand-800/20">
                         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.45),transparent_42%)] dark:bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.08),transparent_42%)]" />
                     </div>
 
@@ -95,20 +122,32 @@ export default function Password() {
                                             Update password
                                         </h2>
                                         <p className="max-w-2xl text-sm font-medium text-muted-foreground md:text-base">
-                                            Keep your account secure with a strong password that is unique to Smart HRMS.
+                                            Keep your account secure with a
+                                            strong password that is unique to
+                                            Smart HRMS.
                                         </p>
                                         {isFirstLoginPasswordChange && (
                                             <p className="max-w-2xl text-sm font-semibold text-brand-900 dark:text-brand-100">
-                                                Your employee account is using a temporary password. Retype the old password below, then set the new one you want to use for future logins.
+                                                Your employee account is using a
+                                                temporary password. Retype the
+                                                old password below, then set the
+                                                new one you want to use for
+                                                future logins.
                                             </p>
                                         )}
                                     </div>
 
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <Badge variant="outline" className="bg-background/80">
+                                        <Badge
+                                            variant="outline"
+                                            className="bg-background/80"
+                                        >
                                             Credentials
                                         </Badge>
-                                        <Badge variant="outline" className="bg-background/80">
+                                        <Badge
+                                            variant="outline"
+                                            className="bg-background/80"
+                                        >
                                             Security settings
                                         </Badge>
                                     </div>
@@ -116,7 +155,9 @@ export default function Password() {
 
                                 <div className="inline-flex items-center gap-2 rounded-full bg-background/80 px-3 py-2 text-sm text-muted-foreground shadow-sm backdrop-blur-sm">
                                     <ShieldCheck className="size-4 text-foreground" />
-                                    <span>Available to every signed-in role</span>
+                                    <span>
+                                        Available to every signed-in role
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -155,53 +196,154 @@ export default function Password() {
                                 <>
                                     <div className="grid gap-5 md:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor="current_password">Retype old password</Label>
-
-                                            <Input
-                                                id="current_password"
-                                                ref={currentPasswordInput}
-                                                name="current_password"
-                                                type="password"
-                                                autoComplete="current-password"
-                                                placeholder="Retype your old password"
+                                            <Label htmlFor="current_password">
+                                                Retype old password
+                                            </Label>
+                                            <div className="relative">
+                                                <Input
+                                                    id="current_password"
+                                                    ref={currentPasswordInput}
+                                                    name="current_password"
+                                                    type={
+                                                        visiblePasswords.current_password
+                                                            ? 'text'
+                                                            : 'password'
+                                                    }
+                                                    autoComplete="current-password"
+                                                    placeholder="Retype your old password"
+                                                    className="pr-10"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    tabIndex={-1}
+                                                    onClick={() =>
+                                                        togglePasswordVisibility(
+                                                            'current_password',
+                                                        )
+                                                    }
+                                                    className="absolute top-1/2 right-1 size-7 -translate-y-1/2 rounded-md text-muted-foreground hover:text-foreground"
+                                                    aria-label={
+                                                        visiblePasswords.current_password
+                                                            ? 'Hide password'
+                                                            : 'Show password'
+                                                    }
+                                                >
+                                                    {visiblePasswords.current_password ? (
+                                                        <EyeOff className="size-4" />
+                                                    ) : (
+                                                        <Eye className="size-4" />
+                                                    )}
+                                                </Button>
+                                            </div>
+                                            <InputError
+                                                message={
+                                                    errors.current_password
+                                                }
                                             />
-
-                                            <InputError message={errors.current_password} />
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="password">New password</Label>
-
-                                            <Input
-                                                id="password"
-                                                ref={passwordInput}
-                                                name="password"
-                                                type="password"
-                                                autoComplete="new-password"
-                                                placeholder="Create a new password"
+                                            <Label htmlFor="password">
+                                                New password
+                                            </Label>
+                                            <div className="relative">
+                                                <Input
+                                                    id="password"
+                                                    ref={passwordInput}
+                                                    name="password"
+                                                    type={
+                                                        visiblePasswords.password
+                                                            ? 'text'
+                                                            : 'password'
+                                                    }
+                                                    autoComplete="new-password"
+                                                    placeholder="Create a new password"
+                                                    className="pr-10"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    tabIndex={-1}
+                                                    onClick={() =>
+                                                        togglePasswordVisibility(
+                                                            'password',
+                                                        )
+                                                    }
+                                                    className="absolute top-1/2 right-1 size-7 -translate-y-1/2 rounded-md text-muted-foreground hover:text-foreground"
+                                                    aria-label={
+                                                        visiblePasswords.password
+                                                            ? 'Hide password'
+                                                            : 'Show password'
+                                                    }
+                                                >
+                                                    {visiblePasswords.password ? (
+                                                        <EyeOff className="size-4" />
+                                                    ) : (
+                                                        <Eye className="size-4" />
+                                                    )}
+                                                </Button>
+                                            </div>
+                                            <InputError
+                                                message={errors.password}
                                             />
-
-                                            <InputError message={errors.password} />
                                         </div>
 
                                         <div className="space-y-2">
-                                            <Label htmlFor="password_confirmation">Confirm new password</Label>
-
-                                            <Input
-                                                id="password_confirmation"
-                                                name="password_confirmation"
-                                                type="password"
-                                                autoComplete="new-password"
-                                                placeholder="Confirm your new password"
+                                            <Label htmlFor="password_confirmation">
+                                                Confirm new password
+                                            </Label>
+                                            <div className="relative">
+                                                <Input
+                                                    id="password_confirmation"
+                                                    name="password_confirmation"
+                                                    type={
+                                                        visiblePasswords.password_confirmation
+                                                            ? 'text'
+                                                            : 'password'
+                                                    }
+                                                    autoComplete="new-password"
+                                                    placeholder="Confirm your new password"
+                                                    className="pr-10"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    tabIndex={-1}
+                                                    onClick={() =>
+                                                        togglePasswordVisibility(
+                                                            'password_confirmation',
+                                                        )
+                                                    }
+                                                    className="absolute top-1/2 right-1 size-7 -translate-y-1/2 rounded-md text-muted-foreground hover:text-foreground"
+                                                    aria-label={
+                                                        visiblePasswords.password_confirmation
+                                                            ? 'Hide password'
+                                                            : 'Show password'
+                                                    }
+                                                >
+                                                    {visiblePasswords.password_confirmation ? (
+                                                        <EyeOff className="size-4" />
+                                                    ) : (
+                                                        <Eye className="size-4" />
+                                                    )}
+                                                </Button>
+                                            </div>
+                                            <InputError
+                                                message={
+                                                    errors.password_confirmation
+                                                }
                                             />
-
-                                            <InputError message={errors.password_confirmation} />
                                         </div>
                                     </div>
 
                                     <div className="flex flex-col gap-3 border-t border-border/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
                                         <p className="text-sm text-muted-foreground">
-                                            Your new password will be used the next time you sign in.
+                                            Your new password will be used the
+                                            next time you sign in.
                                         </p>
 
                                         <Button
@@ -225,13 +367,18 @@ export default function Password() {
                         >
                             <div className="space-y-3">
                                 <SecurityNote icon={ShieldCheck}>
-                                    Use a password that is long, unique, and not reused on another site or device.
+                                    Use a password that is long, unique, and not
+                                    reused on another site or device.
                                 </SecurityNote>
                                 <SecurityNote icon={KeyRound}>
-                                    Consider using a passphrase or password manager so your credentials are easier to remember and harder to guess.
+                                    Consider using a passphrase or password
+                                    manager so your credentials are easier to
+                                    remember and harder to guess.
                                 </SecurityNote>
                                 <SecurityNote icon={CheckCircle2}>
-                                    After changing your password, review your Two-Factor Auth tab for stronger account protection.
+                                    After changing your password, review your
+                                    Two-Factor Auth tab for stronger account
+                                    protection.
                                 </SecurityNote>
                             </div>
                         </SectionCard>
@@ -242,12 +389,21 @@ export default function Password() {
                         >
                             <div className="grid gap-4 sm:grid-cols-2">
                                 <div className="rounded-2xl border border-border/70 bg-muted/10 p-4">
-                                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Affects</p>
-                                    <p className="mt-2 text-sm font-medium text-foreground">Password for future logins</p>
+                                    <p className="text-xs tracking-[0.16em] text-muted-foreground uppercase">
+                                        Affects
+                                    </p>
+                                    <p className="mt-2 text-sm font-medium text-foreground">
+                                        Password for future logins
+                                    </p>
                                 </div>
                                 <div className="rounded-2xl border border-border/70 bg-muted/10 p-4">
-                                    <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Does not affect</p>
-                                    <p className="mt-2 text-sm font-medium text-foreground">Profile details, role access, or employee data</p>
+                                    <p className="text-xs tracking-[0.16em] text-muted-foreground uppercase">
+                                        Does not affect
+                                    </p>
+                                    <p className="mt-2 text-sm font-medium text-foreground">
+                                        Profile details, role access, or
+                                        employee data
+                                    </p>
                                 </div>
                             </div>
                         </SectionCard>
