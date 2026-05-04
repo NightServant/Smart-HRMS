@@ -36,7 +36,8 @@ class EmployeeAccountCredentialsNotification extends Notification
             ->line("Employee ID: {$this->employeeId}")
             ->line("Login email: {$this->email}")
             ->line("Temporary password: {$this->temporaryPassword}")
-            ->line('Please sign in and change your password as soon as possible after your first login.');
+            ->line('Please sign in and change your password as soon as possible after your first login.')
+            ->salutation('Regards, Smart HRMS');
 
         $override = config('mail.credentials_recipient');
 
