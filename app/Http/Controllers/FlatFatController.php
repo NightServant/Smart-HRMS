@@ -32,6 +32,8 @@ class FlatFatController extends Controller
             $quarter = $request->query('quarter');
             $employees = Employee::query()
                 ->whereNotIn('employee_id', self::EXCLUDED_EMPLOYEE_IDS)
+                ->select(['employee_id', 'name'])
+                ->take(200)
                 ->get();
 
             if ($employees->isEmpty()) {
@@ -207,6 +209,8 @@ class FlatFatController extends Controller
             $quarter = $request->query('quarter');
             $employees = Employee::query()
                 ->whereNotIn('employee_id', self::EXCLUDED_EMPLOYEE_IDS)
+                ->select(['employee_id', 'name'])
+                ->take(200)
                 ->get();
 
             if ($employees->isEmpty()) {
@@ -264,6 +268,7 @@ class FlatFatController extends Controller
         try {
             $historicalRecords = HistoricalDataRecord::query()
                 ->orderByDesc('year')
+                ->take(2000)
                 ->get()
                 ->map(function (HistoricalDataRecord $record): ?array {
                     $period = $record->resolvedPeriod();

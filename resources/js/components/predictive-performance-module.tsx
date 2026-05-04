@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 import { DashboardPanelCard } from '@/components/admin-system-dashboard-cards';
 import PredictionDisplay, {
     type PredictionResult,
@@ -16,11 +17,24 @@ type EmployeeProfile = {
 
 type PageProps = {
     employeeProfile?: EmployeeProfile | null;
-    prediction?: PredictionResult | null;
 };
 
 export default function PredictivePerformance() {
-    const { employeeProfile, prediction } = usePage<PageProps>().props;
+    const { employeeProfile } = usePage<PageProps>().props;
+    const [prediction, setPrediction] = useState<PredictionResult | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!employeeProfile?.name) {
+            setLoading(false);
+            return;
+        }
+        fetch(`/api/predict?employee_name=${encodeURIComponent(employeeProfile.name)}`)
+            .then((r) => r.json())
+            .then((data) => setPrediction(data))
+            .catch(() => {})
+            .finally(() => setLoading(false));
+    }, [employeeProfile?.name]);
 
     return (
         <DashboardPanelCard
@@ -64,10 +78,7 @@ export default function PredictivePerformance() {
                 </div>
             </div>
 
-            <PredictionDisplay
-                prediction={prediction ?? null}
-                loading={false}
-            />
+            <PredictionDisplay prediction={prediction} loading={loading} />
             {employeeProfile?.performance_rating ? (
                 <div className="mt-4 flex flex-wrap gap-2">
                     <Badge variant="outline">

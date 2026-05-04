@@ -24,6 +24,7 @@ export type Recommendation = {
 type Props = {
     recommendations: Recommendation[];
     riskLevel?: string;
+    loading?: boolean;
 };
 
 const insetTile =
@@ -97,6 +98,7 @@ function PriorityBadge({ priority }: { priority: 'HIGH' | 'MEDIUM' | 'LOW' }) {
 export default function TrainingRecommendations({
     recommendations,
     riskLevel,
+    loading = false,
 }: Props) {
     const uniqueFocusAreas = new Set(
         recommendations.map((r) => r.matched_area),
@@ -157,21 +159,23 @@ export default function TrainingRecommendations({
                 className="relative flex min-h-0 w-full flex-1 flex-col [&_[data-slot=carousel-content]]:min-h-0 [&_[data-slot=carousel-content]]:flex-1 [&_[data-slot=carousel-content]>div]:h-full"
             >
                 <CarouselContent className="-ml-2 h-full md:-ml-4">
-                    {/* Empty state */}
+                    {/* Loading / empty state */}
                     {recommendations.length === 0 && (
                         <CarouselItem className="h-full basis-full">
                             <div className="flex min-h-[14rem] flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border/70 bg-muted/10 px-6 text-center text-sm text-muted-foreground">
                                 <BookOpen className="size-8 opacity-45" />
                                 <div className="space-y-1">
                                     <p className="font-medium text-foreground">
-                                        No recommendations yet
+                                        {loading ? 'Loading recommendations…' : 'No recommendations yet'}
                                     </p>
-                                    <p>
-                                        Complete your IPCR target and evaluation
-                                        submission to receive personalized
-                                        training suggestions matched to your
-                                        performance ratings.
-                                    </p>
+                                    {!loading && (
+                                        <p>
+                                            Complete your IPCR target and evaluation
+                                            submission to receive personalized
+                                            training suggestions matched to your
+                                            performance ratings.
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         </CarouselItem>

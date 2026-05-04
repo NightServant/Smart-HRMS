@@ -344,9 +344,14 @@ Route::post('admin/training-suggestions/notify-all', [SeminarsController::class,
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.training-suggestions.notify-all');
 
+// ATRE (Automated Training Recommendation Engine) API
+Route::get('api/recommend', [\App\Http\Controllers\RecommendationController::class, 'recommend'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('api.recommend');
+
 // PPE (Predictive Performance Evaluation) API
 Route::get('api/predict', [PredictionController::class, 'predict'])
-    ->middleware(['auth', 'role:evaluator,hr-personnel'])
+    ->middleware(['auth', 'role:employee,evaluator,hr-personnel'])
     ->name('api.predict');
 
 require __DIR__.'/settings.php';

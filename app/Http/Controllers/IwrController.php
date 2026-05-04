@@ -22,12 +22,10 @@ use App\Models\Notification;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Services\ActivityLogger;
-use App\Services\AtreService;
 use App\Services\IpcrFormTemplateService;
 use App\Services\IwrService;
 use App\Services\NotificationService;
 use App\Services\PeriodService;
-use App\Services\PpeService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,7 +46,7 @@ class IwrController extends Controller
         private PeriodService $periodService,
     ) {}
 
-    public function submitEvaluationPage(Request $request, AtreService $atre, PpeService $ppe): Response
+    public function submitEvaluationPage(Request $request): Response
     {
         $employee = $request->user()->employee;
         $currentPeriod = $this->currentPeriod();
@@ -78,7 +76,7 @@ class IwrController extends Controller
                 ? $this->submissionResource($latestSubmission)
                 : null,
             'employeePanel' => $employee
-                ? $this->employeePanelResource($request, $employee, $latestSubmission, $currentPeriod, $atre, $ppe)
+                ? $this->employeePanelResource($request, $employee, $latestSubmission, $currentPeriod)
                 : null,
         ]);
     }
@@ -1743,18 +1741,15 @@ class IwrController extends Controller
         Employee $employee,
         ?IpcrSubmission $latestSubmission,
         array $currentPeriod,
-        AtreService $atre,
-        PpeService $ppe,
     ): array {
         $history = IpcrSubmission::query()
             ->where('employee_id', $employee->employee_id)
             ->with(['employee', 'evaluator', 'hrReviewer', 'pmtReviewer', 'appeal'])
             ->latest()
+            ->take(20)
             ->get()
             ->map(fn (IpcrSubmission $submission): array => $this->submissionResource($submission))
             ->all();
-
-        $canStartNewSubmission = $latestSubmission === null || $latestSubmission->stage === 'finalized';
 
         $recommendationsEnabled = $latestSubmission
             ? Notification::query()
@@ -1765,64 +1760,6 @@ class IwrController extends Controller
                 ->exists()
             : false;
 
-        $recommendations = [];
-        $riskLevel = 'NONE';
-        $weakAreas = [];
-
-        if ($latestSubmission?->form_payload && $recommendationsEnabled) {
-            $seminars = \App\Models\Seminars::query()
-                ->orderBy('date')
-                ->get()
-                ->map(fn (\App\Models\Seminars $seminar): array => [
-                    'id' => $seminar->id,
-                    'title' => $seminar->title,
-                    'description' => $seminar->description,
-                    'target_performance_area' => $seminar->target_performance_area,
-                    'rating_tier' => $seminar->rating_tier,
-                ])
-                ->all();
-
-            $atreResult = $atre->recommend($seminars, $latestSubmission->form_payload);
-            $recommendations = $atreResult['recommendations'] ?? [];
-            $riskLevel = $atreResult['risk_level'] ?? 'NONE';
-            $weakAreas = $atreResult['weak_areas'] ?? [];
-        }
-
-        $prediction = null;
-        $historicalRecords = \App\Models\HistoricalDataRecord::query()
-            ->where('employee_name', $employee->name)
-            ->orderBy('year')
-            ->get()
-            ->map(function (\App\Models\HistoricalDataRecord $record): ?array {
-                $period = $record->resolvedPeriod();
-                $score = $record->normalizedEvaluatedPerformanceScore();
-
-                if ($period === null || $score === null) {
-                    return null;
-                }
-
-                return [
-                    'year' => $record->year,
-                    'period' => $period,
-                    'attendance_punctuality_rate' => (float) $record->attendance_punctuality_rate,
-                    'absenteeism_days' => $record->absenteeism_days,
-                    'tardiness_incidents' => $record->tardiness_incidents,
-                    'training_completion_status' => $record->training_completion_status,
-                    'evaluated_performance_score' => $score,
-                ];
-            })
-            ->filter()
-            ->sortBy([
-                ['year', 'asc'],
-                ['period', 'asc'],
-            ])
-            ->values()
-            ->all();
-
-        if (count($historicalRecords) >= 4) {
-            $prediction = $ppe->predict($employee->name, $historicalRecords);
-        }
-
         return [
             'launchFormUrl' => route('ipcr.form'),
             'canOpenForm' => true,
@@ -1831,10 +1768,6 @@ class IwrController extends Controller
                 : 'HR has not enabled the evaluation period yet. You can still preview the IPCR form below, but editing and submission stay disabled until the period opens.',
             'history' => $history,
             'recommendationsEnabled' => $recommendationsEnabled,
-            'recommendations' => $recommendations,
-            'riskLevel' => $riskLevel,
-            'weakAreas' => $weakAreas,
-            'prediction' => $prediction,
         ];
     }
 

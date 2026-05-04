@@ -1,4 +1,5 @@
 import { Head } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 import EmployeeQuarterTrends from '@/components/employee-quarter-trends';
 import PageIntro from '@/components/page-intro';
 import PredictivePerformance from '@/components/predictive-performance-module';
@@ -16,9 +17,7 @@ type WeakArea = {
 };
 
 type Props = {
-    recommendations?: Recommendation[];
-    riskLevel?: string;
-    weakAreas?: WeakArea[];
+    recommendationsEnabled?: boolean;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -28,7 +27,23 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-export default function Dashboard({ recommendations = [], riskLevel }: Props) {
+export default function Dashboard({ recommendationsEnabled }: Props) {
+    const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+    const [riskLevel, setRiskLevel] = useState<string | undefined>(undefined);
+    const [recoLoading, setRecoLoading] = useState(!!recommendationsEnabled);
+
+    useEffect(() => {
+        if (!recommendationsEnabled) return;
+        fetch('/api/recommend')
+            .then((r) => r.json())
+            .then((data) => {
+                setRecommendations(data.recommendations ?? []);
+                setRiskLevel(data.risk_level ?? 'NONE');
+            })
+            .catch(() => {})
+            .finally(() => setRecoLoading(false));
+    }, [recommendationsEnabled]);
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Personalized Dashboard" />
@@ -43,6 +58,7 @@ export default function Dashboard({ recommendations = [], riskLevel }: Props) {
                     <TrainingRecommendations
                         recommendations={recommendations}
                         riskLevel={riskLevel}
+                        loading={recoLoading}
                     />
                 </div>
                 <div>
