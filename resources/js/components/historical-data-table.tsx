@@ -279,7 +279,8 @@ export function HistoricalDataTable({
                     </div>
                 </div>
 
-                <Table className="w-full border-collapse">
+                <div className="overflow-x-auto">
+                <Table className="w-full min-w-[56rem] border-collapse">
                     <TableHeader>
                         <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
                             <TableHead className="border border-[#4A7C3C] px-4 py-3">
@@ -377,6 +378,7 @@ export function HistoricalDataTable({
                         )}
                     </TableBody>
                 </Table>
+                </div>
             </div>
             <div className="app-table-pagination-bar">
                 <div className="app-table-pagination-shell">

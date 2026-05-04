@@ -259,6 +259,7 @@ export function AttendanceTable({
                     )}
                 </div>
 
+                <div className="overflow-x-auto">
                 <Table className="w-full min-w-[64rem]">
                     <TableHeader>
                         <TableRow className="app-table-head-row text-sm font-bold">
@@ -330,6 +331,7 @@ export function AttendanceTable({
                         )}
                     </TableBody>
                 </Table>
+                </div>
                 <div className="app-table-pagination-bar text-sm font-semibold text-foreground dark:text-[#EAF7E6]">
                     <div className="app-table-pagination-shell">
                         <div className="app-table-pagination-page-size">

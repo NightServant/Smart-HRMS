@@ -1406,6 +1406,7 @@ export function EmployeesTable({
                         </Select>
                     </div>
                 </div>
+                <div className="overflow-x-auto">
                 <Table className="w-full min-w-[78rem]">
                     <TableHeader>
                         <TableRow className="app-table-head-row text-sm font-bold">
@@ -1599,6 +1600,7 @@ export function EmployeesTable({
                         )}
                     </TableBody>
                 </Table>
+                </div>
             </div>
             <div className="app-table-pagination-bar">
                 <div className="app-table-pagination-shell">

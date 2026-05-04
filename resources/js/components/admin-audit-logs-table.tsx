@@ -169,7 +169,8 @@ export function AdminAuditLogsTable({
                 }} />
             </div>
 
-            <Table className="w-full">
+            <div className="overflow-x-auto">
+            <Table className="w-full min-w-[60rem]">
                 <TableHeader>
                     <TableRow className="bg-[#2F5E2B] text-sm font-bold hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:text-white">
                         <TableHead>Timestamp</TableHead>
@@ -218,6 +219,7 @@ export function AdminAuditLogsTable({
                     )}
                 </TableBody>
             </Table>
+            </div>
             <div className="app-table-pagination-bar">
                 <div className="app-table-pagination-shell">
                     <div className="app-table-pagination-page-size">
