@@ -181,6 +181,30 @@ class IwrController extends Controller
             ->stream('ipcr-print.pdf');
     }
 
+    public function printableIpcrTargetPage(Request $request, IpcrTarget $target): HttpResponse
+    {
+        $employee = $request->user()->employee;
+        abort_unless($employee, 404);
+        abort_unless($target->employee_id === $employee->employee_id, 403);
+        abort_unless($target->status === 'submitted' && $target->form_payload, 403, 'Only submitted targets can be printed.');
+
+        $semesterLabel = $target->semester === 1
+            ? "First Semester (January–June) {$target->target_year}"
+            : "Second Semester (July–December) {$target->target_year}";
+
+        $pdf = Pdf::loadView('pdf.ipcr-target-print', [
+            'target' => $target,
+            'targetFormPayload' => $target->form_payload,
+            'employee' => $employee,
+            'periodLabel' => $semesterLabel,
+        ]);
+
+        return $pdf
+            ->setPaper('a4', 'landscape')
+            ->setWarnings(false)
+            ->stream("ipcr-target-{$target->target_year}-S{$target->semester}.pdf");
+    }
+
     public function ipcrTargetPage(Request $request): Response
     {
         $employee = $request->user()->employee;
@@ -222,6 +246,7 @@ class IwrController extends Controller
             'existingTarget' => $existingTarget ? $this->targetResource($existingTarget) : null,
             'selectedTarget' => $selectedTarget ? $this->targetResource($selectedTarget) : null,
             'targetHistory' => $targetHistory,
+            'draftFormPayload' => $this->ipcrFormTemplateService->targetDraft($employee, $targetPeriod['label']),
         ]);
     }
 

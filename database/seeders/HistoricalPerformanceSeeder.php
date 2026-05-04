@@ -26,12 +26,10 @@ use Throwable;
  *     through 2025 (10 finalized periods per fully-tenured Admin Office
  *     employee). Every submission is finalized by HR and PMT.
  *   - Daily attendance + biometric punches for every workday from
- *     2021-01-01 through the most recent Thursday before today.
- *     The Friday-onwards window is intentionally left empty so the
- *     real Zlink webhook can populate it from live device punches
- *     without colliding with synthetic data. Records start from each
- *     employee's hire date so newly-hired employees have shorter
- *     histories.
+ *     2021-01-01 through today. Weekends and Philippine holidays are
+ *     skipped, so the May 1 (Labor Day) → May 3 weekend window is
+ *     naturally excluded. Records start from each employee's hire
+ *     date so newly-hired employees have shorter histories.
  */
 class HistoricalPerformanceSeeder extends Seeder
 {
@@ -113,10 +111,10 @@ class HistoricalPerformanceSeeder extends Seeder
      */
     private function seedAttendance(Collection $employees): void
     {
-        // Stop at the most recent Thursday strictly before today. Friday →
-        // present is reserved for real webhook-driven punches so the seeded
-        // history and live attendance never overlap on the same date.
-        $cutoff = CarbonImmutable::today()->previous(Carbon::THURSDAY);
+        // Seed every workday up to and including today. May 1 (Labor Day)
+        // and the May 2–3 weekend are skipped by the holiday/weekend filter
+        // below, so they don't need a special-case cutoff.
+        $cutoff = CarbonImmutable::today();
         $attendanceLowerBound = CarbonImmutable::parse(self::ATTENDANCE_START);
         $portal = app(ZlinkPortalClient::class);
 
@@ -441,7 +439,7 @@ class HistoricalPerformanceSeeder extends Seeder
             'employee_id' => $employee->employee_id,
             'semester' => $semester,
             'target_year' => $year,
-            'form_payload' => $this->buildTargetPayload($employee, $targetPeriodLabel, $index, $year),
+            'form_payload' => $this->buildTargetPayload($employee, $targetPeriodLabel, $index, $year, $semester),
             'status' => 'submitted',
             'submitted_at' => $submittedAt,
             'evaluator_id' => 'EMP-001',
@@ -509,23 +507,16 @@ class HistoricalPerformanceSeeder extends Seeder
     /**
      * @return array<string, mixed>
      */
-    private function buildTargetPayload(Employee $employee, string $periodLabel, int $index, int $year): array
+    private function buildTargetPayload(Employee $employee, string $periodLabel, int $index, int $year, int $semester): array
     {
+        unset($index);
+
         $payload = $this->template->targetDraft($employee, $periodLabel);
-        $accountablePrefix = $employee->name.' will';
-
-        $verbs = [
-            'lead', 'document', 'coordinate', 'track', 'review',
-            'streamline', 'monitor', 'submit', 'organize', 'analyze',
-        ];
-
-        $yearShift = $year - self::HISTORICAL_YEARS[0];
 
         foreach ($payload['sections'] as $sectionIndex => $section) {
             foreach ($section['rows'] as $rowIndex => $row) {
-                $verb = $verbs[($index + $rowIndex + $yearShift) % count($verbs)];
                 $payload['sections'][$sectionIndex]['rows'][$rowIndex]['accountable'] =
-                    "{$accountablePrefix} {$verb} the following: ".$row['target'];
+                    IpcrApprovedTargetsSeeder::accountableTargetFor((string) $row['id'], $year, $semester);
             }
         }
 

@@ -192,6 +192,7 @@ class PaginationController extends Controller
 
         $leaveRequests = LeaveRequest::query()
             ->where('stage', 'sent_to_department_head')
+            ->where('dh_decision', 0)
             ->with(['user:id,name,employee_id', 'employee:employee_id,name,job_title'])
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
@@ -262,6 +263,7 @@ class PaginationController extends Controller
 
         $leaveRequests = LeaveRequest::query()
             ->where('stage', 'sent_to_hr')
+            ->where('hr_decision', 0)
             ->with(['user:id,name,employee_id', 'employee:employee_id,name,job_title'])
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($subQuery) use ($search): void {
@@ -477,6 +479,7 @@ class PaginationController extends Controller
                 'account_created_at' => $user->created_at?->format('Y-m-d H:i:s'),
                 'account_links' => [
                     'password_reset' => route('admin.user-management.password-reset', $user),
+                    'activate' => route('admin.user-management.activate', $user),
                     'deactivate' => route('admin.user-management.deactivate', $user),
                 ],
                 'predictive_evaluation_enabled' => ! in_array(

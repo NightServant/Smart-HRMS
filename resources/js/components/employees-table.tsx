@@ -81,6 +81,7 @@ type Employee = {
     account_created_at?: string | null;
     account_links: {
         password_reset: string;
+        activate: string;
         deactivate: string;
     };
 };
@@ -1201,13 +1202,13 @@ export function EmployeesTable({
         setIsEditOpen(true);
     };
 
-    const deactivateEmployeeAccount = (employee: Employee): void => {
-        if (!employee.account_is_active) {
-            return;
-        }
+    const toggleEmployeeAccountStatus = (employee: Employee): void => {
+        const targetUrl = employee.account_is_active
+            ? employee.account_links.deactivate
+            : employee.account_links.activate;
 
         router.post(
-            employee.account_links.deactivate,
+            targetUrl,
             {},
             {
                 preserveScroll: true,
@@ -1511,33 +1512,40 @@ export function EmployeesTable({
                                             </Button>
                                             <Button
                                                 type="button"
-                                                variant="destructive"
+                                                variant={
+                                                    employee.account_is_active
+                                                        ? 'destructive'
+                                                        : 'default'
+                                                }
                                                 size="sm"
-                                                className="h-8 px-3 text-primary-foreground dark:text-secondary-foreground"
+                                                className={
+                                                    employee.account_is_active
+                                                        ? 'h-8 px-3 text-primary-foreground dark:text-secondary-foreground'
+                                                        : 'h-8 bg-emerald-600 px-3 text-white hover:bg-emerald-700 focus-visible:ring-emerald-500 dark:bg-emerald-700 dark:hover:bg-emerald-600'
+                                                }
                                                 onClick={() =>
-                                                    deactivateEmployeeAccount(
+                                                    toggleEmployeeAccountStatus(
                                                         employee,
                                                     )
                                                 }
                                                 disabled={
-                                                    !employee.account_is_active ||
                                                     employee.role ===
-                                                        'hr-personnel'
+                                                    'hr-personnel'
                                                 }
                                                 title={
                                                     employee.role ===
                                                     'hr-personnel'
-                                                        ? 'HR personnel accounts cannot be deactivated from this view'
+                                                        ? 'HR personnel accounts cannot be managed from this view'
                                                         : employee.account_is_active
                                                           ? 'Deactivate employee account'
-                                                          : 'Employee account is already inactive'
+                                                          : 'Reactivate employee account'
                                                 }
                                             >
                                                 <Power className="size-4" />
                                                 <span className="hidden sm:inline">
                                                     {employee.account_is_active
                                                         ? 'Deactivate'
-                                                        : 'Inactive'}
+                                                        : 'Activate'}
                                                 </span>
                                             </Button>
                                         </div>

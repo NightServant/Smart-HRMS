@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Services\Biometric\EmployeeSyncService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -45,10 +46,20 @@ class EmployeeSeeder extends Seeder
             ['employee_id' => 'PMT-001', 'name' => 'Mark Reyes', 'job_title' => 'PMT Officer', 'position_id' => $positionIds['PMT Officer'] ?? null, 'department_id' => $hrmoDepartmentId, 'supervisor_id' => 'HR-001', 'date_hired' => '2024-06-01'],
         ];
 
+        // Pre-derive the Zlink emp_code so reseeding doesn't strand existing
+        // fingerprint templates already enrolled on the portal. Same algorithm
+        // EmployeeSyncService::deriveZktecoPin uses everywhere else.
+        foreach ($employees as &$employee) {
+            $employee['zkteco_pin'] = EmployeeSyncService::deriveZktecoPin(
+                $employee['employee_id'],
+            );
+        }
+        unset($employee);
+
         DB::table('employees')->upsert(
             $employees,
             ['employee_id'],
-            ['name', 'job_title', 'department_id', 'position_id', 'supervisor_id', 'date_hired'],
+            ['name', 'job_title', 'department_id', 'position_id', 'supervisor_id', 'date_hired', 'zkteco_pin'],
         );
     }
 }

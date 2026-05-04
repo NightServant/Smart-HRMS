@@ -29,6 +29,7 @@ type Employee = {
     account_created_at?: string | null;
     account_links: {
         password_reset: string;
+        activate: string;
         deactivate: string;
     };
 };

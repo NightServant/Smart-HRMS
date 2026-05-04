@@ -53,14 +53,6 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { getAppealEvidenceUrl, getFileName } from '@/lib/ipcr';
@@ -466,52 +458,102 @@ function EmployeeOverview({
                             Your past IPCR submissions and their current workflow status.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="px-0 py-0">
-                        <Table>
-                            <TableHeader className="bg-[#2F5E2B] dark:bg-[#1A3D1A]">
-                                <TableRow className="hover:bg-[#2F5E2B] dark:hover:bg-[#1A3D1A] border-0">
-                                    <TableHead className="px-5 py-3.5 text-xs font-semibold tracking-wider uppercase text-white border-r border-white/10">Semester</TableHead>
-                                    <TableHead className="px-5 py-3.5 text-xs font-semibold tracking-wider uppercase text-white border-r border-white/10">Year</TableHead>
-                                    <TableHead className="px-5 py-3.5 text-xs font-semibold tracking-wider uppercase text-white border-r border-white/10">Status</TableHead>
-                                    <TableHead className="px-5 py-3.5 text-xs font-semibold tracking-wider uppercase text-white">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {(employeePanel?.history ?? []).map((sub, index) => (
-                                    <TableRow key={sub.id} className={cn('text-sm font-semibold text-foreground border-0', stripedTableRows[index % 2])}>
-                                        <TableCell className="px-5 py-3.5">
-                                            {semesterFromPeriodLabel(sub.form_payload?.metadata?.period ?? undefined)}
-                                        </TableCell>
-                                        <TableCell className="px-5 py-3.5">
-                                            {yearFromPeriodLabel(sub.form_payload?.metadata?.period ?? undefined)}
-                                        </TableCell>
-                                        <TableCell className="px-5 py-3.5">
-                                            <Badge variant="outline">
-                                                {statusLabel(sub.status)}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="px-5 py-3.5">
-                                            {sub.stage === 'finalized' && (
-                                                <Button
-                                                    asChild
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="gap-1 rounded-full"
-                                                >
-                                                    <a
-                                                        href={`/ipcr/print?submission_id=${sub.id}`}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                    >
-                                                        Open Printable PDF View
-                                                    </a>
-                                                </Button>
+                    <CardContent className="px-4 py-5 sm:px-6">
+                        <div className="space-y-5">
+                            {(employeePanel?.history ?? []).map((sub) => {
+                                const period = sub.form_payload?.metadata?.period ?? undefined;
+                                const semester = semesterFromPeriodLabel(period);
+                                const year = yearFromPeriodLabel(period);
+                                const semesterShort = semester === 'First Semester'
+                                    ? `${year} 1st Semester`
+                                    : semester === 'Second Semester'
+                                      ? `${year} 2nd Semester`
+                                      : `${year}`;
+                                const isFinalized = sub.stage === 'finalized';
+                                const statusTone = isFinalized
+                                    ? 'bg-emerald-500 ring-emerald-500/30'
+                                    : sub.status === 'rejected'
+                                      ? 'bg-red-500 ring-red-500/30'
+                                      : sub.status === 'in_progress' || sub.stage === 'pmt_review' || sub.stage === 'hr_review' || sub.stage === 'evaluator_review'
+                                        ? 'bg-[#2F5E2B] ring-[#2F5E2B]/30'
+                                        : 'bg-amber-500 ring-amber-500/30';
+                                const statusBadgeClass = isFinalized
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                    : sub.status === 'rejected'
+                                      ? 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300'
+                                      : 'bg-[#DDEFD7] text-[#1F3F1D] dark:bg-[#274827]/80 dark:text-[#EAF7E6]';
+                                const finalizedAt = sub.finalized_at
+                                    ? new Date(sub.finalized_at).toLocaleString('en-US', {
+                                          month: 'short',
+                                          day: '2-digit',
+                                          year: 'numeric',
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                      })
+                                    : null;
+
+                                return (
+                                    <div key={sub.id} className="relative pl-6">
+                                        <span className="absolute top-0 bottom-0 left-[7px] w-px bg-border" />
+                                        <span
+                                            className={cn(
+                                                'absolute top-5 left-0 mt-1.5 inline-block size-3 shrink-0 rounded-full ring-4',
+                                                statusTone,
                                             )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                        />
+                                        <Card className="glass-card border-border bg-card shadow-sm">
+                                            <CardContent className="space-y-4 p-5">
+                                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold tracking-[0.18em] text-[#2F5E2B] uppercase dark:text-[#A8D49E]">
+                                                            {semesterShort}
+                                                        </p>
+                                                        <h3 className="text-lg leading-snug font-semibold text-foreground">
+                                                            {semester} {year !== '—' ? year : ''}
+                                                        </h3>
+                                                    </div>
+                                                    <Badge className={cn('rounded-full', statusBadgeClass)}>
+                                                        {statusLabel(sub.status)}
+                                                    </Badge>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                                        <CalendarClock className="size-4 text-[#2F5E2B] dark:text-[#A8D49E]" />
+                                                        <span className="font-medium text-foreground">Stage:</span>
+                                                        <span>{statusLabel(sub.stage)}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-muted-foreground">
+                                                        <FileCheck2 className="size-4 text-[#2F5E2B] dark:text-[#A8D49E]" />
+                                                        <span className="font-medium text-foreground">Finalized:</span>
+                                                        <span>{finalizedAt ?? '—'}</span>
+                                                    </div>
+                                                </div>
+
+                                                {isFinalized && (
+                                                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                                                        <Button
+                                                            asChild
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="border-[#2F5E2B]/40 text-[#2F5E2B] hover:bg-[#DDEFD7] hover:text-[#1F3F1D] dark:border-[#4A7C3C]/40 dark:text-[#A8D49E] dark:hover:bg-[#274827]/80"
+                                                        >
+                                                            <a
+                                                                href={`/ipcr/print?submission_id=${sub.id}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                            >
+                                                                Open Printable PDF View
+                                                            </a>
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </CardContent>
                 </Card>
             )}
@@ -1135,21 +1177,28 @@ function HrOverview({
 
     const uniquePeriods = (() => {
         const map = new Map<string, { key: string; semester: '1' | '2'; year: string }>();
-        // Ensure the currently active period always appears, even when no
-        // submissions exist yet for it (newly enabled IPCR workflow).
+        const labelFor = (semester: '1' | '2', year: string | number): string =>
+            `${semester === '2' ? 'July to December' : 'January to June'} ${year}`;
+
+        let activeSemester: '1' | '2' | null = null;
+        let activeYear: number | null = null;
+
+        // Anchor at the active period so it always appears, even with no data yet.
         if (currentPeriod?.label) {
-            const activeIsS2 = currentPeriod.label.includes('July to December');
-            const activeYear = String(currentPeriod.year ?? '').trim() ||
+            activeSemester = currentPeriod.label.includes('July to December') ? '2' : '1';
+            const yearText = String(currentPeriod.year ?? '').trim() ||
                 currentPeriod.label
                     .replace('January to June ', '')
                     .replace('July to December ', '')
                     .trim();
+            activeYear = Number(yearText) || null;
             map.set(currentPeriod.label, {
                 key: currentPeriod.label,
-                semester: activeIsS2 ? '2' : '1',
-                year: activeYear,
+                semester: activeSemester,
+                year: yearText,
             });
         }
+
         for (const s of allQueueSubmissions) {
             const period = s.form_payload.metadata.period ?? '';
             if (!period || map.has(period)) continue;
@@ -1160,6 +1209,33 @@ function HrOverview({
                 .trim();
             map.set(period, { key: period, semester: isS2 ? '2' : '1', year });
         }
+
+        // Bridge any gaps so a completed semester remains listed when the
+        // active period advances — every (semester, year) from the earliest
+        // known period through the active period gets its own row, even when
+        // empty. Prevents the new active period from visually replacing the
+        // last finalized one.
+        if (activeSemester !== null && activeYear !== null) {
+            const knownYears = Array.from(map.values())
+                .map((p) => Number(p.year))
+                .filter((y) => Number.isFinite(y));
+            const earliestYear = knownYears.length
+                ? Math.min(activeYear, ...knownYears)
+                : activeYear;
+            const activeSemesterNum = Number(activeSemester);
+            for (let y = earliestYear; y <= activeYear; y += 1) {
+                for (const sem of ['1', '2'] as const) {
+                    if (y === activeYear && Number(sem) > activeSemesterNum) {
+                        continue;
+                    }
+                    const label = labelFor(sem, y);
+                    if (!map.has(label)) {
+                        map.set(label, { key: label, semester: sem, year: String(y) });
+                    }
+                }
+            }
+        }
+
         return Array.from(map.values()).sort(
             (a, b) =>
                 Number(b.year) - Number(a.year) || Number(b.semester) - Number(a.semester),

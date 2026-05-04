@@ -77,6 +77,9 @@ Route::get('ipcr/target/form', [IwrController::class, 'ipcrTargetFormPage'])
 Route::post('ipcr/target', [IwrController::class, 'saveIpcrTarget'])
     ->middleware(['auth', 'role:employee'])
     ->name('ipcr.target.save');
+Route::get('ipcr/target/{target}/print', [IwrController::class, 'printableIpcrTargetPage'])
+    ->middleware(['auth', 'role:employee'])
+    ->name('ipcr.target.print');
 
 Route::get('attendance', [AttendanceRecordController::class, 'index'])
     ->middleware(['auth', 'role:employee'])

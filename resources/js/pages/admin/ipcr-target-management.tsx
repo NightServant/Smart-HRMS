@@ -218,19 +218,42 @@ export default function IpcrTargetManagement() {
     const allTargets = [...submittedTargets, ...finalizedTargets];
     const uniquePeriods = useMemo(() => {
         const map = new Map<string, { semester: 1 | 2; year: number }>();
-        // Ensure the currently active period always appears, even when no
-        // targets exist yet for it (newly enabled IPCR workflow).
+
+        // Anchor at the active period so it always appears, even with no data yet.
         const activeKey = `${currentTargetPeriod.semester}-${currentTargetPeriod.year}`;
         map.set(activeKey, {
             semester: currentTargetPeriod.semester,
             year: currentTargetPeriod.year,
         });
+
         for (const t of allTargets) {
             const key = `${t.semester}-${t.target_year}`;
             if (!map.has(key)) {
                 map.set(key, { semester: t.semester as 1 | 2, year: t.target_year });
             }
         }
+
+        // Bridge any gaps so a completed semester remains listed when the
+        // active period advances — every (semester, year) from the earliest
+        // known period through the active period gets its own row, even when
+        // empty. Prevents the new active period from visually replacing the
+        // last finalized one.
+        const earliestYear = Math.min(
+            currentTargetPeriod.year,
+            ...Array.from(map.values()).map((p) => p.year),
+        );
+        for (let y = earliestYear; y <= currentTargetPeriod.year; y += 1) {
+            for (const sem of [1, 2] as const) {
+                if (y === currentTargetPeriod.year && sem > currentTargetPeriod.semester) {
+                    continue;
+                }
+                const key = `${sem}-${y}`;
+                if (!map.has(key)) {
+                    map.set(key, { semester: sem, year: y });
+                }
+            }
+        }
+
         return Array.from(map.values()).sort(
             (a, b) => b.year - a.year || b.semester - a.semester,
         );
@@ -331,12 +354,21 @@ export default function IpcrTargetManagement() {
     const [closing, setClosing] = useState(false);
 
     function handleOpenAndNotify(): void {
+        // When a window is already open, opening from the toggle should reaffirm
+        // the active period; otherwise default to the next eligible period.
+        const targetSemester = currentTargetPeriod.submissionOpen
+            ? currentTargetPeriod.semester
+            : currentTargetPeriod.nextEligible.semester;
+        const targetYear = currentTargetPeriod.submissionOpen
+            ? currentTargetPeriod.year
+            : currentTargetPeriod.nextEligible.year;
+
         setNotifying(true);
         router.post(
             adminIpcrTarget.notify().url,
             {
-                semester: currentTargetPeriod.nextEligible.semester,
-                year: currentTargetPeriod.nextEligible.year,
+                semester: targetSemester,
+                year: targetYear,
             },
             {
                 preserveScroll: true,
@@ -494,12 +526,14 @@ export default function IpcrTargetManagement() {
                                 <Input
                                     readOnly
                                     value={
-                                        currentTargetPeriod.nextEligible.semester === 1
+                                        (currentTargetPeriod.submissionOpen
+                                            ? currentTargetPeriod.semester
+                                            : currentTargetPeriod.nextEligible.semester) === 1
                                             ? 'First Semester (Jan–Jun)'
                                             : 'Second Semester (Jul–Dec)'
                                     }
                                     className="border-border bg-muted/40 cursor-not-allowed"
-                                    aria-label="Next eligible semester"
+                                    aria-label={currentTargetPeriod.submissionOpen ? 'Active semester' : 'Next eligible semester'}
                                 />
                             </div>
 
@@ -508,9 +542,13 @@ export default function IpcrTargetManagement() {
                                 <Input
                                     id="target-year"
                                     readOnly
-                                    value={String(currentTargetPeriod.nextEligible.year)}
+                                    value={String(
+                                        currentTargetPeriod.submissionOpen
+                                            ? currentTargetPeriod.year
+                                            : currentTargetPeriod.nextEligible.year,
+                                    )}
                                     className="border-border bg-muted/40 cursor-not-allowed"
-                                    aria-label="Next eligible year"
+                                    aria-label={currentTargetPeriod.submissionOpen ? 'Active year' : 'Next eligible year'}
                                 />
                             </div>
 

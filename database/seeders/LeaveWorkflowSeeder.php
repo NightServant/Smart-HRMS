@@ -141,9 +141,9 @@ class LeaveWorkflowSeeder extends Seeder
             default => 2,
         };
 
-        $startDate = Carbon::create(self::SAMPLE_YEAR, 2, 3)->addDays($index * 2);
+        $startDate = Carbon::create(self::SAMPLE_YEAR, 5, 18)->addDays($index * 2);
         $endDate = (clone $startDate)->addDays($daysRequested - 1);
-        $submittedAt = Carbon::create(self::SAMPLE_YEAR, 1, 8)->addDays($index * 3);
+        $submittedAt = Carbon::create(self::SAMPLE_YEAR, 4, 22)->addDays($index * 2);
 
         return match ($index % 4) {
             0 => [

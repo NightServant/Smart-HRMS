@@ -156,7 +156,32 @@ class EnrollmentService
             }
         }
 
-        // Second signal (when the open API doesn't expose fingerprints):
+        // Second signal: cms/credential/employee/list. This is the canonical
+        // "what credentials does this emp_code have?" call — the SPA itself
+        // uses it on the biological-template page, and on this tenant it is
+        // the only endpoint that consistently returns existing fingerprint
+        // templates (the open-API search 404s, fingerprint/devices returns
+        // an empty version map). Without this signal a re-mount after a
+        // cache miss would falsely report "Not enrolled" for users whose
+        // templates already live on the portal.
+        if ($hasPin && $fingerprintCount === 0 && $this->portal->isConfigured()) {
+            try {
+                $credentialIds = $this->portal->findCredentialIdsByEmployeeCode(
+                    (string) $employee->zkteco_pin,
+                );
+
+                if ($credentialIds !== []) {
+                    $fingerprintCount = count($credentialIds);
+                }
+            } catch (Throwable $e) {
+                Log::info('Portal credential/employee/list lookup failed; falling back to next signal.', [
+                    'employee_id' => $employee->employee_id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Third signal (when the open API doesn't expose fingerprints):
         // ask the portal whether the active remote-registration session has
         // completed. This is the most reliable on-device-capture signal —
         // the SPA itself polls the same endpoint to flip its UI.
@@ -164,11 +189,12 @@ class EnrollmentService
             $fingerprintCount = 1;
         }
 
-        // Third signal: ask the portal which devices hold a fingerprint
-        // credential for this employee. Useful for re-loads after the
-        // session cache has expired, but lags the device->cloud sync so
-        // it can't carry the live enrollment flow on its own. This is also
-        // the only path that exposes which finger was captured.
+        // Fourth signal: ask the portal which devices hold a fingerprint
+        // credential for this employee. Mostly used to recover the finger
+        // index when the second signal confirmed enrollment but didn't
+        // expose which slot was captured. On this tenant the call is known
+        // to return an empty version map even when credentials exist, so
+        // it can't establish enrollment on its own.
         if ($hasPin && ($fingerprintCount === 0 || $fingerIndex === null)) {
             $portal = $this->inspectPortalFingerprintDevices($employee);
             $fingerprintCount = max($fingerprintCount, $portal['count']);
