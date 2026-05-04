@@ -144,24 +144,23 @@ class FlatFatController extends Controller
                 ? $today
                 : $endOfMonth;
 
-            // Get attendance records for the selected month
-            $attendanceRecords = AttendanceRecord::whereBetween('date', [$startOfMonth, $endOfMonth])->get();
-
             $totalEmployees = Employee::count();
-            $monthlyPresentCount = $attendanceRecords->where('status', 'Present')->count();
 
-            // Today-only Present and Late counts (one row per employee for the
-            // point-in-time date, so multiple punches collapse to a single status).
-            $todayRecords = $attendanceRecords->filter(
-                fn (AttendanceRecord $record): bool => $record->date?->toDateString() === $pointInTime->toDateString()
-            );
-            $todayStatusByEmployee = $todayRecords
+            // Aggregate queries replace the full ->get() to avoid loading
+            // thousands of Eloquent models into memory on the free-tier container.
+            $monthlyPresentCount = AttendanceRecord::whereBetween('date', [$startOfMonth, $endOfMonth])
+                ->where('status', 'Present')
+                ->count();
+
+            $totalDays = AttendanceRecord::whereBetween('date', [$startOfMonth, $endOfMonth])->count();
+
+            // Per-employee status on the point-in-time date: Late wins over Present.
+            $todayStatusByEmployee = AttendanceRecord::where('date', $pointInTime->toDateString())
+                ->selectRaw("employee_id, MAX(CASE WHEN status = 'Late' THEN 1 ELSE 0 END) as is_late")
                 ->groupBy('employee_id')
-                ->map(function ($records) {
-                    return $records->contains('status', 'Late') ? 'Late' : 'Present';
-                });
-            $presentCount = $todayStatusByEmployee->filter(fn (string $status): bool => $status === 'Present')->count();
-            $lateCount = $todayStatusByEmployee->filter(fn (string $status): bool => $status === 'Late')->count();
+                ->get();
+            $presentCount = $todayStatusByEmployee->where('is_late', 0)->count();
+            $lateCount = $todayStatusByEmployee->where('is_late', 1)->count();
 
             // Employees on approved leave on the point-in-time date
             $onLeaveCount = LeaveRequest::where('status', 'approved')
@@ -169,11 +168,9 @@ class FlatFatController extends Controller
                 ->where('end_date', '>=', $pointInTime->toDateString())
                 ->count();
 
-            // Employees with attendance record on the point-in-time date
             $employeesWithRecordToday = $todayStatusByEmployee->count();
             $absentCount = max(0, $totalEmployees - $employeesWithRecordToday - $onLeaveCount);
 
-            $totalDays = $attendanceRecords->count();
             $attendancePct = $totalDays > 0 ? ($monthlyPresentCount / $totalDays) * 100 : 0;
 
             return response()->json([

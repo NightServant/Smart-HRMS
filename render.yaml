@@ -1,0 +1,112 @@
+services:
+  - type: web
+    name: smart-hrms
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /up
+    envVars:
+      # ── App ──────────────────────────────────────────────────────────────────
+      - key: APP_NAME
+        value: Smart HRMS
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        sync: false   # php artisan key:generate --show → paste here
+      - key: APP_URL
+        sync: false   # https://<your-service>.onrender.com
+
+      # ── Proxy / Session ──────────────────────────────────────────────────────
+      - key: TRUSTED_PROXIES
+        value: "*"
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: SESSION_LIFETIME
+        value: "120"
+
+      # ── Logging (stderr → visible in Render dashboard) ───────────────────────
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: error
+
+      # ── Database (TiDB Cloud Serverless — MySQL-compatible) ──────────────────
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        sync: false   # e.g. gateway01.ap-southeast-1.prod.aws.tidbcloud.com
+      - key: DB_PORT
+        value: "4000"
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: MYSQL_ATTR_SSL_CA
+        value: /etc/ssl/certs/ca-certificates.crt   # bundled in php:8.4-bookworm
+
+      # ── Queue / Cache ────────────────────────────────────────────────────────
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: CACHE_STORE
+        value: database
+
+      # ── Mail (Gmail SMTP) ────────────────────────────────────────────────────
+      - key: MAIL_MAILER
+        value: smtp
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_ENCRYPTION
+        value: tls
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false   # 16-char Gmail App Password
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: Smart HRMS
+      - key: MAIL_CREDENTIALS_RECIPIENT
+        sync: false
+
+      # ── Zlink / Fingerprint ──────────────────────────────────────────────────
+      - key: ZLINK_PORTAL_URL
+        value: https://zlink.minervaiot.com
+      - key: ZLINK_URL
+        value: https://zlink-open.minervaiot.com
+      - key: ZLINK_DEFAULT_DEPARTMENT_ID
+        sync: false
+      - key: ZLINK_DEFAULT_DEVICE_SN
+        sync: false
+      - key: ZLINK_PORTAL_DEVICE_ID
+        sync: false
+      - key: ZLINK_PORTAL_COMPANY_ID
+        sync: false
+
+      # ── Attendance ───────────────────────────────────────────────────────────
+      - key: ATTENDANCE_SHIFT_START
+        value: "08:00"
+      - key: ATTENDANCE_GRACE_PERIOD_MINUTES
+        value: "0"
+
+      # ── Python AI modules ────────────────────────────────────────────────────
+      - key: IWR_PYTHON_PATH
+        value: /opt/venv/bin/python
+      - key: PPE_PYTHON_PATH
+        value: /opt/venv/bin/python
+      - key: ATRE_PYTHON_PATH
+        value: /opt/venv/bin/python
+      - key: FLATFAT_PYTHON_PATH
+        value: /opt/venv/bin/python
+
+      # ── Vite ─────────────────────────────────────────────────────────────────
+      - key: VITE_APP_NAME
+        value: Smart HRMS

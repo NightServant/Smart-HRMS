@@ -5,7 +5,8 @@ ENV APP_ENV=production \
     IWR_PYTHON_PATH=/opt/venv/bin/python \
     PPE_PYTHON_PATH=/opt/venv/bin/python \
     ATRE_PYTHON_PATH=/opt/venv/bin/python \
-    FLATFAT_PYTHON_PATH=/opt/venv/bin/python
+    FLATFAT_PYTHON_PATH=/opt/venv/bin/python \
+    PHP_CLI_SERVER_WORKERS=2
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -51,6 +52,8 @@ RUN python3 -m venv /opt/venv \
         -r python/rt-hr-dashboard/requirements.txt
 
 COPY . .
+
+RUN cp php.ini /usr/local/etc/php/conf.d/app.ini
 
 RUN composer dump-autoload --optimize --no-dev \
     && php artisan package:discover --ansi

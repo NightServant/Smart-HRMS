@@ -19,7 +19,7 @@ if [ ! -L public/storage ] && [ ! -e public/storage ]; then
     php artisan storage:link >/dev/null 2>&1 || true
 fi
 
-# Wait for MySQL to be reachable
+# Wait for database to be reachable (up to 60 seconds)
 echo "Waiting for database..."
 attempts=30
 until php artisan db:monitor --databases=mysql 2>/dev/null || [ "$attempts" -le 0 ]; do
