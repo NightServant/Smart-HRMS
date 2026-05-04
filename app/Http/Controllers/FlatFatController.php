@@ -643,14 +643,14 @@ class FlatFatController extends Controller
 
             $performanceRating = $ipcr?->performance_rating ?? null;
 
-            // Get attendance percentage from biometric records
-            $attendanceQuery = AttendanceRecord::where('employee_id', $employeeId);
-            $attendanceRecords = $attendanceQuery->get();
-
+            // Get attendance percentage from biometric records using DB aggregates
+            $totalPunches = AttendanceRecord::where('employee_id', $employeeId)->count();
             $attendancePct = null;
-            if ($attendanceRecords->count() > 0) {
-                $presentDays = $attendanceRecords->where('status', 'Present')->count();
-                $attendancePct = ($presentDays / $attendanceRecords->count()) * 100;
+            if ($totalPunches > 0) {
+                $presentDays = AttendanceRecord::where('employee_id', $employeeId)
+                    ->where('status', 'Present')
+                    ->count();
+                $attendancePct = ($presentDays / $totalPunches) * 100;
             }
 
             // Get historical data as secondary source
