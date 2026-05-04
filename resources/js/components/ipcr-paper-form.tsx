@@ -32,7 +32,7 @@ import type {
     IpcrTarget,
 } from '@/types/ipcr';
 
-type Mode = 'employee' | 'evaluator' | 'review';
+type Mode = 'employee' | 'employee-snapshot' | 'evaluator' | 'review';
 
 type Props = {
     value: IpcrFormPayload;
@@ -60,8 +60,10 @@ export default function IpcrPaperForm({
     currentTarget = null,
 }: Props) {
     const isPrintPresentation = presentation === 'print';
-    const canEditActual = mode === 'employee';
-    const canEditRatings = mode === 'evaluator';
+    const canEditActual = mode === 'employee' && Boolean(onChange);
+    const canEditRatings = mode === 'evaluator' && Boolean(onChange);
+    const showTargetColumns = true;
+    const showActualColumn = mode !== 'employee-snapshot';
     const showRatings = mode !== 'employee';
     const showRemarks = mode !== 'employee';
     const [currentStep, setCurrentStep] = useState(0);
@@ -116,10 +118,13 @@ export default function IpcrPaperForm({
 
         return references;
     }, [currentTarget]);
-    const targetReferenceLabel =
-        currentTarget?.status === 'submitted'
-            ? 'Submitted target reference'
-            : 'Saved target draft';
+    const targetReferenceLabel = !currentTarget
+        ? 'Committed Target'
+        : currentTarget.hr_finalized
+          ? 'Finalized Committed Target'
+          : currentTarget.status === 'submitted'
+            ? 'Submitted Committed Target'
+            : 'Saved Committed Target (Draft)';
     const ratingMonitor = useMemo(() => {
         const liveRating =
             value?.finalization?.final_rating ??
@@ -225,20 +230,26 @@ export default function IpcrPaperForm({
         sky: 'bg-sky-500 shadow-[0_0_0_6px_rgba(14,165,233,0.14)]',
         amber: 'bg-amber-500 shadow-[0_0_0_6px_rgba(245,158,11,0.14)]',
     }[ratingMonitor.tone];
-    const formTableWidthClasses = isPrintPresentation
-        ? showRatings || showRemarks
-            ? 'min-w-[86rem]'
-            : 'min-w-[64rem]'
-        : showRatings || showRemarks
-          ? 'min-w-[72rem] xl:min-w-[86rem]'
-          : 'min-w-[56rem] xl:min-w-[68rem]';
-    const actualColumnClasses = isPrintPresentation
-        ? showRatings || showRemarks
-            ? 'w-[20rem] min-w-[20rem] xl:w-[24rem] xl:min-w-[24rem]'
-            : 'w-[20rem] min-w-[20rem] xl:w-[28rem] xl:min-w-[28rem]'
-        : showRatings || showRemarks
-          ? 'w-[24rem] min-w-[24rem] xl:w-[30rem] xl:min-w-[30rem]'
-          : 'w-[24rem] min-w-[24rem] xl:w-[30rem] xl:min-w-[30rem]';
+    const formTableWidthClasses = !showTargetColumns
+        ? showActualColumn
+            ? 'min-w-[24rem] xl:min-w-[32rem]'
+            : 'min-w-[40rem]'
+        : isPrintPresentation
+          ? showRatings || showRemarks
+              ? 'min-w-[86rem]'
+              : 'min-w-[64rem]'
+          : showRatings || showRemarks
+            ? 'min-w-[72rem] xl:min-w-[86rem]'
+            : 'min-w-[56rem] xl:min-w-[68rem]';
+    const actualColumnClasses = !showTargetColumns
+        ? 'w-full min-w-[22rem]'
+        : isPrintPresentation
+          ? showRatings || showRemarks
+              ? 'w-[20rem] min-w-[20rem] xl:w-[24rem] xl:min-w-[24rem]'
+              : 'w-[20rem] min-w-[20rem] xl:w-[28rem] xl:min-w-[28rem]'
+          : showRatings || showRemarks
+            ? 'w-[24rem] min-w-[24rem] xl:w-[30rem] xl:min-w-[30rem]'
+            : 'w-[24rem] min-w-[24rem] xl:w-[30rem] xl:min-w-[30rem]';
     const remarksColumnClasses =
         'w-[14rem] min-w-[14rem] xl:w-[16rem] xl:min-w-[16rem]';
 
@@ -457,17 +468,23 @@ export default function IpcrPaperForm({
                             <Table className={formTableWidthClasses}>
                                 <TableHeader>
                                     <TableRow className="bg-[#2F5E2B] hover:bg-[#2F5E2B] dark:bg-[#1F3F1D] dark:hover:bg-[#1F3F1D] [&_th]:border-r [&_th]:border-white/10 [&_th]:text-white">
-                                        <TableHead className="w-[14rem] min-w-[14rem] xl:w-[16rem] xl:min-w-[16rem]">
-                                            Administrative Services Criteria
-                                        </TableHead>
-                                        <TableHead className="w-[11rem] min-w-[11rem] xl:w-[13rem] xl:min-w-[13rem]">
-                                            Success Measures
-                                        </TableHead>
-                                        <TableHead
-                                            className={actualColumnClasses}
-                                        >
-                                            Actual Accomplishment
-                                        </TableHead>
+                                        {showTargetColumns && (
+                                            <>
+                                                <TableHead className="w-[14rem] min-w-[14rem] xl:w-[16rem] xl:min-w-[16rem]">
+                                                    Administrative Services Criteria
+                                                </TableHead>
+                                                <TableHead className="w-[11rem] min-w-[11rem] xl:w-[13rem] xl:min-w-[13rem]">
+                                                    Success Measures
+                                                </TableHead>
+                                            </>
+                                        )}
+                                        {showActualColumn && (
+                                            <TableHead
+                                                className={actualColumnClasses}
+                                            >
+                                                Actual Accomplishment
+                                            </TableHead>
+                                        )}
                                         {showRatings && (
                                             <>
                                                 <TableHead className="w-[4.5rem] min-w-[4.5rem] text-center">
@@ -503,80 +520,87 @@ export default function IpcrPaperForm({
                                                     ]
                                                 }
                                             >
-                                                <TableCell className="align-top">
-                                                    <div className="space-y-2">
-                                                        <p className="leading-snug font-semibold text-foreground">
-                                                            {row.target}
-                                                        </p>
-                                                        {row.target_details && (
-                                                            <p className="text-xs leading-relaxed whitespace-pre-line text-muted-foreground">
-                                                                {
-                                                                    row.target_details
-                                                                }
-                                                            </p>
-                                                        )}
-                                                        {canEditActual &&
-                                                            targetReferenceByRowId.has(
-                                                                row.id,
-                                                            ) && (
-                                                                <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/80 px-3 py-2 shadow-sm dark:border-emerald-900/60 dark:bg-emerald-950/20">
-                                                                    <p className="text-[11px] font-semibold tracking-[0.18em] text-emerald-800 uppercase dark:text-emerald-300">
+                                                {showTargetColumns && (
+                                                    <>
+                                                        <TableCell className="align-top">
+                                                            <div className="space-y-2">
+                                                                <p className="leading-snug font-semibold text-foreground">
+                                                                    {row.target}
+                                                                </p>
+                                                                {row.target_details && (
+                                                                    <p className="text-xs leading-relaxed whitespace-pre-line text-muted-foreground">
                                                                         {
-                                                                            targetReferenceLabel
+                                                                            row.target_details
                                                                         }
                                                                     </p>
-                                                                    <p className="mt-1 text-sm leading-6 whitespace-pre-wrap text-emerald-950 dark:text-emerald-50">
-                                                                        {targetReferenceByRowId.get(
-                                                                            row.id,
-                                                                        )}
-                                                                    </p>
-                                                                </div>
-                                                            )}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="align-top">
-                                                    <p className="text-sm leading-relaxed whitespace-pre-line text-foreground">
-                                                        {row.measures}
-                                                    </p>
-                                                </TableCell>
-                                                <TableCell
-                                                    className={cn(
-                                                        actualColumnClasses,
-                                                        'align-top',
-                                                    )}
-                                                >
-                                                    {canEditActual ? (
-                                                        <Textarea
-                                                            value={
-                                                                row.actual_accomplishment
-                                                            }
-                                                            onChange={(
-                                                                event,
-                                                            ) =>
-                                                                updateRow(
-                                                                    row.id,
-                                                                    (
-                                                                        current,
-                                                                    ) => ({
-                                                                        ...current,
-                                                                        actual_accomplishment:
-                                                                            event
-                                                                                .target
-                                                                                .value,
-                                                                    }),
-                                                                )
-                                                            }
-                                                            placeholder="Describe the actual accomplishment for this criterion."
-                                                            className="[field-sizing:fixed] min-h-[11rem] w-full min-w-0 resize-y border-border bg-background text-sm leading-6 md:text-base md:leading-7"
-                                                        />
-                                                    ) : (
-                                                        <div className="min-h-[11rem] w-full min-w-0 rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-6 whitespace-pre-wrap text-foreground shadow-sm md:text-base md:leading-7">
-                                                            {readOnlyValue(
-                                                                row.actual_accomplishment,
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </TableCell>
+                                                                )}
+                                                                {(mode ===
+                                                                    'employee' ||
+                                                                    mode ===
+                                                                        'employee-snapshot') && (
+                                                                    <div className="rounded-2xl border border-emerald-200/80 bg-emerald-50/80 px-3 py-2 shadow-sm dark:border-emerald-900/60 dark:bg-emerald-950/20">
+                                                                        <p className="text-[11px] font-semibold tracking-[0.18em] text-emerald-800 uppercase dark:text-emerald-300">
+                                                                            {
+                                                                                targetReferenceLabel
+                                                                            }
+                                                                        </p>
+                                                                        <p className="mt-1 text-sm leading-6 whitespace-pre-wrap text-emerald-950 dark:text-emerald-50">
+                                                                            {targetReferenceByRowId.get(
+                                                                                row.id,
+                                                                            ) ??
+                                                                                'No committed target saved for this period yet.'}
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="align-top">
+                                                            <p className="text-sm leading-relaxed whitespace-pre-line text-foreground">
+                                                                {row.measures}
+                                                            </p>
+                                                        </TableCell>
+                                                    </>
+                                                )}
+                                                {showActualColumn && (
+                                                    <TableCell
+                                                        className={cn(
+                                                            actualColumnClasses,
+                                                            'align-top',
+                                                        )}
+                                                    >
+                                                        {canEditActual ? (
+                                                            <Textarea
+                                                                value={
+                                                                    row.actual_accomplishment
+                                                                }
+                                                                onChange={(
+                                                                    event,
+                                                                ) =>
+                                                                    updateRow(
+                                                                        row.id,
+                                                                        (
+                                                                            current,
+                                                                        ) => ({
+                                                                            ...current,
+                                                                            actual_accomplishment:
+                                                                                event
+                                                                                    .target
+                                                                                    .value,
+                                                                        }),
+                                                                    )
+                                                                }
+                                                                placeholder="Describe the actual accomplishment for this criterion."
+                                                                className="[field-sizing:fixed] min-h-[11rem] w-full min-w-0 resize-y border-border bg-background text-sm leading-6 md:text-base md:leading-7"
+                                                            />
+                                                        ) : (
+                                                            <div className="min-h-[11rem] w-full min-w-0 rounded-2xl border border-border bg-card px-4 py-3 text-sm leading-6 whitespace-pre-wrap text-foreground shadow-sm md:text-base md:leading-7">
+                                                                {readOnlyValue(
+                                                                    row.actual_accomplishment,
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </TableCell>
+                                                )}
                                                 {showRatings && (
                                                     <>
                                                         {(

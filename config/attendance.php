@@ -2,7 +2,7 @@
 
 return [
 
-    'shift_start' => env('ATTENDANCE_SHIFT_START', '09:00'),
+    'shift_start' => env('ATTENDANCE_SHIFT_START', '08:00'),
 
     'grace_period_minutes' => (int) env('ATTENDANCE_GRACE_PERIOD_MINUTES', 0),
 

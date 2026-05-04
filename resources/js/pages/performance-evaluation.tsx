@@ -19,6 +19,7 @@ import IpcrHistoricalEntry from '@/components/ipcr-historical-entry';
 import IpcrPaperForm from '@/components/ipcr-paper-form';
 import IpcrPeriodExtensions from '@/components/ipcr-period-extensions';
 import IpcrWorkflowStepper from '@/components/ipcr-workflow-stepper';
+import SubmitCard from '@/components/submit-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -53,13 +54,14 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import AppLayout from '@/layouts/app-layout';
 import { getAppealEvidenceUrl, getFileName } from '@/lib/ipcr';
 import { cn } from '@/lib/utils';
 import { evaluationPage, submitEvaluation, documentManagement } from '@/routes';
 import * as admin from '@/routes/admin';
-import type { BreadcrumbItem, IpcrSubmission } from '@/types';
+import type { BreadcrumbItem, IpcrSubmission, IpcrTarget } from '@/types';
 
 type CurrentPeriod = {
     label: string;
@@ -147,6 +149,7 @@ type PageProps = {
         submissionWindowLabel: string;
     };
     latestSubmission?: IpcrSubmission | null;
+    currentTarget?: IpcrTarget | null;
     employeePanel?: EmployeePanel | null;
     evaluatorPanel?: EvaluatorPanel | null;
     hrPanel?: HrPanel | null;
@@ -352,16 +355,15 @@ function HrStatCard({
 function EmployeeOverview({
     currentPeriod,
     latestSubmission,
+    currentTarget,
     employeePanel,
 }: {
     currentPeriod: CurrentPeriod | undefined;
     latestSubmission: IpcrSubmission | null | undefined;
+    currentTarget: IpcrTarget | null | undefined;
     employeePanel: EmployeePanel | null | undefined;
 }) {
-    const periodOpen = currentPeriod?.isOpen ?? false;
-    const launchFormLabel = periodOpen
-        ? 'Open IPCR Form'
-        : 'Preview IPCR Form';
+    const hasHistory = (employeePanel?.history ?? []).length > 0;
 
     return (
         <div className="space-y-6">
@@ -398,14 +400,13 @@ function EmployeeOverview({
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="space-y-5 pt-6">
-                    {latestSubmission && (
-                        <>
-                            <IpcrWorkflowStepper
-                                stage={latestSubmission.stage}
-                                status={latestSubmission.status}
-                                isEscalated={latestSubmission.is_escalated}
-                            />
+                {latestSubmission &&
+                    (latestSubmission.is_escalated ||
+                        ((latestSubmission.appeal_status ===
+                            'appeal_window_open' ||
+                            latestSubmission.stage === 'appeal_window_open') &&
+                            latestSubmission.appeal_window_closes_at)) && (
+                        <CardContent className="space-y-5 pt-6">
                             {latestSubmission.is_escalated && (
                                 <EscalationWarning
                                     reason={latestSubmission.escalation_reason}
@@ -414,7 +415,7 @@ function EmployeeOverview({
                             {(latestSubmission.appeal_status ===
                                 'appeal_window_open' ||
                                 latestSubmission.stage ===
-                                'appeal_window_open') &&
+                                    'appeal_window_open') &&
                                 latestSubmission.appeal_window_closes_at && (
                                     <div className="flex flex-wrap items-center gap-3">
                                         <AppealCountdown
@@ -435,32 +436,32 @@ function EmployeeOverview({
                                         )}
                                     </div>
                                 )}
-                        </>
+                        </CardContent>
                     )}
-
-                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                        {periodOpen && (
-                            <Button asChild className="w-full sm:w-auto">
-                                <Link href={employeePanel?.launchFormUrl ?? '#'}>
-                                    {launchFormLabel}
-                                </Link>
-                            </Button>
-                        )}
-                    </div>
-                </CardContent>
             </Card>
 
-            {(employeePanel?.history ?? []).length > 0 && (
-                <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
-                    <CardHeader className="border-b border-border bg-card">
-                        <CardTitle className="text-xl">IPCR History</CardTitle>
-                        <CardDescription>
-                            Your past IPCR submissions and their current workflow status.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="px-4 py-5 sm:px-6">
-                        <div className="space-y-5">
-                            {(employeePanel?.history ?? []).map((sub) => {
+            <Tabs defaultValue="form" className="w-full">
+                <TabsList className="w-full justify-start sm:w-fit">
+                    <TabsTrigger value="form">IPCR Form Workspace</TabsTrigger>
+                    <TabsTrigger value="history" disabled={!hasHistory}>
+                        IPCR History
+                    </TabsTrigger>
+                </TabsList>
+                <TabsContent value="form" className="mt-4">
+                    <SubmitCard currentTarget={currentTarget ?? null} />
+                </TabsContent>
+                <TabsContent value="history" className="mt-4">
+                    {hasHistory ? (
+                        <Card className="glass-card overflow-hidden border-border bg-card shadow-sm">
+                            <CardHeader className="border-b border-border bg-card">
+                                <CardTitle className="text-xl">IPCR History</CardTitle>
+                                <CardDescription>
+                                    Your past IPCR submissions and their current workflow status.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="px-4 py-5 sm:px-6">
+                                <div className="space-y-5">
+                                    {(employeePanel?.history ?? []).map((sub) => {
                                 const period = sub.form_payload?.metadata?.period ?? undefined;
                                 const semester = semesterFromPeriodLabel(period);
                                 const year = yearFromPeriodLabel(period);
@@ -501,11 +502,15 @@ function EmployeeOverview({
                                                 statusTone,
                                             )}
                                         />
-                                        <Card className="glass-card border-border bg-card shadow-sm">
-                                            <CardContent className="space-y-4 p-5">
+                                        <Card className="glass-card group relative overflow-hidden border-border bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:hover:shadow-[#2F5E2B]/10">
+                                            <span
+                                                aria-hidden
+                                                className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-[#2F5E2B] via-[#4A7C3C] to-[#A8D49E] opacity-80"
+                                            />
+                                            <CardContent className="space-y-4 p-5 sm:p-6">
                                                 <div className="flex flex-wrap items-start justify-between gap-3">
-                                                    <div className="space-y-1">
-                                                        <p className="text-xs font-semibold tracking-[0.18em] text-[#2F5E2B] uppercase dark:text-[#A8D49E]">
+                                                    <div className="space-y-1.5">
+                                                        <p className="text-[11px] font-semibold tracking-[0.2em] text-[#2F5E2B] uppercase dark:text-[#A8D49E]">
                                                             {semesterShort}
                                                         </p>
                                                         <h3 className="text-lg leading-snug font-semibold text-foreground">
@@ -517,16 +522,24 @@ function EmployeeOverview({
                                                     </Badge>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-                                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                                        <CalendarClock className="size-4 text-[#2F5E2B] dark:text-[#A8D49E]" />
-                                                        <span className="font-medium text-foreground">Stage:</span>
-                                                        <span>{statusLabel(sub.stage)}</span>
+                                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                                    <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                                                        <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                                                            <CalendarClock className="size-3.5 text-[#2F5E2B] dark:text-[#A8D49E]" />
+                                                            Stage
+                                                        </div>
+                                                        <p className="mt-1 text-sm font-medium text-foreground">
+                                                            {statusLabel(sub.stage)}
+                                                        </p>
                                                     </div>
-                                                    <div className="flex items-center gap-2 text-muted-foreground">
-                                                        <FileCheck2 className="size-4 text-[#2F5E2B] dark:text-[#A8D49E]" />
-                                                        <span className="font-medium text-foreground">Finalized:</span>
-                                                        <span>{finalizedAt ?? '—'}</span>
+                                                    <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                                                        <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                                                            <FileCheck2 className="size-3.5 text-[#2F5E2B] dark:text-[#A8D49E]" />
+                                                            Finalized
+                                                        </div>
+                                                        <p className="mt-1 text-sm font-medium text-foreground">
+                                                            {finalizedAt ?? '—'}
+                                                        </p>
                                                     </div>
                                                 </div>
 
@@ -553,10 +566,12 @@ function EmployeeOverview({
                                     </div>
                                 );
                             })}
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ) : null}
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }
@@ -2808,6 +2823,7 @@ export default function PerformanceEvaluationPage() {
         currentPeriod,
         currentTargetPeriod,
         latestSubmission,
+        currentTarget,
         employeePanel,
         evaluatorPanel,
         hrPanel,
@@ -2836,6 +2852,7 @@ export default function PerformanceEvaluationPage() {
                     <EmployeeOverview
                         currentPeriod={currentPeriod}
                         latestSubmission={latestSubmission}
+                        currentTarget={currentTarget}
                         employeePanel={employeePanel}
                     />
                 )}

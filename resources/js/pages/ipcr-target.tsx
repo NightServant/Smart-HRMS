@@ -2,10 +2,10 @@ import { Head, router, usePage } from '@inertiajs/react';
 import {
     CalendarRange,
     CheckCircle2,
+    ClipboardList,
     FileSpreadsheet,
     History,
     Loader2,
-    Printer,
     Save,
     Target,
 } from 'lucide-react';
@@ -175,7 +175,8 @@ function TargetHistoryCard({
         0,
     ) ?? 0;
 
-    const canPrint = target.status === 'submitted' && target.form_payload;
+    const completionPct =
+        totalRows > 0 ? Math.round((filledRows / totalRows) * 100) : 0;
 
     return (
         <div className="relative pl-6">
@@ -184,11 +185,15 @@ function TargetHistoryCard({
                 <HistoryStatusDot target={target} />
             </div>
 
-            <Card className="glass-card border-border bg-card shadow-sm">
-                <CardContent className="space-y-4 p-5">
+            <Card className="glass-card group relative overflow-hidden border-border bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md dark:hover:shadow-[#2F5E2B]/10">
+                <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-[#2F5E2B] via-[#4A7C3C] to-[#A8D49E] opacity-80"
+                />
+                <CardContent className="space-y-4 p-5 sm:p-6">
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="space-y-1">
-                            <p className="text-xs font-semibold tracking-[0.18em] text-[#2F5E2B] uppercase dark:text-[#A8D49E]">
+                        <div className="space-y-1.5">
+                            <p className="text-[11px] font-semibold tracking-[0.2em] text-[#2F5E2B] uppercase dark:text-[#A8D49E]">
                                 {semesterShortLabel(
                                     target.semester,
                                     target.target_year,
@@ -204,29 +209,46 @@ function TargetHistoryCard({
                         <HistoryStatusBadge target={target} />
                     </div>
 
-                    <div className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                            <CalendarRange className="size-4 text-[#2F5E2B] dark:text-[#A8D49E]" />
-                            <span className="font-medium text-foreground">
-                                Submitted:
-                            </span>
-                            <span>{submittedAt ?? '—'}</span>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                            <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                                <CalendarRange className="size-3.5 text-[#2F5E2B] dark:text-[#A8D49E]" />
+                                Submitted
+                            </div>
+                            <p className="mt-1 text-sm font-medium text-foreground">
+                                {submittedAt ?? '—'}
+                            </p>
                         </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                            <CheckCircle2 className="size-4 text-[#2F5E2B] dark:text-[#A8D49E]" />
-                            <span className="font-medium text-foreground">
-                                Targets Filled:
-                            </span>
-                            <span>
-                                {filledRows}/{totalRows} ({sectionsCount}{' '}
-                                section{sectionsCount === 1 ? '' : 's'})
-                            </span>
+                        <div className="rounded-xl border border-border/60 bg-muted/30 p-3">
+                            <div className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.16em] text-muted-foreground uppercase">
+                                <CheckCircle2 className="size-3.5 text-[#2F5E2B] dark:text-[#A8D49E]" />
+                                Targets Filled
+                            </div>
+                            <div className="mt-1 flex items-baseline gap-2">
+                                <p className="text-sm font-medium text-foreground">
+                                    {filledRows}/{totalRows}
+                                </p>
+                                <span className="text-xs text-muted-foreground">
+                                    · {sectionsCount} section
+                                    {sectionsCount === 1 ? '' : 's'}
+                                </span>
+                            </div>
+                            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border/60">
+                                <div
+                                    className="h-full rounded-full bg-gradient-to-r from-[#2F5E2B] to-[#A8D49E] transition-all"
+                                    style={{ width: `${completionPct}%` }}
+                                />
+                            </div>
                         </div>
                     </div>
 
                     {target.evaluator_remarks && (
-                        <div className="rounded-2xl border border-border/60 bg-background/40 p-3 text-sm leading-6 whitespace-pre-wrap text-foreground">
-                            <p className="mb-1 text-xs font-semibold tracking-[0.18em] text-muted-foreground uppercase">
+                        <div className="relative rounded-2xl border border-[#2F5E2B]/20 bg-[#DDEFD7]/30 p-4 text-sm leading-6 whitespace-pre-wrap text-foreground dark:border-[#4A7C3C]/30 dark:bg-[#274827]/30">
+                            <span
+                                aria-hidden
+                                className="absolute top-3 left-0 h-[calc(100%-1.5rem)] w-[3px] rounded-r bg-[#2F5E2B] dark:bg-[#A8D49E]"
+                            />
+                            <p className="mb-1.5 text-[11px] font-semibold tracking-[0.2em] text-[#2F5E2B] uppercase dark:text-[#A8D49E]">
                                 Evaluator Remarks
                             </p>
                             {target.evaluator_remarks}
@@ -239,30 +261,11 @@ function TargetHistoryCard({
                             variant="outline"
                             size="sm"
                             onClick={() => onView(target)}
+                            className="border-[#2F5E2B]/40 text-[#2F5E2B] hover:bg-[#DDEFD7] hover:text-[#1F3F1D] dark:border-[#4A7C3C]/40 dark:text-[#A8D49E] dark:hover:bg-[#274827]/80"
                         >
+                            <ClipboardList className="size-4" />
                             View Snapshot
                         </Button>
-                        {canPrint ? (
-                            <Button
-                                asChild
-                                variant="outline"
-                                size="sm"
-                                className="border-[#2F5E2B]/40 text-[#2F5E2B] hover:bg-[#DDEFD7] hover:text-[#1F3F1D] dark:border-[#4A7C3C]/40 dark:text-[#A8D49E] dark:hover:bg-[#274827]/80"
-                            >
-                                <a
-                                    href={
-                                        ipcrTargetForm.print({
-                                            target: target.id,
-                                        }).url
-                                    }
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    <Printer className="size-4" />
-                                    Print PDF
-                                </a>
-                            </Button>
-                        ) : null}
                     </div>
                 </CardContent>
             </Card>

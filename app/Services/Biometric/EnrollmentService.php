@@ -2,7 +2,6 @@
 
 namespace App\Services\Biometric;
 
-use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
@@ -201,14 +200,11 @@ class EnrollmentService
             $fingerIndex ??= $portal['finger_index'];
         }
 
-        // Canonical "enrolled" signal: actual fingerprint template on Zlink
-        // OR a biometric punch already exists. A pre-assigned pin alone is
-        // not enrollment.
-        $fingerCaptured = $fingerprintCount > 0
-            || AttendanceRecord::query()
-                ->where('employee_id', $employee->employee_id)
-                ->where('source', 'biometric')
-                ->exists();
+        // Canonical "enrolled" signal: an actual fingerprint template on
+        // Zlink. Historical biometric punches are NOT a signal — once a
+        // user explicitly deletes their fingerprint, past punches must not
+        // resurrect the enrollment on the next status poll.
+        $fingerCaptured = $fingerprintCount > 0;
 
         $confirmedKey = self::ENROLLMENT_CONFIRMED_CACHE_PREFIX.$employee->employee_id;
 
@@ -942,10 +938,11 @@ class EnrollmentService
 
     /**
      * Fallback duplicate check when Zlink does not expose a fingerprint
-     * search endpoint. Consults two cheaper signals: the persisted DB
-     * column (fastest), the portal's biological-template endpoint (covers
-     * legacy enrollments that predate the persistence migration), and the
-     * biometric-punch heuristic (the original fallback).
+     * search endpoint. Consults the persisted DB column (cleared on
+     * explicit delete) and the portal's biological-template endpoint
+     * (covers legacy enrollments that predate the persistence migration).
+     * Past biometric punches are intentionally NOT checked — after an
+     * explicit delete, the row history must not block re-enrollment.
      */
     private function guardViaAttendanceHistory(Employee $employee): void
     {
@@ -964,17 +961,6 @@ class EnrollmentService
                 'fingerprint_finger_index' => $portal['finger_index'],
             ])->save();
 
-            throw new RuntimeException(
-                'You are already enrolled in the biometric terminal. Re-enrolling would create duplicate punches.'
-            );
-        }
-
-        $hasBiometricPunch = AttendanceRecord::query()
-            ->where('employee_id', $employee->employee_id)
-            ->where('source', 'biometric')
-            ->exists();
-
-        if ($hasBiometricPunch) {
             throw new RuntimeException(
                 'You are already enrolled in the biometric terminal. Re-enrolling would create duplicate punches.'
             );

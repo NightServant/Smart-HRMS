@@ -74,7 +74,7 @@ test('employee cannot tamper payload to enroll a different employee', function (
     expect(Employee::query()->find('EMP-OTHER')->zkteco_pin)->toBeNull();
 });
 
-test('enrollment-status reports finger_captured once a biometric punch exists', function () {
+test('enrollment-status ignores historical biometric punches when no current credential exists', function () {
     Employee::query()->where('employee_id', 'EMP-300')->update(['zkteco_pin' => 'EMP300']);
 
     $user = User::factory()->create([
@@ -87,6 +87,9 @@ test('enrollment-status reports finger_captured once a biometric punch exists', 
     $response->assertJsonPath('enrolled_in_zlink', true);
     $response->assertJsonPath('finger_captured', false);
 
+    // A historical biometric punch must NOT flip finger_captured back to true:
+    // after an explicit fingerprint deletion the past punches still exist, and
+    // resurrecting the enrolled state would defeat the delete.
     AttendanceRecord::query()->create([
         'employee_id' => 'EMP-300',
         'date' => '2026-04-26',
@@ -96,7 +99,7 @@ test('enrollment-status reports finger_captured once a biometric punch exists', 
     ]);
 
     $response = $this->actingAs($user)->getJson('/api/biometrics/enrollment-status');
-    $response->assertJsonPath('finger_captured', true);
+    $response->assertJsonPath('finger_captured', false);
 });
 
 test('biometric-enrollment page is gated to the employee role', function () {

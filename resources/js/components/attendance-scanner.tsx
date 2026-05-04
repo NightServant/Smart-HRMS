@@ -223,7 +223,7 @@ export default function AttendanceScanner({
     };
 
     const handleEnroll = async (): Promise<void> => {
-        if (isEnrolling || isFingerCaptured) {
+        if (isEnrolling) {
             return;
         }
 
@@ -476,7 +476,7 @@ export default function AttendanceScanner({
                             </div>
                         </div>
 
-                        {isFingerCaptured ? (
+                        {isFingerCaptured && (
                             <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
                                 <div className="flex items-start gap-3">
                                     <Fingerprint className="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
@@ -486,8 +486,8 @@ export default function AttendanceScanner({
                                         </p>
                                         <p className="mt-0.5 text-xs text-emerald-700/80 dark:text-emerald-400/70">
                                             {fingerLabel
-                                                ? `Your ${fingerLabel.toLowerCase()} is registered on the office terminal — punch in and out there. No re-enrollment needed.`
-                                                : 'Your fingerprint is registered on the office terminal — punch in and out there. No re-enrollment needed.'}
+                                                ? `Your ${fingerLabel.toLowerCase()} is registered on the office terminal. You can re-enroll a different finger anytime below.`
+                                                : 'Your fingerprint is registered on the office terminal. You can re-enroll a different finger anytime below.'}
                                         </p>
                                     </div>
                                 </div>
@@ -503,83 +503,87 @@ export default function AttendanceScanner({
                                     Delete Fingerprint
                                 </Button>
                             </div>
-                        ) : (
-                            <div className="flex flex-col gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-900/40 dark:bg-sky-950/20">
-                                <div className="flex items-start gap-3">
-                                    <Info className="mt-0.5 size-5 shrink-0 text-sky-600 dark:text-sky-400" />
-                                    <div className="flex-1">
-                                        <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">
-                                            Enroll your fingerprint
-                                        </p>
-                                        <p className="mt-0.5 text-xs text-sky-700/80 dark:text-sky-400/70">
-                                            Click below to start enrollment. The
-                                            office terminal will prompt you to
-                                            place your finger.
-                                        </p>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <Label
-                                        htmlFor="finger-index-select"
-                                        className="text-xs font-medium text-sky-900 dark:text-sky-200"
-                                    >
-                                        Finger to register
-                                    </Label>
-                                    <Select
-                                        value={String(selectedFingerIndex)}
-                                        onValueChange={(value) =>
-                                            setSelectedFingerIndex(Number(value))
-                                        }
-                                        disabled={isEnrolling}
-                                    >
-                                        <SelectTrigger
-                                            id="finger-index-select"
-                                            className="w-full bg-background"
-                                        >
-                                            <SelectValue placeholder="Choose a finger" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {FINGER_OPTIONS.map((option) => (
-                                                <SelectItem
-                                                    key={option.value}
-                                                    value={String(option.value)}
-                                                >
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <p className="text-[11px] text-sky-700/70 dark:text-sky-400/60">
-                                        The terminal will store the template under
-                                        this slot. Pick the finger you'll actually
-                                        press.
+                        )}
+
+                        <div className="flex flex-col gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-900/40 dark:bg-sky-950/20">
+                            <div className="flex items-start gap-3">
+                                <Info className="mt-0.5 size-5 shrink-0 text-sky-600 dark:text-sky-400" />
+                                <div className="flex-1">
+                                    <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">
+                                        {isFingerCaptured
+                                            ? 'Change your fingerprint'
+                                            : 'Enroll your fingerprint'}
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-sky-700/80 dark:text-sky-400/70">
+                                        Click below to start enrollment. The
+                                        office terminal will prompt you to
+                                        place your finger.
                                     </p>
                                 </div>
-                                <Button
-                                    type="button"
-                                    className="w-full gap-2"
-                                    disabled={isEnrolling || !zktecoPinAssigned}
-                                    onClick={() => void handleEnroll()}
-                                    title={
-                                        zktecoPinAssigned
-                                            ? 'Trigger remote fingerprint enrollment at the office terminal'
-                                            : 'A ZKTeco Person ID has not been assigned yet — contact HR.'
-                                    }
-                                >
-                                    {isEnrolling ? (
-                                        <>
-                                            <Loader2 className="size-4 animate-spin" />
-                                            Waiting for terminal...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Fingerprint className="size-4" />
-                                            Enroll Fingerprint
-                                        </>
-                                    )}
-                                </Button>
                             </div>
-                        )}
+                            <div className="flex flex-col gap-1.5">
+                                <Label
+                                    htmlFor="finger-index-select"
+                                    className="text-xs font-medium text-sky-900 dark:text-sky-200"
+                                >
+                                    Finger to register
+                                </Label>
+                                <Select
+                                    value={String(selectedFingerIndex)}
+                                    onValueChange={(value) =>
+                                        setSelectedFingerIndex(Number(value))
+                                    }
+                                    disabled={isEnrolling}
+                                >
+                                    <SelectTrigger
+                                        id="finger-index-select"
+                                        className="w-full bg-background"
+                                    >
+                                        <SelectValue placeholder="Choose a finger" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {FINGER_OPTIONS.map((option) => (
+                                            <SelectItem
+                                                key={option.value}
+                                                value={String(option.value)}
+                                            >
+                                                {option.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-[11px] text-sky-700/70 dark:text-sky-400/60">
+                                    The terminal will store the template under
+                                    this slot. Pick the finger you'll actually
+                                    press.
+                                </p>
+                            </div>
+                            <Button
+                                type="button"
+                                className="w-full gap-2"
+                                disabled={isEnrolling || !zktecoPinAssigned}
+                                onClick={() => void handleEnroll()}
+                                title={
+                                    zktecoPinAssigned
+                                        ? 'Trigger remote fingerprint enrollment at the office terminal'
+                                        : 'A ZKTeco Person ID has not been assigned yet — contact HR.'
+                                }
+                            >
+                                {isEnrolling ? (
+                                    <>
+                                        <Loader2 className="size-4 animate-spin" />
+                                        Waiting for terminal...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Fingerprint className="size-4" />
+                                        {isFingerCaptured
+                                            ? 'Change Fingerprint'
+                                            : 'Enroll Fingerprint'}
+                                    </>
+                                )}
+                            </Button>
+                        </div>
                     </CardContent>
                 </Card>
 

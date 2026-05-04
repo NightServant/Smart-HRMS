@@ -16,7 +16,7 @@ beforeEach(function () {
         'services.zlink.app_key' => TEST_APP_KEY,
         'services.zlink.encryption_key' => TEST_ENCRYPT_KEY,
         'services.zlink.signature_token' => TEST_SIGNATURE_TOKEN,
-        'attendance.shift_start' => '09:00',
+        'attendance.shift_start' => '08:00',
         'attendance.grace_period_minutes' => 0,
         'attendance.time_out_min_gap_minutes' => 60,
     ]);
@@ -66,7 +66,7 @@ test('webhook ingests punches and aggregates daily attendance', function () {
             'attState' => '0',
             'deviceAlias' => 'nface',
             'sn' => 'PWA1243400011',
-            'punchTime' => '2026-04-27T08:30:00+08:00',
+            'punchTime' => '2026-04-27T07:30:00+08:00',
             'operator' => 'WH001',
             'verifyType' => '4',
         ], [
@@ -96,7 +96,7 @@ test('webhook ingests punches and aggregates daily attendance', function () {
     $daily = DailyAttendance::query()->firstWhere(['employee_id' => 'EMP-WH-1', 'date' => '2026-04-27']);
     expect($daily)->not->toBeNull();
     expect($daily->status)->toBe('on_time');
-    expect($daily->time_in)->toBe('08:30:00');
+    expect($daily->time_in)->toBe('07:30:00');
 });
 
 test('webhook rejects bad signature', function () {
@@ -129,7 +129,7 @@ test('duplicate requestId is processed only once', function () {
     $sign = makeSignature($timestamp, $nonce);
     $encrypt = aesEncrypt(json_encode([
         'attLogs' => [[
-            'punchTime' => '2026-04-27T08:30:00+08:00',
+            'punchTime' => '2026-04-27T07:30:00+08:00',
             'operator' => 'WH001',
             'sn' => 'PWA1',
         ]],

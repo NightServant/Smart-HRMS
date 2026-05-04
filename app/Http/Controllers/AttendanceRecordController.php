@@ -73,13 +73,12 @@ class AttendanceRecordController extends Controller
             'employeeName' => $employee?->name ?? $request->user()->name,
             'hasDevice' => $hasDevice,
             'enrolledInBiometric' => ! empty($employee?->webauthn_credential_id),
-            // True if Zlink has confirmed a fingerprint credential (persisted
-            // by EnrollmentService::verificationStatus) OR a biometric
-            // punch has been recorded. Pre-assigned zkteco_pin alone is
-            // not enrollment.
-            'enrolledAtTerminal' => $employee?->hasFingerprintEnrollment()
-                || $employee?->hasBiometricActivity()
-                || false,
+            // True only when a fingerprint credential is currently registered
+            // (persisted by EnrollmentService::verificationStatus and cleared
+            // by deleteFingerprint). Historical biometric punches are NOT a
+            // signal — a deleted fingerprint must read as not enrolled even
+            // though past AttendanceRecord rows still exist.
+            'enrolledAtTerminal' => (bool) $employee?->hasFingerprintEnrollment(),
             'fingerLabel' => $employee?->fingerprintLabel(),
             'zktecoPinAssigned' => ! empty($employee?->zkteco_pin),
             'enrollmentStatus' => $enrollmentStatus,

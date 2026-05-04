@@ -222,7 +222,7 @@ test('EmployeeSyncService syncs employees to Zlink with derived emp_code', funct
     });
 });
 
-test('enrolledAtTerminal reflects biometric activity, not just zkteco_pin presence', function () {
+test('enrolledAtTerminal reflects persisted fingerprint enrollment, not historical punches', function () {
     $department = Department::factory()->create();
 
     $employee = Employee::query()->create([
@@ -238,14 +238,15 @@ test('enrolledAtTerminal reflects biometric activity, not just zkteco_pin presen
         'role' => User::ROLE_EMPLOYEE,
     ]);
 
-    expect($employee->hasBiometricActivity())->toBeFalse();
-
     $response = $this->actingAs($user)->get('/attendance');
     $response->assertInertia(fn (Assert $page) => $page
         ->where('enrolledAtTerminal', false)
         ->where('zktecoPinAssigned', true),
     );
 
+    // A historical biometric punch alone must NOT mark the user as enrolled.
+    // After explicit fingerprint deletion (which clears fingerprint_enrolled_at)
+    // the row history would otherwise resurrect the enrolled state.
     AttendanceRecord::query()->create([
         'employee_id' => 'EMP-410',
         'date' => now()->toDateString(),
@@ -253,7 +254,12 @@ test('enrolledAtTerminal reflects biometric activity, not just zkteco_pin presen
         'source' => 'biometric',
     ]);
 
-    expect($employee->fresh()->hasBiometricActivity())->toBeTrue();
+    $response = $this->actingAs($user)->get('/attendance');
+    $response->assertInertia(fn (Assert $page) => $page
+        ->where('enrolledAtTerminal', false),
+    );
+
+    $employee->forceFill(['fingerprint_enrolled_at' => now()])->save();
 
     $response = $this->actingAs($user)->get('/attendance');
     $response->assertInertia(fn (Assert $page) => $page

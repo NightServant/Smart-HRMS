@@ -115,4 +115,17 @@ return [
         'name' => env('MAIL_FROM_NAME', 'Example'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Credentials Recipient Override
+    |--------------------------------------------------------------------------
+    |
+    | When set, EmployeeAccountCredentialsNotification emails are delivered to
+    | this address instead of the synthetic employee's mailbox. Useful for
+    | demos and testing where employee emails are fake.
+    |
+    */
+
+    'credentials_recipient' => env('MAIL_CREDENTIALS_RECIPIENT'),
+
 ];

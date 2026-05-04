@@ -71,7 +71,7 @@ export function AttendancePolicyHelpDialog() {
                         <p>
                             The standard shift starts at{' '}
                             <span className="font-semibold text-foreground">
-                                9:00 AM
+                                8:00 AM
                             </span>
                             . Clock in before the shift starts and clock out at
                             the end of your workday. The first punch of the day
@@ -119,7 +119,7 @@ export function AttendancePolicyHelpDialog() {
                         <p>
                             A clock-in past{' '}
                             <span className="font-semibold text-foreground">
-                                9:00 AM
+                                8:00 AM
                             </span>{' '}
                             is recorded as{' '}
                             <span className="font-semibold text-foreground">

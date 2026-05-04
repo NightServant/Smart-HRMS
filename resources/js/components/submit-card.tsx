@@ -326,13 +326,14 @@ export default function SubmitCard({ currentTarget = null }: SubmitCardProps) {
                     {isViewingActiveSubmission && latestSubmission ? (
                         <IpcrPaperForm
                             value={latestSubmission.form_payload}
-                            mode="review"
+                            mode="employee-snapshot"
+                            currentTarget={currentTarget}
                         />
                     ) : formPayload ? (
                         <>
                             <IpcrPaperForm
                                 value={formPayload}
-                                mode={canEditSubmission ? 'employee' : 'review'}
+                                mode="employee"
                                 onChange={
                                     canEditSubmission ? setFormPayload : undefined
                                 }

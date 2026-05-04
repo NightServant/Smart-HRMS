@@ -57,11 +57,23 @@ class IwrController extends Controller
             ->first();
         $latestSubmission = $this->repairLegacySubmission($latestSubmission);
 
+        $canStartNewSubmission = $employee !== null
+            && ($latestSubmission === null || $latestSubmission->stage === 'finalized');
+
+        $currentTarget = $employee
+            ? $this->findEmployeeTargetForPeriod($employee, $currentPeriod['label'], $currentPeriod['year'])
+            : null;
+
         return Inertia::render('performance-evaluation', [
             'roleView' => 'employee',
             'employee' => $employee ? $this->employeeResource($employee) : null,
             'currentPeriod' => $currentPeriod,
             'periodOpen' => $currentPeriod['isOpen'],
+            'canStartNewSubmission' => $canStartNewSubmission,
+            'draftFormPayload' => $employee
+                ? $this->ipcrFormTemplateService->draft($employee, $currentPeriod['label'])
+                : null,
+            'currentTarget' => $currentTarget ? $this->targetResource($currentTarget) : null,
             'latestSubmission' => $latestSubmission
                 ? $this->submissionResource($latestSubmission)
                 : null,
