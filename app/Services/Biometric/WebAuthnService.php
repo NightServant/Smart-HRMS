@@ -207,20 +207,6 @@ class WebAuthnService
         ];
     }
 
-    /**
-     * Forget a credential so the employee can re-enroll on a new device.
-     */
-    public function resetEnrollment(Employee $employee): void
-    {
-        $employee->forceFill([
-            'webauthn_credential_id' => null,
-            'webauthn_public_key' => null,
-            'webauthn_sign_count' => 0,
-            'webauthn_user_handle' => null,
-            'webauthn_enrolled_at' => null,
-        ])->save();
-    }
-
     private function generateChallenge(): string
     {
         return random_bytes(32);

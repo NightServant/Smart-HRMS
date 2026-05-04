@@ -1,6 +1,6 @@
 <?php
 
-use App\Models\AttendanceRecord;
+use App\Models\DailyAttendance;
 use App\Models\Employee;
 use App\Models\HistoricalDataRecord;
 use App\Models\User;
@@ -13,18 +13,30 @@ test('hr personnel can export attendance csv', function () {
         'name' => 'Alice Employee',
         'job_title' => 'Analyst',
     ]);
-    AttendanceRecord::query()->create([
+    DailyAttendance::query()->create([
         'employee_id' => 'EMP-900',
         'date' => '2026-03-07',
-        'punch_time' => '2026-03-07 08:00:00',
-        'status' => 'Present',
+        'time_in' => '08:00:00',
+        'time_out' => '17:00:00',
+        'status' => 'on_time',
+        'late_minutes' => 0,
+        'source' => 'biometric',
     ]);
 
     $response = $this->actingAs($hrUser)
         ->get(route('admin.attendance-management.export-csv'));
 
     $response->assertOk();
+    $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
     $response->assertDownload('attendance-records-'.now()->format('Y-m-d').'.csv');
+
+    $body = $response->streamedContent();
+    expect($body)
+        ->toContain('"Employee ID","Employee Name",Date,"Time In","Time Out"')
+        ->toContain('EMP-900')
+        ->toContain('Alice Employee')
+        ->toContain('2026-03-07')
+        ->toContain('on_time');
 });
 
 test('hr personnel can import and clear csv from historical data endpoints', function () {

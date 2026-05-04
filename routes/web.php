@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\EmployeeDirectoryController;
-use App\Http\Controllers\Admin\PositionController;
 use App\Http\Controllers\Admin\SystemSettingController;
 use App\Http\Controllers\Admin\UserManagementController;
 use App\Http\Controllers\AttendanceImportController;
@@ -138,10 +137,6 @@ Route::post('admin/departments', [DepartmentController::class, 'store'])
 Route::put('admin/departments/{department}', [DepartmentController::class, 'update'])
     ->middleware(['auth', 'role:hr-personnel'])
     ->name('admin.departments.update');
-
-Route::post('admin/positions', [PositionController::class, 'store'])
-    ->middleware(['auth', 'role:hr-personnel'])
-    ->name('admin.positions.store');
 
 Route::get('document-management', [PaginationController::class, 'documentManagement'])
     ->middleware(['auth', 'role:evaluator'])

@@ -38,24 +38,13 @@ class DepartmentPositionSeeder extends Seeder
             'Department Head' => 'evaluator',
             'Administrative Officer II' => 'employee',
             'Administrative Aide I' => 'employee',
-            'Administrative Aide II' => 'employee',
-            'Administrative Aide' => 'employee',
-            'Administrative Assistant' => 'employee',
-            'Analyst' => 'employee',
-            'Supervisor' => 'employee',
-            'Field Officer' => 'employee',
-            'Representative' => 'employee',
-            'QA' => 'employee',
         ] as $name => $role) {
             $appendRow($adminOfficeId, $name, $role);
         }
 
         foreach ([
             'Department Head' => 'hr-personnel',
-            'HR Officer' => 'hr-personnel',
             'PMT Officer' => 'pmt',
-            'PMT Chair' => 'pmt',
-            'Representative' => 'employee',
         ] as $name => $role) {
             $appendRow($hrmoId, $name, $role);
         }

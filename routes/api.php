@@ -48,7 +48,5 @@ Route::middleware(['web', 'auth', 'throttle:60,1'])->prefix('biometrics')->group
             ->name('api.biometrics.webauthn.clock-options');
         Route::post('clock', [WebAuthnController::class, 'clock'])
             ->name('api.biometrics.webauthn.clock');
-        Route::post('reset', [WebAuthnController::class, 'reset'])
-            ->name('api.biometrics.webauthn.reset');
     });
 });

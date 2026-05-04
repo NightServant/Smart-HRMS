@@ -291,13 +291,13 @@ test('updating an employee recreates a missing linked account', function () {
     $hrUser = User::factory()->asHrPersonnel()->create();
     $department = Department::query()->firstOrCreate(['name' => 'Administrative Office']);
     $position = EmployeePosition::query()->create([
-        'name' => 'Project Development Officer',
+        'name' => 'Administrative Aide I',
     ]);
 
     $employee = Employee::query()->create([
         'employee_id' => 'EMP-200',
         'name' => 'Unlinked Employee',
-        'job_title' => 'Project Development Officer',
+        'job_title' => 'Administrative Aide I',
         'department_id' => $department->id,
         'position_id' => $position->id,
         'employment_status' => 'permanent',
@@ -388,9 +388,7 @@ test('updating an employee derives linked account role from the selected positio
     expect($employee->fresh()?->job_title)->toBe('Department Head');
 });
 
-test('positions outside the fixed mapping still default linked accounts to employee role', function () {
-    Notification::fake();
-
+test('store rejects positions outside the department allowlist', function () {
     $hrUser = User::factory()->asHrPersonnel()->create();
     $department = Department::query()->firstOrCreate(['name' => 'Administrative Office']);
     $position = EmployeePosition::query()->create([
@@ -398,9 +396,10 @@ test('positions outside the fixed mapping still default linked accounts to emplo
     ]);
 
     $this->actingAs($hrUser)
+        ->from(route('admin.employee-directory'))
         ->post(route('admin.employee-directory.store'), [
-            'name' => 'Fallback Role Employee',
-            'email' => 'fallback.role@example.com',
+            'name' => 'Disallowed Position Employee',
+            'email' => 'disallowed.role@example.com',
             'department_mode' => 'existing',
             'department_id' => $department->id,
             'department_name' => '',
@@ -408,12 +407,9 @@ test('positions outside the fixed mapping still default linked accounts to emplo
             'employment_status' => 'permanent',
             'date_hired' => '2026-04-03',
         ])
-        ->assertRedirect();
+        ->assertSessionHasErrors('position_id');
 
-    $user = User::query()->where('email', 'fallback.role@example.com')->first();
-
-    expect($user)->not->toBeNull();
-    expect($user?->role)->toBe(User::ROLE_EMPLOYEE);
+    expect(User::query()->where('email', 'disallowed.role@example.com')->exists())->toBeFalse();
 });
 
 test('document management only returns users with employee role', function () {

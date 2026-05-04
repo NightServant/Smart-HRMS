@@ -2,7 +2,12 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Department;
+use App\Models\Employee;
+use App\Models\EmployeePosition;
 use App\Models\User;
+use App\Support\DepartmentPositionPolicy;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -31,10 +36,10 @@ class UpdateEmployeeRequest extends FormRequest
      */
     public function rules(): array
     {
-        /** @var \App\Models\Employee $employee */
+        /** @var Employee $employee */
         $employee = $this->route('employee');
 
-        /** @var \App\Models\User|null $linkedUser */
+        /** @var User|null $linkedUser */
         $linkedUser = $employee->user;
 
         return [
@@ -53,8 +58,6 @@ class UpdateEmployeeRequest extends FormRequest
             'employment_status' => ['required', 'string', Rule::in(['permanent', 'casual', 'job_order'])],
             'date_hired' => ['required', 'date'],
             'is_active' => ['required', 'boolean'],
-            // zkteco_pin is auto-derived from employee_id and synced to
-            // Zlink. HR may opt-in to override via this explicit field.
             'zkteco_pin_override' => [
                 'sometimes',
                 'nullable',
@@ -63,6 +66,90 @@ class UpdateEmployeeRequest extends FormRequest
                 Rule::unique('employees', 'zkteco_pin')->ignore($employee->employee_id, 'employee_id'),
             ],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            /** @var Employee $employee */
+            $employee = $this->route('employee');
+            $actor = $this->user();
+            $linkedUser = $employee->user;
+
+            $departmentName = $this->resolveDepartmentName();
+            $positionName = $this->resolvePositionName();
+
+            // Department-position allowlist enforcement.
+            if ($departmentName !== null && $positionName !== null
+                && ! DepartmentPositionPolicy::isAllowed($departmentName, $positionName)
+            ) {
+                $allowed = DepartmentPositionPolicy::allowedPositionsFor($departmentName);
+                $validator->errors()->add(
+                    'position_id',
+                    sprintf(
+                        '%s only allows the following positions: %s.',
+                        $departmentName,
+                        implode(', ', $allowed),
+                    ),
+                );
+            }
+
+            // HR self-modification guard: an HR personnel user may not change
+            // their own department or position via this endpoint. Admins
+            // (and HR editing other employees) remain unaffected.
+            if ($actor !== null
+                && $linkedUser !== null
+                && $actor->is($linkedUser)
+                && $actor->role === User::ROLE_HR_PERSONNEL
+            ) {
+                $submittedDepartmentId = $this->input('department_mode') === 'new'
+                    ? null
+                    : (int) $this->input('department_id');
+                $submittedPositionId = (int) $this->input('position_id');
+
+                if ($this->input('department_mode') === 'new'
+                    || ($submittedDepartmentId !== (int) $employee->department_id)
+                ) {
+                    $validator->errors()->add(
+                        'department_id',
+                        'You cannot change your own department.',
+                    );
+                }
+
+                if ($submittedPositionId !== (int) $employee->position_id) {
+                    $validator->errors()->add(
+                        'position_id',
+                        'You cannot change your own position.',
+                    );
+                }
+            }
+        });
+    }
+
+    private function resolveDepartmentName(): ?string
+    {
+        if ($this->input('department_mode') === 'new') {
+            $name = trim((string) $this->input('department_name', ''));
+
+            return $name === '' ? null : $name;
+        }
+
+        $id = $this->input('department_id');
+        if (! is_numeric($id)) {
+            return null;
+        }
+
+        return Department::query()->whereKey((int) $id)->value('name');
+    }
+
+    private function resolvePositionName(): ?string
+    {
+        $id = $this->input('position_id');
+        if (! is_numeric($id)) {
+            return null;
+        }
+
+        return EmployeePosition::query()->whereKey((int) $id)->value('name');
     }
 
     public function messages(): array

@@ -2,7 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Department;
+use App\Models\EmployeePosition;
 use App\Models\User;
+use App\Support\DepartmentPositionPolicy;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -41,6 +45,54 @@ class StoreEmployeeRequest extends FormRequest
             'employment_status' => ['required', 'string', Rule::in(['permanent', 'casual', 'job_order'])],
             'date_hired' => ['required', 'date'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $departmentName = $this->resolveDepartmentName();
+            $positionName = $this->resolvePositionName();
+
+            if ($departmentName !== null && $positionName !== null
+                && ! DepartmentPositionPolicy::isAllowed($departmentName, $positionName)
+            ) {
+                $allowed = DepartmentPositionPolicy::allowedPositionsFor($departmentName);
+                $validator->errors()->add(
+                    'position_id',
+                    sprintf(
+                        '%s only allows the following positions: %s.',
+                        $departmentName,
+                        implode(', ', $allowed),
+                    ),
+                );
+            }
+        });
+    }
+
+    private function resolveDepartmentName(): ?string
+    {
+        if ($this->input('department_mode') === 'new') {
+            $name = trim((string) $this->input('department_name', ''));
+
+            return $name === '' ? null : $name;
+        }
+
+        $id = $this->input('department_id');
+        if (! is_numeric($id)) {
+            return null;
+        }
+
+        return Department::query()->whereKey((int) $id)->value('name');
+    }
+
+    private function resolvePositionName(): ?string
+    {
+        $id = $this->input('position_id');
+        if (! is_numeric($id)) {
+            return null;
+        }
+
+        return EmployeePosition::query()->whereKey((int) $id)->value('name');
     }
 
     public function messages(): array

@@ -130,15 +130,6 @@ class WebAuthnController extends Controller
         ]);
     }
 
-    public function reset(Request $request): JsonResponse
-    {
-        $employee = $this->resolveEmployee($request);
-
-        $this->webauthn->resetEnrollment($employee);
-
-        return response()->json(['status' => 'cleared']);
-    }
-
     public function status(Request $request): JsonResponse
     {
         $employee = $this->resolveEmployee($request);

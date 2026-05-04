@@ -34,7 +34,6 @@ import {
     SelectContent,
     SelectGroup,
     SelectItem,
-    SelectSeparator,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
@@ -51,12 +50,47 @@ import * as admin from '@/routes/admin';
 import employeeDirectoryRoutes from '@/routes/admin/employee-directory';
 import type { Auth } from '@/types';
 import { AddDepartmentDialog } from './add-department-dialog';
-import { AddPositionDialog } from './add-position-dialog';
 import { EditDepartmentDialog } from './edit-department-dialog';
 import PredictivePerformanceModule from './predict-performance-eval-modal';
 
-const ADD_POSITION_FILTER_VALUE = '__add_position__';
 const HRMO_NAME = 'Human Resource Management Office';
+const ADMIN_OFFICE_NAME = 'Administrative Office';
+
+// Mirrors app/Support/DepartmentPositionPolicy.php on the backend. Keep the
+// two lists in sync; backend validation is authoritative.
+const DEPARTMENT_POSITION_ALLOWLIST: Record<string, string[]> = {
+    [ADMIN_OFFICE_NAME]: [
+        'Department Head',
+        'Administrative Officer II',
+        'Administrative Aide I',
+    ],
+    [HRMO_NAME]: ['Department Head', 'PMT Officer'],
+};
+
+function normalizePositionName(name: string): string {
+    return name
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .replace(/\biv\b/g, '4')
+        .replace(/\biii\b/g, '3')
+        .replace(/\bii\b/g, '2')
+        .replace(/\bi\b/g, '1');
+}
+
+function filterPositionsByDepartment(
+    positions: Position[],
+    departmentName: string,
+): Position[] {
+    const allowlist = DEPARTMENT_POSITION_ALLOWLIST[departmentName];
+    if (!allowlist) {
+        return positions;
+    }
+    const normalizedAllowlist = allowlist.map(normalizePositionName);
+    return positions.filter((position) =>
+        normalizedAllowlist.includes(normalizePositionName(position.name)),
+    );
+}
 
 type Employee = {
     id: number;
@@ -302,9 +336,10 @@ function AddEmployeeDialog({
         const dept = departments.find(
             (department) => String(department.id) === data.department_id,
         );
-        return (dept?.positions ?? []).filter(
+        const baseList = (dept?.positions ?? []).filter(
             (position) => position.linkedAccountRole !== 'hr-personnel',
         );
+        return filterPositionsByDepartment(baseList, dept?.name ?? '');
     }, [departments, data.department_id]);
 
     useEffect(() => {
@@ -589,6 +624,11 @@ function ManageEmployeeDialog({
     departmentPositionRoleMap: DepartmentPositionRoleMap;
     defaultEmployeeRole: string;
 }) {
+    const { auth } = usePage<{ auth: Auth }>().props;
+    const isEditingSelf =
+        auth.user.role === 'hr-personnel' &&
+        employee !== null &&
+        employee.user_id === auth.user.id;
     const { data, setData, put, processing, errors, reset } =
         useForm<UpdateForm>({
             name: '',
@@ -634,7 +674,10 @@ function ManageEmployeeDialog({
         const dept = departments.find(
             (department) => String(department.id) === data.department_id,
         );
-        return dept?.positions ?? [];
+        return filterPositionsByDepartment(
+            dept?.positions ?? [],
+            dept?.name ?? '',
+        );
     }, [departments, data.department_id]);
 
     const handleOpenChange = (nextOpen: boolean): void => {
@@ -764,8 +807,9 @@ function ManageEmployeeDialog({
                                     Organization
                                 </h3>
                                 <p className="text-xs text-muted-foreground">
-                                    Department is fixed for this record. Pick a
-                                    position from the same department.
+                                    {isEditingSelf
+                                        ? 'HR personnel cannot change their own department or position. Ask an administrator if a change is required.'
+                                        : 'Department is fixed for this record. Pick a position from the same department.'}
                                 </p>
                             </div>
                             <div className="grid gap-4">
@@ -775,13 +819,22 @@ function ManageEmployeeDialog({
                                     value={employee?.department ?? ''}
                                 />
 
-                                <PositionField
-                                    positions={departmentPositions}
-                                    data={data}
-                                    setData={setData}
-                                    errors={errors}
-                                    idPrefix="edit"
-                                />
+                                {isEditingSelf ? (
+                                    <ReadonlyField
+                                        id="edit-position"
+                                        label="Position"
+                                        value={employee?.position ?? ''}
+                                        helperText="Locked: HR personnel cannot edit their own position."
+                                    />
+                                ) : (
+                                    <PositionField
+                                        positions={departmentPositions}
+                                        data={data}
+                                        setData={setData}
+                                        errors={errors}
+                                        idPrefix="edit"
+                                    />
+                                )}
 
                                 <div className="grid gap-4 md:grid-cols-2">
                                     <div className="grid gap-1.5">
@@ -1023,7 +1076,6 @@ export function EmployeesTable({
         useState(positionFilter);
     const [isAddDepartmentOpen, setIsAddDepartmentOpen] = useState(false);
     const [isEditDepartmentOpen, setIsEditDepartmentOpen] = useState(false);
-    const [isAddPositionOpen, setIsAddPositionOpen] = useState(false);
     const [isPredictiveModalOpen, setIsPredictiveModalOpen] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(
         null,
@@ -1148,11 +1200,6 @@ export function EmployeesTable({
     };
 
     const handlePositionFilterChange = (value: string): void => {
-        if (value === ADD_POSITION_FILTER_VALUE) {
-            setIsAddPositionOpen(true);
-            return;
-        }
-
         const filterValue = value === 'all' ? '' : value;
         setCurrentPositionFilter(filterValue);
         visitEmployeesTable({ positionFilter: filterValue, page: 1 });
@@ -1353,19 +1400,6 @@ export function EmployeesTable({
                                                 {position.name}
                                             </SelectItem>
                                         ),
-                                    )}
-                                    {canManageEmployees && activeDepartment && (
-                                        <>
-                                            <SelectSeparator />
-                                            <SelectItem
-                                                value={
-                                                    ADD_POSITION_FILTER_VALUE
-                                                }
-                                                className="font-semibold text-primary"
-                                            >
-                                                + Add Position
-                                            </SelectItem>
-                                        </>
                                     )}
                                 </SelectGroup>
                             </SelectContent>
@@ -1656,12 +1690,6 @@ export function EmployeesTable({
             <EditDepartmentDialog
                 open={isEditDepartmentOpen}
                 onOpenChange={setIsEditDepartmentOpen}
-                departmentId={activeDepartment?.id ?? null}
-                departmentName={activeDepartment?.name ?? ''}
-            />
-            <AddPositionDialog
-                open={isAddPositionOpen}
-                onOpenChange={setIsAddPositionOpen}
                 departmentId={activeDepartment?.id ?? null}
                 departmentName={activeDepartment?.name ?? ''}
             />
