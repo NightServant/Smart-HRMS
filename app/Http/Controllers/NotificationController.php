@@ -21,6 +21,7 @@ class NotificationController extends Controller
         $notifications = Notification::query()
             ->where('user_id', $userId)
             ->latest()
+            ->take(50)
             ->get()
             ->map(fn (Notification $n) => [
                 'id' => $n->id,

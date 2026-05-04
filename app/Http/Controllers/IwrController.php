@@ -1358,6 +1358,7 @@ class IwrController extends Controller
             ->where('hr_finalized', true)
             ->with(['employee', 'evaluator'])
             ->latest()
+            ->take(100)
             ->get()
             ->map(fn (IpcrTarget $target): array => $this->targetResource($target))
             ->all();
