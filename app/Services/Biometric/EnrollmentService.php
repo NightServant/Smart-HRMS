@@ -735,7 +735,7 @@ class EnrollmentService
     private function triggerViaPortal(Employee $employee, string $deviceSn, int $fingerIndex = 1): bool
     {
         if (! $this->portal->isConfigured()) {
-            Log::warning('Zlink portal not configured; falling back to manual on-device enrollment.', [
+            Log::info('Zlink portal not configured; falling back to manual on-device enrollment.', [
                 'employee_id' => $employee->employee_id,
                 'device_sn' => $deviceSn,
             ]);
@@ -794,7 +794,7 @@ class EnrollmentService
                 return false;
             }
 
-            Log::warning('Zlink portal remoteRegistration succeeded.', [
+            Log::info('Zlink portal remoteRegistration succeeded.', [
                 'employee_id' => $employee->employee_id,
                 'portal_employee_id' => $portalEmployeeId,
                 'device_id' => $portalDeviceId,
@@ -871,18 +871,30 @@ class EnrollmentService
 
         try {
             $matches = $this->client->listEmployees($pin);
+
+            foreach ($matches as $row) {
+                if (($row['employeeCode'] ?? null) === $pin && isset($row['id'])) {
+                    $id = (string) $row['id'];
+                    Cache::put($cacheKey, $id, now()->addHour());
+
+                    return $id;
+                }
+            }
         } catch (Throwable $e) {
-            Log::warning('Could not list employees from open API to resolve portal employee id.', [
+            // Open API may return 405 on some hosting environments (WAF/IP restriction).
+            // Fall through to the portal-client fallback below.
+            Log::warning('Open API employee lookup failed; trying portal fallback.', [
                 'employee_id' => $employee->employee_id,
                 'error' => $e->getMessage(),
             ]);
-
-            return null;
         }
 
-        foreach ($matches as $row) {
-            if (($row['employeeCode'] ?? null) === $pin && isset($row['id'])) {
-                $id = (string) $row['id'];
+        // Fallback: resolve via the portal's credential/employee/list endpoint,
+        // which works even when the open API is blocked from this host.
+        if ($this->portal->isConfigured()) {
+            $id = $this->portal->findPortalEmployeeIdByCode($pin);
+
+            if ($id !== null && $id !== '') {
                 Cache::put($cacheKey, $id, now()->addHour());
 
                 return $id;

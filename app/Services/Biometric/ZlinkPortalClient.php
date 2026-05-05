@@ -161,6 +161,47 @@ class ZlinkPortalClient
      *
      * @return array<int, string>
      */
+    /**
+     * Look up the Zlink portal's internal employee UUID by employee code.
+     * Uses the same cms/credential/employee/list endpoint as findCredentialIdsByEmployeeCode
+     * because it works on tenants where the open API /employees/search returns 405.
+     * Returns null when the employee is not found on the portal.
+     */
+    public function findPortalEmployeeIdByCode(string $employeeCode): ?string
+    {
+        if ($employeeCode === '') {
+            return null;
+        }
+
+        try {
+            $payload = $this->postJson('/zlink-api/v1.0/zlink/cms/credential/employee/list', [
+                'pageNumber' => 1,
+                'pageSize' => 10,
+                'employeeCode' => $employeeCode,
+                'current' => 1,
+            ]);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        $employees = (array) (((array) ($payload['data'] ?? []))['employees'] ?? []);
+
+        foreach ($employees as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $code = (string) ($row['code'] ?? $row['employeeCode'] ?? '');
+            $id = (string) ($row['id'] ?? '');
+
+            if ($id !== '' && ($code === $employeeCode || $code === '')) {
+                return $id;
+            }
+        }
+
+        return null;
+    }
+
     public function findCredentialIdsByEmployeeCode(string $employeeCode, int $bioType = 1): array
     {
         if ($employeeCode === '') {
