@@ -55,7 +55,7 @@ services:
       - key: QUEUE_CONNECTION
         value: database
       - key: CACHE_STORE
-        value: database
+        value: file
 
       # ── Mail (Gmail SMTP) ────────────────────────────────────────────────────
       - key: MAIL_MAILER
@@ -110,3 +110,19 @@ services:
       # ── Vite ─────────────────────────────────────────────────────────────────
       - key: VITE_APP_NAME
         value: Smart HRMS
+
+  # ── Keep-alive cron — pings /ping every 10 min to prevent cold starts ────
+  - type: cron
+    name: smart-hrms-keepalive
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    schedule: "*/10 * * * *"
+    envVars:
+      - key: APP_KEY
+        sync: false
+      - key: APP_URL
+        sync: false
+    startCommand: >-
+      sh -c 'curl -fsS --retry 3 --max-time 10 "${APP_URL}/ping" && echo "keep-alive ok"'

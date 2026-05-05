@@ -3,11 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\IpcrSubmission;
 use App\Models\IwrAuditLog;
-use App\Models\LeaveRequest;
-use App\Models\Seminars;
-use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -16,77 +13,68 @@ class SystemDashboardController extends Controller
 {
     public function index(): Response
     {
-        $users = User::query();
-        $leaveRequests = LeaveRequest::query();
-        $ipcrSubmissions = IpcrSubmission::query();
-        $auditLogs = IwrAuditLog::query();
+        $metrics = Cache::remember('system_dashboard', 120, function (): array {
+            // Single aggregated query for all user counts.
+            $userAgg = DB::selectOne("
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(is_active = 1) AS active,
+                    SUM(is_active = 0) AS inactive,
+                    SUM(two_factor_confirmed_at IS NOT NULL) AS two_factor_enabled,
+                    SUM(role = 'hr-personnel') AS hr_personnel,
+                    SUM(role = 'evaluator') AS evaluators,
+                    SUM(role = 'employee') AS employees,
+                    SUM(role = 'pmt') AS pmt
+                FROM users
+            ");
 
-        $accountMetrics = [
-            'total' => (clone $users)->count(),
-            'active' => (clone $users)->where('is_active', true)->count(),
-            'inactive' => (clone $users)->where('is_active', false)->count(),
-            'twoFactorEnabled' => (clone $users)->whereNotNull('two_factor_confirmed_at')->count(),
-            'byRole' => [
-                'hrPersonnel' => (clone $users)->where('role', User::ROLE_HR_PERSONNEL)->count(),
-                'evaluators' => (clone $users)->where('role', User::ROLE_EVALUATOR)->count(),
-                'employees' => (clone $users)->where('role', User::ROLE_EMPLOYEE)->count(),
-                'pmt' => (clone $users)->where('role', User::ROLE_PMT)->count(),
-            ],
-        ];
+            // Single aggregated query for leave_requests counts.
+            $leaveAgg = DB::selectOne("
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(status = 'routed') AS routed,
+                    SUM(status = 'completed' AND dh_decision = 1 AND hr_decision = 1) AS completed,
+                    SUM(status = 'returned' OR dh_decision = 2 OR hr_decision = 2) AS returned,
+                    SUM(stage = 'rejection_reason_pending') AS pending_reason
+                FROM leave_requests
+            ");
 
-        $workflowMetrics = [
-            'leave' => [
-                'total' => (clone $leaveRequests)->count(),
-                'routed' => (clone $leaveRequests)->where('status', 'routed')->count(),
-                'completed' => (clone $leaveRequests)
-                    ->where('status', 'completed')
-                    ->where('dh_decision', 1)
-                    ->where('hr_decision', 1)
-                    ->count(),
-                'returned' => (clone $leaveRequests)
-                    ->where(function ($query): void {
-                        $query
-                            ->where('status', 'returned')
-                            ->orWhere('dh_decision', 2)
-                            ->orWhere('hr_decision', 2);
-                    })
-                    ->count(),
-                'pendingReason' => (clone $leaveRequests)->where('stage', 'rejection_reason_pending')->count(),
-            ],
-            'ipcr' => [
-                'total' => (clone $ipcrSubmissions)->count(),
-                'routed' => (clone $ipcrSubmissions)->where('status', 'routed')->count(),
-                'completed' => (clone $ipcrSubmissions)->where('status', 'completed')->count(),
-                'returned' => (clone $ipcrSubmissions)->where('status', 'returned')->count(),
-                'pendingEvaluation' => (clone $ipcrSubmissions)->where('stage', 'waiting_for_remarks')->count(),
-            ],
-        ];
+            // Single aggregated query for ipcr_submissions counts.
+            $ipcrAgg = DB::selectOne("
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(status = 'routed') AS routed,
+                    SUM(status = 'completed') AS completed,
+                    SUM(status = 'returned') AS returned,
+                    SUM(stage = 'waiting_for_remarks') AS pending_evaluation
+                FROM ipcr_submissions
+            ");
 
-        $averageConfidence = (float) ((clone $auditLogs)->avg('confidence_pct') ?? 0);
+            // Single aggregated query for iwr_audit_log counts.
+            $auditAgg = DB::selectOne("
+                SELECT
+                    COUNT(*) AS total,
+                    SUM(document_type = 'leave') AS leave_events,
+                    SUM(document_type = 'ipcr') AS ipcr_events,
+                    AVG(confidence_pct) AS avg_confidence,
+                    SUM(confidence_pct < 60) AS low_confidence,
+                    SUM(compliance_passed = 0) AS failed_compliance
+                FROM iwr_audit_log
+            ");
 
-        $auditMetrics = [
-            'totalEvents' => (clone $auditLogs)->count(),
-            'leaveEvents' => (clone $auditLogs)->where('document_type', 'leave')->count(),
-            'ipcrEvents' => (clone $auditLogs)->where('document_type', 'ipcr')->count(),
-            'averageConfidence' => round($averageConfidence, 2),
-            'lowConfidenceCount' => (clone $auditLogs)->where('confidence_pct', '<', 60)->count(),
-            'failedComplianceCount' => (clone $auditLogs)->where('compliance_passed', false)->count(),
-            'routingActions' => IwrAuditLog::query()
+            $routingActions = DB::table('iwr_audit_log')
                 ->select('routing_action', DB::raw('count(*) as total'))
                 ->groupBy('routing_action')
                 ->orderByDesc('total')
                 ->limit(6)
                 ->get()
-                ->map(fn (IwrAuditLog $log): array => [
-                    'action' => $log->routing_action ?? 'unknown',
-                    'total' => (int) $log->total,
+                ->map(fn ($row): array => [
+                    'action' => $row->routing_action ?? 'unknown',
+                    'total' => (int) $row->total,
                 ])
-                ->all(),
-        ];
+                ->all();
 
-        $trainingMetrics = [
-            'scheduledCount' => Seminars::query()->count(),
-            'targetAreas' => Seminars::query()
+            $trainingAreas = DB::table('seminars')
                 ->select('target_performance_area', DB::raw('count(*) as total'))
                 ->whereNotNull('target_performance_area')
                 ->where('target_performance_area', '!=', '')
@@ -94,13 +82,58 @@ class SystemDashboardController extends Controller
                 ->orderByDesc('total')
                 ->limit(5)
                 ->get()
-                ->map(fn (Seminars $seminar): array => [
-                    'area' => $seminar->target_performance_area,
-                    'total' => (int) $seminar->total,
+                ->map(fn ($row): array => [
+                    'area' => $row->target_performance_area,
+                    'total' => (int) $row->total,
                 ])
-                ->all(),
-        ];
+                ->all();
 
+            return [
+                'accountMetrics' => [
+                    'total' => (int) $userAgg->total,
+                    'active' => (int) $userAgg->active,
+                    'inactive' => (int) $userAgg->inactive,
+                    'twoFactorEnabled' => (int) $userAgg->two_factor_enabled,
+                    'byRole' => [
+                        'hrPersonnel' => (int) $userAgg->hr_personnel,
+                        'evaluators' => (int) $userAgg->evaluators,
+                        'employees' => (int) $userAgg->employees,
+                        'pmt' => (int) $userAgg->pmt,
+                    ],
+                ],
+                'workflowMetrics' => [
+                    'leave' => [
+                        'total' => (int) $leaveAgg->total,
+                        'routed' => (int) $leaveAgg->routed,
+                        'completed' => (int) $leaveAgg->completed,
+                        'returned' => (int) $leaveAgg->returned,
+                        'pendingReason' => (int) $leaveAgg->pending_reason,
+                    ],
+                    'ipcr' => [
+                        'total' => (int) $ipcrAgg->total,
+                        'routed' => (int) $ipcrAgg->routed,
+                        'completed' => (int) $ipcrAgg->completed,
+                        'returned' => (int) $ipcrAgg->returned,
+                        'pendingEvaluation' => (int) $ipcrAgg->pending_evaluation,
+                    ],
+                ],
+                'auditMetrics' => [
+                    'totalEvents' => (int) $auditAgg->total,
+                    'leaveEvents' => (int) $auditAgg->leave_events,
+                    'ipcrEvents' => (int) $auditAgg->ipcr_events,
+                    'averageConfidence' => round((float) ($auditAgg->avg_confidence ?? 0), 2),
+                    'lowConfidenceCount' => (int) $auditAgg->low_confidence,
+                    'failedComplianceCount' => (int) $auditAgg->failed_compliance,
+                    'routingActions' => $routingActions,
+                ],
+                'trainingMetrics' => [
+                    'scheduledCount' => DB::table('seminars')->count(),
+                    'targetAreas' => $trainingAreas,
+                ],
+            ];
+        });
+
+        // Recent audit logs are always fresh (they're the live activity feed).
         $recentAuditLogs = IwrAuditLog::query()
             ->leftJoin('employees', 'iwr_audit_log.employee_id', '=', 'employees.employee_id')
             ->select('iwr_audit_log.*', 'employees.name as employee_name')
@@ -120,10 +153,7 @@ class SystemDashboardController extends Controller
             ->all();
 
         return Inertia::render('admin/system-performance-dashboard', [
-            'accountMetrics' => $accountMetrics,
-            'workflowMetrics' => $workflowMetrics,
-            'auditMetrics' => $auditMetrics,
-            'trainingMetrics' => $trainingMetrics,
+            ...$metrics,
             'recentAuditLogs' => $recentAuditLogs,
         ]);
     }

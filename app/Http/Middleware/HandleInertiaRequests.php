@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Notification;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -60,7 +61,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'unreadNotificationCount' => fn () => $user
-                ? Notification::where('user_id', $user->id)->unread()->count()
+                ? Cache::remember("notif_count_{$user->id}", 60, fn () => Notification::where('user_id', $user->id)->unread()->count())
                 : 0,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),

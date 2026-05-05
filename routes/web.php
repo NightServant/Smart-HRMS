@@ -23,6 +23,9 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 
+// Lightweight keep-alive endpoint — no auth, no DB, no middleware overhead.
+Route::get('/ping', fn () => response('pong', 200))->withoutMiddleware('*');
+
 Route::get('/', function () {
     return Inertia::render('welcome', [
         'canRegister' => Features::enabled(Features::registration()),

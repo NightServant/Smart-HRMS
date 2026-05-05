@@ -1391,16 +1391,17 @@ export function EmployeesTable({
                                     <SelectItem value="all">
                                         All Positions
                                     </SelectItem>
-                                    {(activeDepartment?.positions ?? []).map(
-                                        (position) => (
-                                            <SelectItem
-                                                key={position.id}
-                                                value={position.name}
-                                            >
-                                                {position.name}
-                                            </SelectItem>
-                                        ),
-                                    )}
+                                    {filterPositionsByDepartment(
+                                        activeDepartment?.positions ?? [],
+                                        activeDepartment?.name ?? '',
+                                    ).map((position) => (
+                                        <SelectItem
+                                            key={position.id}
+                                            value={position.name}
+                                        >
+                                            {position.name}
+                                        </SelectItem>
+                                    ))}
                                 </SelectGroup>
                             </SelectContent>
                         </Select>

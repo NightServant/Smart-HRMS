@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Cache;
 
 class Notification extends Model
 {
@@ -25,6 +26,14 @@ class Notification extends Model
             'is_read' => 'boolean',
             'is_important' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        $bust = static fn (self $n) => Cache::forget("notif_count_{$n->user_id}");
+        static::created($bust);
+        static::updated($bust);
+        static::deleted($bust);
     }
 
     public function user(): BelongsTo

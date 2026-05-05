@@ -308,16 +308,6 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
             forecastYearData[lastHistoricalIndex] = lastHistoricalScore;
         }
     }
-    const achievedCount = comparisonRows.filter(
-        (row) => row.achievement_status === 'strongly_achieved',
-    ).length;
-    const onTrackCount = comparisonRows.filter(
-        (row) => row.achievement_status === 'on_track',
-    ).length;
-    const needsImprovementCount = comparisonRows.filter(
-        (row) => row.achievement_status === 'needs_improvement',
-    ).length;
-
     const ipcrComparisonRows = comparisonRows
         .filter(
             (row) =>
@@ -346,6 +336,17 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
         (row) => row.evaluation_score ?? null,
     );
     const hasIpcrComparison = ipcrComparisonRows.length > 0;
+
+    // Counts derived from the same filtered set that drives the chart.
+    const achievedCount = ipcrComparisonRows.filter(
+        (row) => row.achievement_status === 'strongly_achieved',
+    ).length;
+    const onTrackCount = ipcrComparisonRows.filter(
+        (row) => row.achievement_status === 'on_track',
+    ).length;
+    const needsImprovementCount = ipcrComparisonRows.filter(
+        (row) => row.achievement_status === 'needs_improvement',
+    ).length;
 
     return (
         <div className="space-y-4">
@@ -575,7 +576,7 @@ export default function PredictionDisplay({ prediction, loading }: Props) {
                         </div>
                         <div className="rounded-2xl border border-blue-200 bg-blue-50/80 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
                             <p className="text-xs font-semibold tracking-[0.18em] text-blue-700 uppercase dark:text-blue-300">
-                                On Track
+                                Still Tracking
                             </p>
                             <p className="mt-2 text-2xl font-bold text-blue-800 dark:text-blue-200">
                                 {onTrackCount}
