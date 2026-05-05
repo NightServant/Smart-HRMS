@@ -28,6 +28,7 @@ until php artisan db:monitor --databases=mysql 2>/dev/null || [ "$attempts" -le 
 done
 
 php artisan migrate --force
+php artisan zlink:secrets:migrate
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache

@@ -90,6 +90,18 @@ services:
         sync: false
       - key: ZLINK_PORTAL_COMPANY_ID
         sync: false
+      - key: ZLINK_APP_KEY
+        sync: false
+      - key: ZLINK_APP_SECRET
+        sync: false
+      - key: ZLINK_SIGNATURE_TOKEN
+        sync: false
+      - key: ZLINK_ENCRYPTION_KEY
+        sync: false
+      - key: ZLINK_PORTAL_USERNAME
+        sync: false
+      - key: ZLINK_PORTAL_PASSWORD
+        sync: false
 
       # ── Attendance ───────────────────────────────────────────────────────────
       - key: ATTENDANCE_SHIFT_START
