@@ -31,11 +31,21 @@ process.stdin.on('end', () => {
 
     child.on('close', (code) => {
         if (code !== 0) {
+            if (code === null && stdout.trim()) {
+                try {
+                    const parsed = JSON.parse(stdout.trim());
+                    if (parsed && parsed.status !== 'error') {
+                        process.stdout.write(stdout.trim());
+                        return;
+                    }
+                } catch (_) {}
+            }
             process.stdout.write(JSON.stringify({
                 status: 'error',
                 notification: `Python exited with code ${code}: ${stderr || stdout}`,
             }));
             process.exit(1);
+            return;
         }
         process.stdout.write(stdout.trim());
     });

@@ -12,7 +12,8 @@ const { resolvePythonCommand } = require('../shared/resolve-python.cjs');
 const PYTHON = resolvePythonCommand(__dirname, 'ATRE_PYTHON_PATH', [
     path.resolve(__dirname, '..', 'iwr'),
 ]);
-const TIMEOUT = 15000;
+// 28s — just under the 30s PHP Process timeout, 2× the old limit.
+const TIMEOUT = 28000;
 
 let input = '';
 process.stdin.on('data', (c) => { input += c; });
@@ -31,11 +32,21 @@ process.stdin.on('end', () => {
 
     child.on('close', (code) => {
         if (code !== 0) {
+            if (code === null && stdout.trim()) {
+                try {
+                    const parsed = JSON.parse(stdout.trim());
+                    if (parsed && parsed.status !== 'error') {
+                        process.stdout.write(stdout.trim());
+                        return;
+                    }
+                } catch (_) {}
+            }
             process.stdout.write(JSON.stringify({
                 status: 'error',
                 notification: `Python exited with code ${code}: ${stderr || stdout}`,
             }));
             process.exit(1);
+            return;
         }
         process.stdout.write(stdout.trim());
     });
