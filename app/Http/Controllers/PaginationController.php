@@ -515,7 +515,7 @@ class PaginationController extends Controller
                     ->map(fn (EmployeePosition $position): array => [
                         'id' => $position->id,
                         'name' => $position->name,
-                        'linkedAccountRole' => (string) ($position->pivot->linked_role
+                        'linkedAccountRole' => (string) ($position->pivot?->linked_role
                             ?? EmployeePosition::linkedAccountRoleFor($department->name, $position->name)),
                     ])
                     ->values()

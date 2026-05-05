@@ -409,7 +409,7 @@ test('explicit no appeal routes the submission to pmt', function () {
         ->and($submission->appeal_status)->toBe('no_appeal');
 });
 
-test('appeal timeout routes the submission to pmt', function () {
+test('appeal timeout routes the submission directly to hr finalization', function () {
     ['employee' => $employee] = seedIpcrUsersAndEmployees();
     $submission = createAppealWindowSubmission($employee);
     $submission->update(['appeal_window_closes_at' => now()->subHour()]);
@@ -419,7 +419,7 @@ test('appeal timeout routes the submission to pmt', function () {
 
     $submission->refresh();
 
-    expect($submission->stage)->toBe('sent_to_pmt')
+    expect($submission->stage)->toBe('sent_to_hr_finalize')
         ->and($submission->appeal_status)->toBe('no_appeal');
 });
 

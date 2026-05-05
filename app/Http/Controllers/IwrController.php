@@ -952,10 +952,10 @@ class IwrController extends Controller
 
         $submission->update([
             'appeal_status' => 'no_appeal',
-            'stage' => $iwrResult['stage'] ?? 'sent_to_pmt',
+            'stage' => $iwrResult['stage'] ?? 'sent_to_hr_finalize',
             'status' => $iwrResult['status'] ?? 'routed',
-            'routing_action' => $iwrResult['routing_action'] ?? 'route_to_pmt',
-            'notification' => $iwrResult['notification'] ?? 'No appeal submitted. Routed to PMT review.',
+            'routing_action' => $iwrResult['routing_action'] ?? 'route_to_hr_finalize',
+            'notification' => $iwrResult['notification'] ?? 'No appeal submitted. Routed to HR for finalization.',
         ]);
 
         if ($this->iwrFailed($iwrResult)) {
@@ -970,9 +970,9 @@ class IwrController extends Controller
 
         $this->logAudit($submission->employee_id, 'ipcr', $submission->id, $iwrResult);
 
-        $this->notificationService->notifyV51($submission->fresh(['employee']), 'route_to_pmt');
+        $this->notificationService->notifyV51($submission->fresh(['employee']), 'route_to_hr_finalize');
 
-        return to_route('submit-evaluation')->with('success', 'Results accepted. Your IPCR was sent to PMT review.');
+        return to_route('submit-evaluation')->with('success', 'Results accepted. Your IPCR has been sent to HR for finalization.');
     }
 
     public function submitAppeal(SubmitAppealRequest $request, IpcrSubmission $submission): RedirectResponse
@@ -2147,9 +2147,9 @@ class IwrController extends Controller
         if (! $hasAppeal) {
             return [
                 'status' => 'routed',
-                'stage' => 'sent_to_pmt',
-                'routing_action' => 'route_to_pmt',
-                'notification' => 'No appeal submitted. Routed to PMT review.',
+                'stage' => 'sent_to_hr_finalize',
+                'routing_action' => 'route_to_hr_finalize',
+                'notification' => 'No appeal submitted. Routed to HR for finalization.',
             ];
         }
 

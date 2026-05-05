@@ -695,8 +695,8 @@ class WorkflowRouter:
             appeal_count = int(form.get("appeal_count", 1))
 
             if appeal_status in ("expired", "no_appeal"):
-                return {**base, "status": "routed", "stage": "sent_to_pmt", "routing_action": "route_to_pmt",
-                        "notification": f"Appeal window closed for {employee_name}. Routed to PMT for review."}
+                return {**base, "status": "routed", "stage": "sent_to_hr_finalize", "routing_action": "route_to_hr_finalize",
+                        "notification": f"No appeal submitted for {employee_name}. Routed directly to HR for finalization."}
 
             passed, reason = self.rules.check_appeal_submission(form)
             if not passed:

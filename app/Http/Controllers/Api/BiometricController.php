@@ -129,7 +129,11 @@ class BiometricController extends Controller
             ? $request->string('department_id')->toString()
             : null;
 
-        $result = $this->enrollmentService->enroll($employee, $departmentId);
+        try {
+            $result = $this->enrollmentService->enroll($employee, $departmentId);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 503);
+        }
 
         return response()->json($result->toArray());
     }
@@ -138,7 +142,11 @@ class BiometricController extends Controller
     {
         $employee = Employee::query()->findOrFail($request->user()->employee_id);
 
-        $result = $this->enrollmentService->enroll($employee);
+        try {
+            $result = $this->enrollmentService->enroll($employee);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 503);
+        }
 
         return response()->json($result->toArray());
     }
@@ -156,9 +164,13 @@ class BiometricController extends Controller
 
     public function departments(): JsonResponse
     {
-        return response()->json([
-            'departments' => $this->enrollmentService->departments(),
-        ]);
+        try {
+            $departments = $this->enrollmentService->departments();
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 503);
+        }
+
+        return response()->json(['departments' => $departments]);
     }
 
     public function triggerRemoteEnrollment(Request $request): JsonResponse

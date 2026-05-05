@@ -22,14 +22,14 @@ class ExpireAppealWindows extends Command
         foreach ($expired as $submission) {
             $submission->update([
                 'appeal_status' => 'no_appeal',
-                'stage' => 'sent_to_pmt',
+                'stage' => 'sent_to_hr_finalize',
                 'status' => 'routed',
-                'routing_action' => 'route_to_pmt',
-                'notification' => 'Appeal window expired. Routed to PMT for review.',
+                'routing_action' => 'route_to_hr_finalize',
+                'notification' => 'Appeal window expired. Routed to HR for finalization.',
             ]);
 
             $notificationService->notifyV51($submission, 'appeal_expired');
-            $notificationService->notifyV51($submission, 'route_to_pmt');
+            $notificationService->notifyV51($submission, 'route_to_hr_finalize');
         }
 
         $this->info("Expired {$expired->count()} appeal window(s).");
