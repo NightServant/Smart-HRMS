@@ -735,7 +735,7 @@ class EnrollmentService
     private function triggerViaPortal(Employee $employee, string $deviceSn, int $fingerIndex = 1): bool
     {
         if (! $this->portal->isConfigured()) {
-            Log::info('Zlink portal not configured; falling back to manual on-device enrollment.', [
+            Log::warning('Zlink portal not configured; falling back to manual on-device enrollment.', [
                 'employee_id' => $employee->employee_id,
                 'device_sn' => $deviceSn,
             ]);
@@ -794,7 +794,7 @@ class EnrollmentService
                 return false;
             }
 
-            Log::info('Zlink portal remoteRegistration succeeded.', [
+            Log::warning('Zlink portal remoteRegistration succeeded.', [
                 'employee_id' => $employee->employee_id,
                 'portal_employee_id' => $portalEmployeeId,
                 'device_id' => $portalDeviceId,
