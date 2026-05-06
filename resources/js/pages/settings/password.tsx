@@ -72,10 +72,6 @@ function SecurityNote({
     );
 }
 
-const handleClick = () => {
-    toast.success('Password updated successfully!');
-};
-
 export default function Password() {
     const { auth } = usePage<{ auth: Auth }>().props;
     const passwordInput = useRef<HTMLInputElement>(null);
@@ -181,6 +177,9 @@ export default function Password() {
                                 'current_password',
                             ]}
                             resetOnSuccess
+                            onSuccess={() => {
+                                toast.success('Password updated successfully!');
+                            }}
                             onError={(errors) => {
                                 if (errors.password) {
                                     passwordInput.current?.focus();
@@ -348,7 +347,6 @@ export default function Password() {
 
                                         <Button
                                             type="submit"
-                                            onClick={handleClick}
                                             disabled={processing}
                                             data-test="update-password-button"
                                         >

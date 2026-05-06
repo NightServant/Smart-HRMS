@@ -3,6 +3,7 @@ import {
     ArrowDown,
     ArrowUp,
     ArrowUpDown,
+    Loader2,
     Pencil,
     Plus,
     Power,
@@ -130,6 +131,7 @@ export function AdminUserManagementTable({
         filters.twoFactor || 'all',
     );
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [createForm, setCreateForm] = useState<UserFormState>(emptyForm);
     const [editForm, setEditForm] = useState<UserFormState>(emptyForm);
@@ -210,6 +212,7 @@ export function AdminUserManagementTable({
 
     const submitCreate = (event: FormEvent<HTMLFormElement>): void => {
         event.preventDefault();
+        setIsCreating(true);
 
         router.post('/admin/user-management', createForm, {
             preserveScroll: true,
@@ -219,6 +222,7 @@ export function AdminUserManagementTable({
                 setIsCreateOpen(false);
                 setCreateForm(emptyForm);
             },
+            onFinish: () => setIsCreating(false),
         });
     };
 
@@ -753,9 +757,13 @@ export function AdminUserManagementTable({
                             >
                                 Cancel
                             </Button>
-                            <Button type="submit">
-                                <UserCog className="mr-2 size-4" />
-                                Create Account
+                            <Button type="submit" disabled={isCreating}>
+                                {isCreating ? (
+                                    <Loader2 className="mr-2 size-4 animate-spin" />
+                                ) : (
+                                    <UserCog className="mr-2 size-4" />
+                                )}
+                                {isCreating ? 'Creating...' : 'Create Account'}
                             </Button>
                         </DialogFooter>
                     </form>

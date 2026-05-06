@@ -102,13 +102,7 @@ class EmployeeDirectoryController extends Controller
         }
 
         return back()
-            ->with('success', 'Employee created successfully and the linked account is ready to sign in.')
-            ->with('employeeAccountCredentials', [
-                'employeeName' => $employee?->name ?? $validated['name'],
-                'employeeId' => $employee?->employee_id ?? '',
-                'email' => $validated['email'],
-                'temporaryPassword' => $temporaryPassword,
-            ]);
+            ->with('success', 'Employee created successfully and the linked account is ready to sign in.');
     }
 
     /**
@@ -207,14 +201,7 @@ class EmployeeDirectoryController extends Controller
         SyncEmployeeToZlinkJob::dispatch($employee->employee_id)->afterCommit();
 
         if ($createdLinkedAccount) {
-            return back()
-                ->with('success', 'Employee updated successfully and a linked account was created.')
-                ->with('employeeAccountCredentials', [
-                    'employeeName' => $employee->name,
-                    'employeeId' => $employee->employee_id,
-                    'email' => $validated['email'],
-                    'temporaryPassword' => $temporaryPassword,
-                ]);
+            return back()->with('success', 'Employee updated successfully and a linked account was created.');
         }
 
         return back()->with('success', 'Employee updated successfully.');

@@ -66,14 +66,7 @@ type DepartmentPositionRoleMap = Record<string, Record<string, string>>;
 
 type PageProps = {
     auth: Auth;
-    flash: {
-        employeeAccountCredentials?: {
-            employeeName: string;
-            employeeId: string;
-            email: string;
-            temporaryPassword: string;
-        } | null;
-    };
+    flash: Record<string, unknown>;
 };
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -157,8 +150,7 @@ export default function EmployeeDirectory({
     departmentPositionRoleMap?: DepartmentPositionRoleMap;
     defaultEmployeeRole?: string;
 }) {
-    const { auth, flash } = usePage<PageProps>().props;
-    const createdAccountCredentials = flash.employeeAccountCredentials;
+    const { auth } = usePage<PageProps>().props;
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
@@ -197,51 +189,6 @@ export default function EmployeeDirectory({
                         color="blue"
                     />
                 </div>
-
-                {createdAccountCredentials && (
-                    <section className="rounded-2xl border border-emerald-300/70 bg-emerald-50/90 p-5 text-emerald-950 shadow-sm dark:border-emerald-800/70 dark:bg-emerald-950/25 dark:text-emerald-100">
-                        <div className="space-y-1">
-                            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-emerald-700 dark:text-emerald-300">
-                                Employee Account Ready
-                            </p>
-                            <h2 className="text-lg font-semibold">
-                                {createdAccountCredentials.employeeName} can
-                                now sign in to Smart HRMS
-                            </h2>
-                            <p className="text-sm text-emerald-800 dark:text-emerald-200">
-                                These one-time login credentials are shown here
-                                for HR because local email delivery is not
-                                always visible during testing.
-                            </p>
-                        </div>
-                        <div className="mt-4 grid gap-3 md:grid-cols-3">
-                            <div className="rounded-xl border border-emerald-200/80 bg-white/75 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
-                                <p className="text-xs font-semibold uppercase text-emerald-700 dark:text-emerald-300">
-                                    Employee ID
-                                </p>
-                                <p className="mt-1 font-semibold">
-                                    {createdAccountCredentials.employeeId}
-                                </p>
-                            </div>
-                            <div className="rounded-xl border border-emerald-200/80 bg-white/75 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
-                                <p className="text-xs font-semibold uppercase text-emerald-700 dark:text-emerald-300">
-                                    Login Email
-                                </p>
-                                <p className="mt-1 font-semibold break-all">
-                                    {createdAccountCredentials.email}
-                                </p>
-                            </div>
-                            <div className="rounded-xl border border-emerald-200/80 bg-white/75 p-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
-                                <p className="text-xs font-semibold uppercase text-emerald-700 dark:text-emerald-300">
-                                    Temporary Password
-                                </p>
-                                <p className="mt-1 font-mono font-semibold">
-                                    {createdAccountCredentials.temporaryPassword}
-                                </p>
-                            </div>
-                        </div>
-                    </section>
-                )}
 
                 <EmployeesTable
                     employees={employees}
