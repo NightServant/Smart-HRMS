@@ -193,6 +193,7 @@ export default function AttendanceScanner({
     zktecoPinAssigned = false,
     manualPunchEnabled = false,
     initialFingerLabel = null,
+    initialFingerIndex = null,
 }: {
     records: DailyAttendanceRecord[];
     employeeId: string;
@@ -201,6 +202,7 @@ export default function AttendanceScanner({
     zktecoPinAssigned?: boolean;
     manualPunchEnabled?: boolean;
     initialFingerLabel?: string | null;
+    initialFingerIndex?: number | null;
 }) {
     const { data, post, processing } = useForm({
         employee_id: employeeId,
@@ -212,6 +214,9 @@ export default function AttendanceScanner({
     const [fingerLabel, setFingerLabel] = useState<string | null>(
         initialFingerLabel,
     );
+    const [enrolledFingerIndex, setEnrolledFingerIndex] = useState<
+        number | null
+    >(initialFingerIndex ?? null);
     const [enrollingFingerIndex, setEnrollingFingerIndex] = useState<
         number | null
     >(null);
@@ -226,6 +231,10 @@ export default function AttendanceScanner({
     useEffect(() => {
         setFingerLabel(initialFingerLabel);
     }, [initialFingerLabel]);
+
+    useEffect(() => {
+        setEnrolledFingerIndex(initialFingerIndex ?? null);
+    }, [initialFingerIndex]);
 
     useEffect(() => {
         setIsFingerCaptured(enrolledAtTerminal);
@@ -262,12 +271,16 @@ export default function AttendanceScanner({
                 const body = (await response.json()) as {
                     finger_captured?: boolean;
                     finger_label?: string | null;
+                    finger_index?: number | null;
                 };
 
                 if (body.finger_captured === true) {
                     setIsFingerCaptured(true);
                     if (typeof body.finger_label === 'string') {
                         setFingerLabel(body.finger_label);
+                    }
+                    if (typeof body.finger_index === 'number') {
+                        setEnrolledFingerIndex(body.finger_index);
                     }
                 }
             } catch {
@@ -325,10 +338,14 @@ export default function AttendanceScanner({
             const body = (await response.json()) as {
                 finger_captured?: boolean;
                 finger_label?: string | null;
+                finger_index?: number | null;
             };
 
             if (typeof body.finger_label === 'string') {
                 setFingerLabel(body.finger_label);
+            }
+            if (typeof body.finger_index === 'number') {
+                setEnrolledFingerIndex(body.finger_index);
             }
 
             if (body.finger_captured === true) {
@@ -337,6 +354,9 @@ export default function AttendanceScanner({
                 setEnrollingFingerIndex(null);
                 setEnrollmentInstructions(null);
                 setIsFingerCaptured(true);
+                if (typeof body.finger_index === 'number') {
+                    setEnrolledFingerIndex(body.finger_index);
+                }
                 toast.success(
                     body.finger_label
                         ? `Fingerprint enrolled successfully (${body.finger_label}).`
@@ -505,6 +525,7 @@ export default function AttendanceScanner({
             // confirm against Zlink within the 5-min reconciliation TTL.
             setIsFingerCaptured(false);
             setFingerLabel(null);
+            setEnrolledFingerIndex(null);
             setIsDeleteDialogOpen(false);
             setIsEnrollmentModalOpen(false);
 
@@ -536,14 +557,6 @@ export default function AttendanceScanner({
             },
         });
     };
-
-    // Derive the enrolled finger's numeric slot from the label string so we
-    // know which finger to highlight in the hand diagram.
-    const enrolledFingerIndex =
-        fingerLabel != null
-            ? (FINGER_OPTIONS.find((f) => f.label === fingerLabel)?.value ??
-              null)
-            : null;
 
     const getFingerState = (fingerIndex: number): FingerState => {
         if (isFingerCaptured) {

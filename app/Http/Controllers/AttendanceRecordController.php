@@ -81,6 +81,7 @@ class AttendanceRecordController extends Controller
             // though past AttendanceRecord rows still exist.
             'enrolledAtTerminal' => (bool) $employee?->hasFingerprintEnrollment(),
             'fingerLabel' => $employee?->fingerprintLabel(),
+            'fingerIndex' => $employee?->fingerprint_finger_index,
             'zktecoPinAssigned' => ! empty($employee?->zkteco_pin),
             'enrollmentStatus' => $enrollmentStatus,
             'manualPunchEnabled' => (bool) ($employee?->manual_punch_enabled ?? false),
