@@ -85,6 +85,7 @@ class EmployeeDirectoryController extends Controller
 
         try {
             $recipient = config('mail.credentials_recipient') ?: $validated['email'];
+            logger()->warning('Sending credentials email to: '.$recipient);
             Notification::route('mail', $recipient)->notifyNow(
                 new EmployeeAccountCredentialsNotification(
                     employeeName: $employee?->name ?? $validated['name'],
@@ -93,6 +94,7 @@ class EmployeeDirectoryController extends Controller
                     temporaryPassword: $temporaryPassword,
                 )
             );
+            logger()->warning('Credentials email sent OK to: '.$recipient);
         } catch (\Throwable $e) {
             logger()->error('Failed to send credentials email: '.$e->getMessage());
         }
