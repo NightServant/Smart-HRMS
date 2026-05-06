@@ -2,30 +2,28 @@
 
 namespace App\Console\Commands;
 
-use App\Notifications\EmployeeAccountCredentialsNotification;
+use App\Mail\EmployeeUserCredentials;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Mail;
 
 class SendTestCredentialsEmail extends Command
 {
     protected $signature = 'mail:test-credentials {email}';
 
-    protected $description = 'Send a sample EmployeeAccountCredentialsNotification to verify SMTP delivery.';
+    protected $description = 'Send a test EmployeeUserCredentials email to verify Resend API delivery.';
 
     public function handle(): int
     {
         $email = (string) $this->argument('email');
 
-        Notification::route('mail', $email)->notify(
-            new EmployeeAccountCredentialsNotification(
-                employeeName: 'Test Employee',
-                employeeId: 'EMP-TEST',
-                email: $email,
-                temporaryPassword: 'TempPass1234',
-            )
-        );
+        Mail::to($email)->send(new EmployeeUserCredentials(
+            employeeName: 'Test Employee',
+            employeeId: 'EMP-TEST',
+            email: $email,
+            temporaryPassword: 'TempPass1234',
+        ));
 
-        $this->info("Test credentials email dispatched to {$email}.");
+        $this->info("Test credentials email sent to {$email}.");
 
         return self::SUCCESS;
     }
