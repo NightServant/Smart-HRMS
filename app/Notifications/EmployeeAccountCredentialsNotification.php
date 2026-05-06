@@ -33,7 +33,7 @@ class EmployeeAccountCredentialsNotification extends Notification implements Sho
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $message = (new MailMessage)
+        return (new MailMessage)
             ->subject('Your Smart HRMS account credentials')
             ->greeting("Hello {$this->employeeName},")
             ->line('An HR personnel account manager created your Smart HRMS account.')
@@ -42,13 +42,5 @@ class EmployeeAccountCredentialsNotification extends Notification implements Sho
             ->line("Temporary password: {$this->temporaryPassword}")
             ->line('Please sign in and change your password as soon as possible after your first login.')
             ->salutation('Regards, Smart HRMS');
-
-        $override = config('mail.credentials_recipient');
-
-        if (is_string($override) && $override !== '') {
-            $message->to($override);
-        }
-
-        return $message;
     }
 }
