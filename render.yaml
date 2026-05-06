@@ -123,107 +123,64 @@ services:
       - key: VITE_APP_NAME
         value: Smart HRMS
 
-  # ── Queue worker — processes queued notifications (e.g. credential emails) ──
-  - type: worker
+  # ── Queue cron — drains queued jobs (e.g. credential emails) every minute ──
+  # Note: Render free plan does not support background workers; this cron runs
+  # queue:work --stop-when-empty every minute as a free-tier alternative.
+  - type: cron
     name: smart-hrms-queue
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free
-    startCommand: php artisan queue:work --tries=3 --backoff=5 --max-time=3500
+    schedule: "* * * * *"
+    startCommand: php artisan queue:work --stop-when-empty --tries=3 --backoff=5
     envVars:
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: APP_KEY
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: APP_URL
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: APP_ENV
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: DB_CONNECTION
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: DB_HOST
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: DB_PORT
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: DB_DATABASE
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: DB_USERNAME
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: DB_PASSWORD
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: MYSQL_ATTR_SSL_CA
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: QUEUE_CONNECTION
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: MAIL_MAILER
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: MAIL_HOST
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: MAIL_PORT
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: MAIL_ENCRYPTION
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: MAIL_USERNAME
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: MAIL_PASSWORD
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: MAIL_FROM_ADDRESS
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: MAIL_FROM_NAME
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: MAIL_CREDENTIALS_RECIPIENT
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: CACHE_STORE
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: LOG_CHANNEL
-      - fromService:
-          name: smart-hrms
-          type: web
-          envVarKey: LOG_LEVEL
+      - key: APP_KEY
+        sync: false
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "4000"
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: MYSQL_ATTR_SSL_CA
+        value: /etc/ssl/certs/ca-certificates.crt
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: MAIL_MAILER
+        value: smtp
+      - key: MAIL_HOST
+        value: smtp.gmail.com
+      - key: MAIL_PORT
+        value: "587"
+      - key: MAIL_ENCRYPTION
+        value: tls
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: Smart HRMS
+      - key: MAIL_CREDENTIALS_RECIPIENT
+        sync: false
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: error
 
   # ── Keep-alive cron — pings /ping every 10 min to prevent cold starts ────
   - type: cron

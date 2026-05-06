@@ -82,12 +82,16 @@ class EmployeeDirectoryController extends Controller
             );
         });
 
-        $user?->notify(new EmployeeAccountCredentialsNotification(
-            employeeName: $employee?->name ?? $validated['name'],
-            employeeId: $employee?->employee_id ?? '',
-            email: $validated['email'],
-            temporaryPassword: $temporaryPassword,
-        ));
+        try {
+            $user?->notifyNow(new EmployeeAccountCredentialsNotification(
+                employeeName: $employee?->name ?? $validated['name'],
+                employeeId: $employee?->employee_id ?? '',
+                email: $validated['email'],
+                temporaryPassword: $temporaryPassword,
+            ));
+        } catch (\Throwable $e) {
+            logger()->error('Failed to send credentials email: '.$e->getMessage());
+        }
 
         if ($employee !== null) {
             SyncEmployeeToZlinkJob::dispatch($employee->employee_id)->afterCommit();
@@ -171,12 +175,16 @@ class EmployeeDirectoryController extends Controller
                     'must_change_password' => true,
                 ]);
 
-                $linkedUser->notify(new EmployeeAccountCredentialsNotification(
-                    employeeName: $employee->name,
-                    employeeId: $employee->employee_id,
-                    email: $validated['email'],
-                    temporaryPassword: $temporaryPassword,
-                ));
+                try {
+                    $linkedUser->notifyNow(new EmployeeAccountCredentialsNotification(
+                        employeeName: $employee->name,
+                        employeeId: $employee->employee_id,
+                        email: $validated['email'],
+                        temporaryPassword: $temporaryPassword,
+                    ));
+                } catch (\Throwable $e) {
+                    logger()->error('Failed to send credentials email: '.$e->getMessage());
+                }
 
                 $createdLinkedAccount = true;
             }
