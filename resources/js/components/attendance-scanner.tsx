@@ -36,13 +36,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 // ZK SDK / pyzk finger slot convention: 0–4 left hand (pinky→thumb), 5–9
 // right hand (thumb→pinky). Confirmed against the Zlink portal UI on
@@ -61,10 +55,136 @@ const FINGER_OPTIONS: { value: number; label: string }[] = [
     { value: 8, label: 'Right Ring' },
     { value: 9, label: 'Right Pinky' },
 ];
-const DEFAULT_FINGER_INDEX = 6; // Right Index — matches services.zlink.default_finger_index.
+
+// Palms facing viewer. Left hand: pinky (outer-left) → thumb (inner-right).
+const LEFT_FINGERS = [
+    { index: 0, label: 'Pinky', topOffset: 28 },
+    { index: 1, label: 'Ring', topOffset: 12 },
+    { index: 2, label: 'Middle', topOffset: 0 },
+    { index: 3, label: 'Index', topOffset: 10 },
+    { index: 4, label: 'Thumb', topOffset: 34 },
+] as const;
+
+// Right hand: thumb (inner-left) → pinky (outer-right).
+const RIGHT_FINGERS = [
+    { index: 5, label: 'Thumb', topOffset: 34 },
+    { index: 6, label: 'Index', topOffset: 10 },
+    { index: 7, label: 'Middle', topOffset: 0 },
+    { index: 8, label: 'Ring', topOffset: 12 },
+    { index: 9, label: 'Pinky', topOffset: 28 },
+] as const;
 
 const POLL_INTERVAL_MS = 3000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+
+type FingerState = 'default' | 'enrolled' | 'enrolling' | 'disabled';
+
+function FingerButton({
+    label,
+    topOffset,
+    state,
+    onClick,
+}: {
+    label: string;
+    topOffset: number;
+    state: FingerState;
+    onClick: () => void;
+}) {
+    return (
+        <div
+            className="flex flex-col items-center gap-1.5"
+            style={{ marginTop: topOffset }}
+        >
+            <button
+                type="button"
+                disabled={state === 'disabled'}
+                onClick={onClick}
+                aria-label={
+                    state === 'enrolled'
+                        ? `${label} — enrolled, tap to delete`
+                        : state === 'default'
+                          ? `${label} — tap to enroll`
+                          : label
+                }
+                title={label}
+                className={cn(
+                    'flex h-14 w-9 flex-col items-center justify-start rounded-t-full border-2 pt-2 transition-all duration-200',
+                    state === 'default' &&
+                        'cursor-pointer border-slate-300 bg-slate-100 hover:border-primary/60 hover:bg-primary/5 dark:border-slate-600 dark:bg-slate-800/80 dark:hover:border-primary/50 dark:hover:bg-primary/10',
+                    state === 'enrolled' &&
+                        'cursor-pointer border-emerald-400 bg-emerald-50 ring-2 ring-emerald-300/50 ring-offset-1 dark:border-emerald-500 dark:bg-emerald-900/50 dark:ring-emerald-500/30',
+                    state === 'enrolling' &&
+                        'animate-pulse cursor-default border-blue-400 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/40',
+                    state === 'disabled' &&
+                        'cursor-not-allowed border-slate-200 bg-slate-50 opacity-25 dark:border-slate-800 dark:bg-slate-900/50',
+                )}
+            >
+                {state === 'enrolling' ? (
+                    <Loader2 className="size-4 animate-spin text-blue-500 dark:text-blue-400" />
+                ) : (
+                    <Fingerprint
+                        className={cn(
+                            'size-4',
+                            state === 'enrolled' &&
+                                'text-emerald-600 dark:text-emerald-400',
+                            state === 'default' &&
+                                'text-slate-400 dark:text-slate-500',
+                            state === 'disabled' &&
+                                'text-slate-200 dark:text-slate-700',
+                        )}
+                    />
+                )}
+            </button>
+            <span
+                className={cn(
+                    'text-[9px] font-medium leading-none',
+                    state === 'enrolled' &&
+                        'text-emerald-600 dark:text-emerald-400',
+                    state === 'enrolling' &&
+                        'text-blue-600 dark:text-blue-400',
+                    (state === 'default' || state === 'disabled') &&
+                        'text-muted-foreground',
+                )}
+            >
+                {label}
+            </span>
+        </div>
+    );
+}
+
+function HandDiagram({
+    fingers,
+    handLabel,
+    getFingerState,
+    onFingerClick,
+}: {
+    fingers: typeof LEFT_FINGERS | typeof RIGHT_FINGERS;
+    handLabel: string;
+    getFingerState: (index: number) => FingerState;
+    onFingerClick: (index: number) => void;
+}) {
+    return (
+        <div className="flex flex-col items-center">
+            <div className="inline-flex flex-col">
+                <div className="flex items-end gap-0.5">
+                    {fingers.map((f) => (
+                        <FingerButton
+                            key={f.index}
+                            label={f.label}
+                            topOffset={f.topOffset}
+                            state={getFingerState(f.index)}
+                            onClick={() => onFingerClick(f.index)}
+                        />
+                    ))}
+                </div>
+                <div className="h-9 w-full rounded-b-2xl border-2 border-t-0 border-slate-200 bg-slate-100/80 dark:border-slate-700 dark:bg-slate-800/60" />
+            </div>
+            <p className="mt-2 text-xs font-medium text-muted-foreground">
+                {handLabel}
+            </p>
+        </div>
+    );
+}
 
 export default function AttendanceScanner({
     records,
@@ -92,17 +212,20 @@ export default function AttendanceScanner({
     const [fingerLabel, setFingerLabel] = useState<string | null>(
         initialFingerLabel,
     );
-    const [selectedFingerIndex, setSelectedFingerIndex] =
-        useState<number>(DEFAULT_FINGER_INDEX);
+    const [enrollingFingerIndex, setEnrollingFingerIndex] = useState<
+        number | null
+    >(null);
+    const [enrollmentInstructions, setEnrollmentInstructions] = useState<
+        string | null
+    >(null);
+    const [isEnrollmentModalOpen, setIsEnrollmentModalOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isTimeoutModalOpen, setIsTimeoutModalOpen] = useState(false);
 
     useEffect(() => {
         setFingerLabel(initialFingerLabel);
     }, [initialFingerLabel]);
-    const [isTimeoutModalOpen, setIsTimeoutModalOpen] = useState(false);
-    const pollTimerRef = useRef<number | null>(null);
-    const timeoutTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
         setIsFingerCaptured(enrolledAtTerminal);
@@ -158,6 +281,9 @@ export default function AttendanceScanner({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const pollTimerRef = useRef<number | null>(null);
+    const timeoutTimerRef = useRef<number | null>(null);
+
     useEffect(() => {
         return () => {
             if (pollTimerRef.current !== null) {
@@ -208,6 +334,8 @@ export default function AttendanceScanner({
             if (body.finger_captured === true) {
                 stopPolling();
                 setIsEnrolling(false);
+                setEnrollingFingerIndex(null);
+                setEnrollmentInstructions(null);
                 setIsFingerCaptured(true);
                 toast.success(
                     body.finger_label
@@ -220,12 +348,13 @@ export default function AttendanceScanner({
         }
     };
 
-    const handleEnroll = async (): Promise<void> => {
+    const handleEnroll = async (fingerIndex: number): Promise<void> => {
         if (isEnrolling) {
             return;
         }
 
         setIsEnrolling(true);
+        setEnrollingFingerIndex(fingerIndex);
 
         try {
             // Read the XSRF-TOKEN cookie rather than the meta tag. Laravel
@@ -252,7 +381,7 @@ export default function AttendanceScanner({
                     'X-Requested-With': 'XMLHttpRequest',
                 },
                 credentials: 'same-origin',
-                body: JSON.stringify({ finger_index: selectedFingerIndex }),
+                body: JSON.stringify({ finger_index: fingerIndex }),
             });
 
             if (!response.ok) {
@@ -264,6 +393,7 @@ export default function AttendanceScanner({
                     body.error ?? body.message ?? 'Failed to start enrollment.';
                 toast.error(message);
                 setIsEnrolling(false);
+                setEnrollingFingerIndex(null);
                 return;
             }
 
@@ -286,14 +416,15 @@ export default function AttendanceScanner({
                     duration: 12000,
                 });
                 setIsEnrolling(false);
+                setEnrollingFingerIndex(null);
                 return;
             }
 
-            toast.message('Walk to the terminal', {
-                description:
-                    body.instructions ??
-                    'Place your finger when the terminal prompts you. We will mark you enrolled automatically.',
-            });
+            // Surface the instructions inside the modal instead of a toast.
+            setEnrollmentInstructions(
+                body.instructions ??
+                    'Place your finger on the terminal when prompted. We will mark you enrolled automatically.',
+            );
 
             // Stop any prior timers, then arm two parallel ones:
             //   1. interval poll for finger_captured (best-case path)
@@ -307,6 +438,8 @@ export default function AttendanceScanner({
             timeoutTimerRef.current = window.setTimeout(() => {
                 stopPolling();
                 setIsEnrolling(false);
+                setEnrollingFingerIndex(null);
+                setEnrollmentInstructions(null);
                 setIsTimeoutModalOpen(true);
             }, POLL_TIMEOUT_MS);
             void pollEnrollmentStatus();
@@ -315,6 +448,7 @@ export default function AttendanceScanner({
                 'Could not reach the biometric service. Please try again.',
             );
             setIsEnrolling(false);
+            setEnrollingFingerIndex(null);
         }
     };
 
@@ -372,6 +506,7 @@ export default function AttendanceScanner({
             setIsFingerCaptured(false);
             setFingerLabel(null);
             setIsDeleteDialogOpen(false);
+            setIsEnrollmentModalOpen(false);
 
             toast.success(
                 body.message ??
@@ -400,6 +535,47 @@ export default function AttendanceScanner({
                 toast.error(message);
             },
         });
+    };
+
+    // Derive the enrolled finger's numeric slot from the label string so we
+    // know which finger to highlight in the hand diagram.
+    const enrolledFingerIndex =
+        fingerLabel != null
+            ? (FINGER_OPTIONS.find((f) => f.label === fingerLabel)?.value ??
+              null)
+            : null;
+
+    const getFingerState = (fingerIndex: number): FingerState => {
+        if (isFingerCaptured) {
+            if (
+                enrolledFingerIndex !== null &&
+                fingerIndex === enrolledFingerIndex
+            ) {
+                return 'enrolled';
+            }
+            // When the enrolled slot is unknown, make every finger tappable
+            // for delete so the user isn't stuck.
+            if (enrolledFingerIndex === null) return 'default';
+            return 'disabled';
+        }
+        if (enrollingFingerIndex === fingerIndex) return 'enrolling';
+        if (isEnrolling) return 'disabled';
+        return 'default';
+    };
+
+    const handleFingerClick = (fingerIndex: number): void => {
+        if (isFingerCaptured) {
+            if (
+                fingerIndex === enrolledFingerIndex ||
+                enrolledFingerIndex === null
+            ) {
+                setIsDeleteDialogOpen(true);
+            }
+            return;
+        }
+        if (!isEnrolling) {
+            void handleEnroll(fingerIndex);
+        }
     };
 
     const now = new Date();
@@ -484,21 +660,20 @@ export default function AttendanceScanner({
                                         </p>
                                         <p className="mt-0.5 text-xs text-emerald-700/80 dark:text-emerald-400/70">
                                             {fingerLabel
-                                                ? `Your ${fingerLabel.toLowerCase()} is registered on the office terminal. To register a different finger, delete the current enrollment first.`
-                                                : 'Your fingerprint is registered on the office terminal. To register a different finger, delete the current enrollment first.'}
+                                                ? `Your ${fingerLabel.toLowerCase()} is registered on the office terminal.`
+                                                : 'Your fingerprint is registered on the office terminal.'}
                                         </p>
                                     </div>
                                 </div>
                                 <Button
                                     type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-2 self-start border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-900/40 dark:text-red-400 dark:hover:bg-red-950/30"
-                                    disabled={isDeleting}
-                                    onClick={() => setIsDeleteDialogOpen(true)}
+                                    className="w-full gap-2"
+                                    onClick={() =>
+                                        setIsEnrollmentModalOpen(true)
+                                    }
                                 >
-                                    <Trash2 className="size-4" />
-                                    Delete Fingerprint
+                                    <Fingerprint className="size-4" />
+                                    View Fingerprint
                                 </Button>
                             </div>
                         ) : (
@@ -510,50 +685,11 @@ export default function AttendanceScanner({
                                             Enroll your fingerprint
                                         </p>
                                         <p className="mt-0.5 text-xs text-sky-700/80 dark:text-sky-400/70">
-                                            Click below to start enrollment.
-                                            The office terminal will prompt you
-                                            to place your finger.
+                                            Click below to choose a finger and
+                                            start enrollment at the office
+                                            terminal.
                                         </p>
                                     </div>
-                                </div>
-                                <div className="flex flex-col gap-1.5">
-                                    <Label
-                                        htmlFor="finger-index-select"
-                                        className="text-xs font-medium text-sky-900 dark:text-sky-200"
-                                    >
-                                        Finger to register
-                                    </Label>
-                                    <Select
-                                        value={String(selectedFingerIndex)}
-                                        onValueChange={(value) =>
-                                            setSelectedFingerIndex(
-                                                Number(value),
-                                            )
-                                        }
-                                        disabled={isEnrolling}
-                                    >
-                                        <SelectTrigger
-                                            id="finger-index-select"
-                                            className="w-full bg-background"
-                                        >
-                                            <SelectValue placeholder="Choose a finger" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {FINGER_OPTIONS.map((option) => (
-                                                <SelectItem
-                                                    key={option.value}
-                                                    value={String(option.value)}
-                                                >
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <p className="text-[11px] text-sky-700/70 dark:text-sky-400/60">
-                                        The terminal will store the template
-                                        under this slot. Pick the finger you'll
-                                        actually press.
-                                    </p>
                                 </div>
                                 <Button
                                     type="button"
@@ -561,10 +697,12 @@ export default function AttendanceScanner({
                                     disabled={
                                         isEnrolling || !zktecoPinAssigned
                                     }
-                                    onClick={() => void handleEnroll()}
+                                    onClick={() =>
+                                        setIsEnrollmentModalOpen(true)
+                                    }
                                     title={
                                         zktecoPinAssigned
-                                            ? 'Trigger remote fingerprint enrollment at the office terminal'
+                                            ? 'Select a finger to enroll at the office terminal'
                                             : 'A ZKTeco Person ID has not been assigned yet — contact HR.'
                                     }
                                 >
@@ -655,6 +793,89 @@ export default function AttendanceScanner({
 
             <AttendanceHistoryTable records={records} />
 
+            {/* ── Fingerprint enrollment / view modal ─────────────────────── */}
+            <Dialog
+                open={isEnrollmentModalOpen}
+                onOpenChange={(open) => {
+                    // Allow closing even mid-enrollment — polling continues in
+                    // the background and the button reflects active state.
+                    setIsEnrollmentModalOpen(open);
+                }}
+            >
+                <DialogContent className="sm:max-w-xl">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Fingerprint className="size-5 text-primary" />
+                            {isFingerCaptured
+                                ? 'Manage Fingerprint'
+                                : isEnrolling
+                                  ? 'Enrolling…'
+                                  : 'Enroll Fingerprint'}
+                        </DialogTitle>
+                        <DialogDescription>
+                            {isFingerCaptured
+                                ? 'Your enrolled finger is highlighted. Tap it to delete your enrollment.'
+                                : isEnrolling
+                                  ? 'Walk to the office terminal and place your finger when prompted.'
+                                  : 'Tap a finger below to begin enrollment at the office terminal.'}
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    {/* Walk-to-terminal instructions — shown in modal instead of toast */}
+                    {isEnrolling && enrollmentInstructions && (
+                        <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-900/40 dark:bg-sky-950/20">
+                            <div className="flex items-start gap-2">
+                                <Monitor className="mt-0.5 size-4 shrink-0 text-sky-600 dark:text-sky-400" />
+                                <div>
+                                    <p className="text-sm font-semibold text-sky-900 dark:text-sky-200">
+                                        Walk to the terminal
+                                    </p>
+                                    <p className="mt-0.5 text-xs text-sky-700/80 dark:text-sky-400/70">
+                                        {enrollmentInstructions}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Hand diagram */}
+                    <div className="flex items-start justify-center gap-8 py-2">
+                        <HandDiagram
+                            fingers={LEFT_FINGERS}
+                            handLabel="Left Hand"
+                            getFingerState={getFingerState}
+                            onFingerClick={handleFingerClick}
+                        />
+                        <HandDiagram
+                            fingers={RIGHT_FINGERS}
+                            handLabel="Right Hand"
+                            getFingerState={getFingerState}
+                            onFingerClick={handleFingerClick}
+                        />
+                    </div>
+
+                    {!isEnrolling && !isFingerCaptured && (
+                        <p className="text-center text-xs text-muted-foreground">
+                            Tap any finger to trigger enrollment at the office
+                            terminal.
+                        </p>
+                    )}
+
+                    <DialogFooter>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setIsEnrollmentModalOpen(false)}
+                        >
+                            {isEnrolling
+                                ? 'Close (continues in background)'
+                                : 'Close'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Enrollment timeout modal ─────────────────────────────────── */}
             <Dialog
                 open={isTimeoutModalOpen}
                 onOpenChange={setIsTimeoutModalOpen}
@@ -701,7 +922,7 @@ export default function AttendanceScanner({
                             className="gap-2"
                             onClick={() => {
                                 setIsTimeoutModalOpen(false);
-                                void handleEnroll();
+                                setIsEnrollmentModalOpen(true);
                             }}
                         >
                             <Fingerprint className="size-4" />
@@ -711,6 +932,7 @@ export default function AttendanceScanner({
                 </DialogContent>
             </Dialog>
 
+            {/* ── Delete confirmation dialog ───────────────────────────────── */}
             <Dialog
                 open={isDeleteDialogOpen}
                 onOpenChange={(open) => {
@@ -751,7 +973,7 @@ export default function AttendanceScanner({
                             {isDeleting ? (
                                 <>
                                     <Loader2 className="size-4 animate-spin" />
-                                    Deleting...
+                                    Deleting…
                                 </>
                             ) : (
                                 <>
