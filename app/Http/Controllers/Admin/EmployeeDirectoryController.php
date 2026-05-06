@@ -17,6 +17,7 @@ use App\Services\Biometric\EmployeeSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -83,12 +84,15 @@ class EmployeeDirectoryController extends Controller
         });
 
         try {
-            $user?->notifyNow(new EmployeeAccountCredentialsNotification(
-                employeeName: $employee?->name ?? $validated['name'],
-                employeeId: $employee?->employee_id ?? '',
-                email: $validated['email'],
-                temporaryPassword: $temporaryPassword,
-            ));
+            $recipient = config('mail.credentials_recipient') ?: $validated['email'];
+            Notification::route('mail', $recipient)->notifyNow(
+                new EmployeeAccountCredentialsNotification(
+                    employeeName: $employee?->name ?? $validated['name'],
+                    employeeId: $employee?->employee_id ?? '',
+                    email: $validated['email'],
+                    temporaryPassword: $temporaryPassword,
+                )
+            );
         } catch (\Throwable $e) {
             logger()->error('Failed to send credentials email: '.$e->getMessage());
         }
@@ -176,12 +180,15 @@ class EmployeeDirectoryController extends Controller
                 ]);
 
                 try {
-                    $linkedUser->notifyNow(new EmployeeAccountCredentialsNotification(
-                        employeeName: $employee->name,
-                        employeeId: $employee->employee_id,
-                        email: $validated['email'],
-                        temporaryPassword: $temporaryPassword,
-                    ));
+                    $recipient = config('mail.credentials_recipient') ?: $validated['email'];
+                    Notification::route('mail', $recipient)->notifyNow(
+                        new EmployeeAccountCredentialsNotification(
+                            employeeName: $employee->name,
+                            employeeId: $employee->employee_id,
+                            email: $validated['email'],
+                            temporaryPassword: $temporaryPassword,
+                        )
+                    );
                 } catch (\Throwable $e) {
                     logger()->error('Failed to send credentials email: '.$e->getMessage());
                 }
