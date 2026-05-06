@@ -112,7 +112,7 @@ function FingerButton({
                     state === 'default' &&
                         'cursor-pointer border-slate-300 bg-slate-100 hover:border-primary/60 hover:bg-primary/5 dark:border-slate-600 dark:bg-slate-800/80 dark:hover:border-primary/50 dark:hover:bg-primary/10',
                     state === 'enrolled' &&
-                        'cursor-pointer border-emerald-400 bg-emerald-50 ring-2 ring-emerald-300/50 ring-offset-1 dark:border-emerald-500 dark:bg-emerald-900/50 dark:ring-emerald-500/30',
+                        'cursor-pointer border-emerald-500 bg-emerald-100 [box-shadow:0_0_0_3px_rgba(52,211,153,0.35),0_0_18px_rgba(52,211,153,0.25)] dark:border-emerald-400 dark:bg-emerald-700/70 dark:[box-shadow:0_0_0_3px_rgba(52,211,153,0.5),0_0_22px_rgba(52,211,153,0.4)]',
                     state === 'enrolling' &&
                         'animate-pulse cursor-default border-blue-400 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/40',
                     state === 'disabled' &&
@@ -126,7 +126,7 @@ function FingerButton({
                         className={cn(
                             'size-4',
                             state === 'enrolled' &&
-                                'text-emerald-600 dark:text-emerald-400',
+                                'text-emerald-600 dark:text-emerald-300',
                             state === 'default' &&
                                 'text-slate-400 dark:text-slate-500',
                             state === 'disabled' &&
@@ -139,7 +139,7 @@ function FingerButton({
                 className={cn(
                     'text-[9px] font-medium leading-none',
                     state === 'enrolled' &&
-                        'text-emerald-600 dark:text-emerald-400',
+                        'text-emerald-600 dark:text-emerald-300',
                     state === 'enrolling' &&
                         'text-blue-600 dark:text-blue-400',
                     (state === 'default' || state === 'disabled') &&
