@@ -84,17 +84,18 @@ class Employee extends Model
             return null;
         }
 
+        // ZK SDK / pyzk convention — must match EnrollmentService::fingerLabelFor().
         return match ($index) {
-            0 => 'Right Thumb',
-            1 => 'Right Index',
-            2 => 'Right Middle',
-            3 => 'Right Ring',
-            4 => 'Right Pinky',
-            5 => 'Left Thumb',
-            6 => 'Left Index',
-            7 => 'Left Middle',
-            8 => 'Left Ring',
-            9 => 'Left Pinky',
+            0 => 'Left Pinky',
+            1 => 'Left Ring',
+            2 => 'Left Middle',
+            3 => 'Left Index',
+            4 => 'Left Thumb',
+            5 => 'Right Thumb',
+            6 => 'Right Index',
+            7 => 'Right Middle',
+            8 => 'Right Ring',
+            9 => 'Right Pinky',
             default => 'Finger #'.$index,
         };
     }

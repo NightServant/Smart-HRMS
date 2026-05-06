@@ -560,15 +560,13 @@ export default function AttendanceScanner({
 
     const getFingerState = (fingerIndex: number): FingerState => {
         if (isFingerCaptured) {
-            if (
-                enrolledFingerIndex !== null &&
-                fingerIndex === enrolledFingerIndex
-            ) {
-                return 'enrolled';
+            if (enrolledFingerIndex !== null) {
+                return fingerIndex === enrolledFingerIndex
+                    ? 'enrolled'
+                    : 'disabled';
             }
-            // When the enrolled slot is unknown, make every finger tappable
-            // for delete so the user isn't stuck.
-            if (enrolledFingerIndex === null) return 'default';
+            // Slot unknown (legacy enrollment before finger_index was persisted).
+            // Disable all fingers — the fallback delete button handles removal.
             return 'disabled';
         }
         if (enrollingFingerIndex === fingerIndex) return 'enrolling';
@@ -578,10 +576,10 @@ export default function AttendanceScanner({
 
     const handleFingerClick = (fingerIndex: number): void => {
         if (isFingerCaptured) {
-            if (
-                fingerIndex === enrolledFingerIndex ||
-                enrolledFingerIndex === null
-            ) {
+            // Only the glowing enrolled finger is clickable — disabled fingers
+            // can't be tapped (the button is disabled). The fallback delete
+            // button handles the unknown-slot case.
+            if (fingerIndex === enrolledFingerIndex) {
                 setIsDeleteDialogOpen(true);
             }
             return;
@@ -872,6 +870,25 @@ export default function AttendanceScanner({
                             Tap any finger to trigger enrollment at the office
                             terminal.
                         </p>
+                    )}
+
+                    {/* Fallback: enrolled but specific slot not recorded */}
+                    {isFingerCaptured && enrolledFingerIndex === null && (
+                        <div className="flex flex-col items-center gap-2">
+                            <p className="text-center text-xs text-muted-foreground">
+                                Finger slot not recorded for this enrollment.
+                            </p>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="gap-2 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-900/40 dark:text-red-400 dark:hover:bg-red-950/30"
+                                onClick={() => setIsDeleteDialogOpen(true)}
+                            >
+                                <Trash2 className="size-4" />
+                                Delete Fingerprint
+                            </Button>
+                        </div>
                     )}
 
                     <DialogFooter>
