@@ -7,17 +7,17 @@ use App\Http\Requests\StoreEmployeeRequest;
 use App\Http\Requests\UpdateEmployeeRequest;
 use App\Jobs\SyncDepartmentToZlinkJob;
 use App\Jobs\SyncEmployeeToZlinkJob;
+use App\Mail\EmployeeUserCredentials;
 use App\Models\ActivityLog;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeePosition;
 use App\Models\User;
-use App\Notifications\EmployeeAccountCredentialsNotification;
 use App\Services\Biometric\EmployeeSyncService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -86,14 +86,12 @@ class EmployeeDirectoryController extends Controller
         try {
             $recipient = config('mail.credentials_recipient') ?: $validated['email'];
             logger()->warning('Sending credentials email to: '.$recipient);
-            Notification::route('mail', $recipient)->notifyNow(
-                new EmployeeAccountCredentialsNotification(
-                    employeeName: $employee?->name ?? $validated['name'],
-                    employeeId: $employee?->employee_id ?? '',
-                    email: $validated['email'],
-                    temporaryPassword: $temporaryPassword,
-                )
-            );
+            Mail::to($recipient)->send(new EmployeeUserCredentials(
+                employeeName: $employee?->name ?? $validated['name'],
+                employeeId: $employee?->employee_id ?? '',
+                email: $validated['email'],
+                temporaryPassword: $temporaryPassword,
+            ));
             logger()->warning('Credentials email sent OK to: '.$recipient);
         } catch (\Throwable $e) {
             logger()->error('Failed to send credentials email: '.$e->getMessage());
@@ -183,14 +181,12 @@ class EmployeeDirectoryController extends Controller
 
                 try {
                     $recipient = config('mail.credentials_recipient') ?: $validated['email'];
-                    Notification::route('mail', $recipient)->notifyNow(
-                        new EmployeeAccountCredentialsNotification(
-                            employeeName: $employee->name,
-                            employeeId: $employee->employee_id,
-                            email: $validated['email'],
-                            temporaryPassword: $temporaryPassword,
-                        )
-                    );
+                    Mail::to($recipient)->send(new EmployeeUserCredentials(
+                        employeeName: $employee->name,
+                        employeeId: $employee->employee_id,
+                        email: $validated['email'],
+                        temporaryPassword: $temporaryPassword,
+                    ));
                 } catch (\Throwable $e) {
                     logger()->error('Failed to send credentials email: '.$e->getMessage());
                 }
