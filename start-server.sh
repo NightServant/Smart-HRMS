@@ -30,6 +30,18 @@ done
 php artisan migrate --force
 php artisan zlink:secrets:migrate
 
+# Retry any failed jobs from prior deploys before backfilling — old failed
+# jobs picked up the old code path (e.g. open-API createDepartment that 405s)
+# and benefit from running on the new portal-API path.
+php artisan queue:retry all || true
+
+# Re-queue every department that lacks a Zlink mapping. Must run BEFORE the
+# employee backfill so that employees in those departments find their dept
+# id already populated and avoid the cascading create-on-the-fly chain.
+# Idempotent — DepartmentSyncService finds existing portal departments by
+# name via treeNode and just links the local row.
+php artisan zlink:retry-department-sync --all || true
+
 # Re-queue every employee that lacks a Zlink mapping. Covers records created
 # in earlier releases where the sync wiring didn't exist, where the open-API
 # path 405'd, or where the dispatch landed in failed_jobs. Idempotent: the
