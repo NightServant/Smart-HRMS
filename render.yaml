@@ -78,6 +78,10 @@ services:
         sync: false
       - key: ZLINK_DEFAULT_DEVICE_SN
         sync: false
+      - key: ZLINK_DEFAULT_DESIGNATION_ID
+        sync: false   # Portal "Job Title" UUID for Regular/Permanent — required for createEmployee
+      - key: ZLINK_PORTAL_ROOT_DEPARTMENT_ID
+        sync: false   # Portal company-root UUID — required as parentId for createDepartment
       - key: ZLINK_PORTAL_DEVICE_ID
         sync: false
       - key: ZLINK_PORTAL_COMPANY_ID
@@ -184,6 +188,10 @@ services:
       - key: ZLINK_DEFAULT_DEPARTMENT_ID
         sync: false
       - key: ZLINK_DEFAULT_DEVICE_SN
+        sync: false
+      - key: ZLINK_DEFAULT_DESIGNATION_ID
+        sync: false
+      - key: ZLINK_PORTAL_ROOT_DEPARTMENT_ID
         sync: false
       - key: ZLINK_PORTAL_DEVICE_ID
         sync: false

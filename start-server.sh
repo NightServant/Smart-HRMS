@@ -29,6 +29,15 @@ done
 
 php artisan migrate --force
 php artisan zlink:secrets:migrate
+
+# Re-queue every employee that lacks a Zlink mapping. Covers records created
+# in earlier releases where the sync wiring didn't exist, where the open-API
+# path 405'd, or where the dispatch landed in failed_jobs. Idempotent: the
+# duplicate-detect branch in EmployeeSyncService backfills zlink_employee_id
+# from Zlink without creating ghosts. `|| true` so a transient Zlink hiccup
+# doesn't block container boot.
+php artisan zlink:retry-employee-sync --all || true
+
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
