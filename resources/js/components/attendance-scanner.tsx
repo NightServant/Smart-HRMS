@@ -137,11 +137,10 @@ function FingerButton({
             </button>
             <span
                 className={cn(
-                    'text-[9px] font-medium leading-none',
+                    'text-[9px] leading-none font-medium',
                     state === 'enrolled' &&
                         'text-emerald-600 dark:text-emerald-300',
-                    state === 'enrolling' &&
-                        'text-blue-600 dark:text-blue-400',
+                    state === 'enrolling' && 'text-blue-600 dark:text-blue-400',
                     (state === 'default' || state === 'disabled') &&
                         'text-muted-foreground',
                 )}
@@ -358,11 +357,10 @@ export default function AttendanceScanner({
                 if (typeof body.finger_index === 'number') {
                     setEnrolledFingerIndex(body.finger_index);
                 }
-                toast.success(
-                    body.finger_label
-                        ? `Fingerprint enrolled successfully (${body.finger_label}).`
-                        : 'Fingerprint enrolled successfully.',
-                );
+                // Success toast intentionally omitted — the polling loop
+                // can flip enrollment state on/off rapidly during template
+                // sync, which produced "twitching" toast spam. The green
+                // badge in the card is the canonical success signal.
             }
         } catch {
             // Swallow transient network errors and let the next tick retry.
@@ -677,16 +675,6 @@ export default function AttendanceScanner({
                                         </p>
                                     </div>
                                 </div>
-                                <Button
-                                    type="button"
-                                    className="w-full gap-2"
-                                    onClick={() =>
-                                        setIsEnrollmentModalOpen(true)
-                                    }
-                                >
-                                    <Fingerprint className="size-4" />
-                                    View Fingerprint
-                                </Button>
                             </div>
                         ) : (
                             <div className="flex flex-col gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 dark:border-sky-900/40 dark:bg-sky-950/20">
@@ -706,9 +694,7 @@ export default function AttendanceScanner({
                                 <Button
                                     type="button"
                                     className="w-full gap-2"
-                                    disabled={
-                                        isEnrolling || !zktecoPinAssigned
-                                    }
+                                    disabled={isEnrolling || !zktecoPinAssigned}
                                     onClick={() =>
                                         setIsEnrollmentModalOpen(true)
                                     }
