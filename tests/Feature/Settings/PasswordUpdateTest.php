@@ -53,3 +53,23 @@ test('password confirmation must match', function () {
         ->assertSessionHasErrors('password')
         ->assertRedirect(route('user-password.edit'));
 });
+
+test('employee is not redirected to first-login prompt after password change', function () {
+    $user = User::factory()->create([
+        'role' => User::ROLE_EMPLOYEE,
+        'must_change_password' => true,
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('user-password.update'), [
+            'password' => 'new-password',
+            'password_confirmation' => 'new-password',
+        ])
+        ->assertSessionHasNoErrors();
+
+    expect($user->refresh()->must_change_password)->toBeFalse();
+
+    $this->actingAs($user->refresh())
+        ->get(route('first-login-password-prompt'))
+        ->assertRedirect(route($user->homeRouteName()));
+});

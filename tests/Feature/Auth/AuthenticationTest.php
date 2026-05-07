@@ -81,6 +81,39 @@ test('hr personnel are redirected to hr dashboard after login', function () {
     $response->assertRedirect(route('admin.performance-dashboard', absolute: false));
 });
 
+test('logging out clears the intended url so the next login lands on the dashboard', function () {
+    $hr = User::factory()->asHrPersonnel()->create();
+
+    $this->actingAs($hr)
+        ->get(route('admin.employee-directory'))
+        ->assertOk();
+
+    $this->post(route('logout'));
+
+    $response = $this->post(route('login.store'), [
+        'email' => $hr->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('admin.performance-dashboard', absolute: false));
+});
+
+test('an intended destination set before login is honored after authenticating', function () {
+    $hr = User::factory()->asHrPersonnel()->create();
+
+    $this->get(route('admin.employee-directory'))
+        ->assertRedirect(route('login'));
+
+    $response = $this->post(route('login.store'), [
+        'email' => $hr->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    $response->assertRedirect(route('admin.employee-directory', absolute: false));
+});
+
 test('pmt users are redirected to pmt review after login', function () {
     $user = User::factory()->asPmt()->create();
 
