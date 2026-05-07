@@ -5,7 +5,6 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free
-    region: singapore
     healthCheckPath: /up
     envVars:
       # ── App ──────────────────────────────────────────────────────────────────
@@ -124,12 +123,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    # This cron is the only service that calls Zlink (via SyncEmployeeToZlinkJob,
-    # SyncDepartmentToZlinkJob, etc.), so it's the only one that needs a static
-    # outbound IP. Standard+ is required — free/starter use a rotating shared
-    # egress pool. Region is pinned so the static IP set stays deterministic.
-    plan: standard
-    region: singapore
+    plan: free
     schedule: "* * * * *"
     startCommand: php artisan queue:work --stop-when-empty --tries=3 --backoff=5
     envVars:

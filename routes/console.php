@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('ipcr:expire-appeals')->hourly();
 Schedule::command('attendance:expire-manual-punches')->hourly();
+Schedule::command('zlink:retry-employee-sync')->everyFifteenMinutes();
