@@ -4,11 +4,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    # Static outbound IPs are only assigned on Standard+ plans. The free plan
-    # uses a shared, rotating egress pool, which breaks Zlink IP allow-listing
-    # and any partner that requires a stable source IP. Pinning the region
-    # together with a Standard+ plan keeps the outbound IP set deterministic.
-    plan: standard
+    plan: free
     region: singapore
     healthCheckPath: /up
     envVars:
@@ -128,9 +124,10 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    # Must run on the same plan/region as the web service so the queued
-    # SyncEmployeeToZlinkJob hits Zlink from the same static outbound IP
-    # range that's allow-listed on the partner side.
+    # This cron is the only service that calls Zlink (via SyncEmployeeToZlinkJob,
+    # SyncDepartmentToZlinkJob, etc.), so it's the only one that needs a static
+    # outbound IP. Standard+ is required — free/starter use a rotating shared
+    # egress pool. Region is pinned so the static IP set stays deterministic.
     plan: standard
     region: singapore
     schedule: "* * * * *"
