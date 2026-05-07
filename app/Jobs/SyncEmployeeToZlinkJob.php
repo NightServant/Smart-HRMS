@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class SyncEmployeeToZlinkJob implements ShouldQueue
@@ -31,13 +32,25 @@ class SyncEmployeeToZlinkJob implements ShouldQueue
 
     public function handle(): void
     {
-        if ((string) config('services.zlink.app_key', '') === '') {
-            return;
-        }
-
         $employee = Employee::query()->find($this->employeeId);
 
         if ($employee === null) {
+            return;
+        }
+
+        if ((string) config('services.zlink.app_key', '') === '') {
+            // Zlink credentials are not configured in this worker's
+            // environment — surface this loudly instead of silently
+            // succeeding so the employee never gets pushed to the device.
+            Log::warning('Skipping Zlink employee sync: ZLINK_APP_KEY is not configured.', [
+                'employee_id' => $this->employeeId,
+            ]);
+
+            $employee->forceFill([
+                'zlink_sync_status' => 'failed',
+                'zlink_sync_error' => 'ZLINK_APP_KEY is not configured in the queue worker environment.',
+            ])->save();
+
             return;
         }
 

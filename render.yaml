@@ -4,7 +4,12 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    plan: free
+    # Static outbound IPs are only assigned on Standard+ plans. The free plan
+    # uses a shared, rotating egress pool, which breaks Zlink IP allow-listing
+    # and any partner that requires a stable source IP. Pinning the region
+    # together with a Standard+ plan keeps the outbound IP set deterministic.
+    plan: standard
+    region: singapore
     healthCheckPath: /up
     envVars:
       # ── App ──────────────────────────────────────────────────────────────────
@@ -123,7 +128,11 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    plan: free
+    # Must run on the same plan/region as the web service so the queued
+    # SyncEmployeeToZlinkJob hits Zlink from the same static outbound IP
+    # range that's allow-listed on the partner side.
+    plan: standard
+    region: singapore
     schedule: "* * * * *"
     startCommand: php artisan queue:work --stop-when-empty --tries=3 --backoff=5
     envVars:
@@ -165,6 +174,34 @@ services:
         value: stderr
       - key: LOG_LEVEL
         value: error
+      # Zlink credentials — REQUIRED here, not just on the web service.
+      # SyncEmployeeToZlinkJob short-circuits when ZLINK_APP_KEY is empty,
+      # which is why newly created employees were saving to the DB but never
+      # appearing in Zlink: the job ran but the worker had no credentials.
+      - key: ZLINK_URL
+        value: https://zlink-open.minervaiot.com
+      - key: ZLINK_PORTAL_URL
+        value: https://zlink.minervaiot.com
+      - key: ZLINK_APP_KEY
+        sync: false
+      - key: ZLINK_APP_SECRET
+        sync: false
+      - key: ZLINK_SIGNATURE_TOKEN
+        sync: false
+      - key: ZLINK_ENCRYPTION_KEY
+        sync: false
+      - key: ZLINK_DEFAULT_DEPARTMENT_ID
+        sync: false
+      - key: ZLINK_DEFAULT_DEVICE_SN
+        sync: false
+      - key: ZLINK_PORTAL_DEVICE_ID
+        sync: false
+      - key: ZLINK_PORTAL_COMPANY_ID
+        sync: false
+      - key: ZLINK_PORTAL_USERNAME
+        sync: false
+      - key: ZLINK_PORTAL_PASSWORD
+        sync: false
 
   # ── Keep-alive cron — pings /ping every 10 min to prevent cold starts ────
   - type: cron

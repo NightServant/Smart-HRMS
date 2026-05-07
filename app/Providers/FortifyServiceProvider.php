@@ -79,7 +79,7 @@ class FortifyServiceProvider extends ServiceProvider
                 event(new Lockout($request));
 
                 throw ValidationException::withMessages([
-                    Fortify::username() => 'This account has been deactivated. Please contact HR personnel.',
+                    Fortify::username() => 'Your account is deactivated, please contact HR personnel.',
                 ]);
             }
 
