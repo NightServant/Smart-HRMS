@@ -354,6 +354,7 @@ export default function AttendanceScanner({
                 setEnrollingFingerIndex(null);
                 setEnrollmentInstructions(null);
                 setIsFingerCaptured(true);
+                setIsEnrollmentModalOpen(false);
                 if (typeof body.finger_index === 'number') {
                     setEnrolledFingerIndex(body.finger_index);
                 }
