@@ -88,7 +88,28 @@ class DepartmentSyncService
                 return ['action' => 'linked', 'zlink_department_id' => $foundId];
             }
 
-            $newId = $this->portal->createDepartment($name);
+            try {
+                $newId = $this->portal->createDepartment($name);
+            } catch (Throwable $createException) {
+                // Zlink returns ZCOR0056 "Department duplicated" when a dept
+                // with this name already exists on the portal. Our programmatic
+                // session sometimes can't see it via treeNode (the SPA can,
+                // but the same auth call from PHP returns an empty tree —
+                // suspected company/permission scoping issue). Surface a
+                // clear error directing the operator to run the manual-link
+                // command instead of silently looping retries.
+                $msg = $createException->getMessage();
+
+                if (str_contains($msg, 'ZCOR0056') || str_contains(strtolower($msg), 'duplicated')) {
+                    throw new RuntimeException(sprintf(
+                        'Department "%s" already exists on Zlink but is not visible to the programmatic list endpoint. Run: php artisan zlink:link-department --name="%s" --zlink-id=<uuid>',
+                        $name,
+                        $name,
+                    ), 0, $createException);
+                }
+
+                throw $createException;
+            }
 
             $department->forceFill([
                 'zlink_department_id' => $newId,
