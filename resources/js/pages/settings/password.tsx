@@ -8,7 +8,7 @@ import {
     ShieldCheck,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import PasswordController from '@/actions/App/Http/Controllers/Settings/PasswordController';
 import InputError from '@/components/input-error';
@@ -28,10 +28,7 @@ const breadcrumbs: BreadcrumbItem[] = [
     },
 ];
 
-type PasswordVisibilityField =
-    | 'current_password'
-    | 'password'
-    | 'password_confirmation';
+type PasswordVisibilityField = 'password' | 'password_confirmation';
 
 function SectionCard({
     title,
@@ -74,12 +71,9 @@ function SecurityNote({
 
 export default function Password() {
     const { auth } = usePage<{ auth: Auth }>().props;
-    const passwordInput = useRef<HTMLInputElement>(null);
-    const currentPasswordInput = useRef<HTMLInputElement>(null);
     const [visiblePasswords, setVisiblePasswords] = useState<
         Record<PasswordVisibilityField, boolean>
     >({
-        current_password: false,
         password: false,
         password_confirmation: false,
     });
@@ -125,9 +119,8 @@ export default function Password() {
                                         {isFirstLoginPasswordChange && (
                                             <p className="max-w-2xl text-sm font-semibold text-brand-900 dark:text-brand-100">
                                                 Your employee account is using a
-                                                temporary password. Retype the
-                                                old password below, then set the
-                                                new one you want to use for
+                                                temporary password. Set the new
+                                                password you want to use for
                                                 future logins.
                                             </p>
                                         )}
@@ -163,7 +156,7 @@ export default function Password() {
                 <div className="grid gap-6">
                     <SectionCard
                         title="Change your password"
-                        description="Retype your old password first, then enter and confirm the new one you want to use for future logins."
+                        description="Enter and confirm the new password you want to use for future logins."
                     >
                         <Form
                             action={PasswordController.update().url}
@@ -171,23 +164,10 @@ export default function Password() {
                             options={{
                                 preserveScroll: true,
                             }}
-                            resetOnError={[
-                                'password',
-                                'password_confirmation',
-                                'current_password',
-                            ]}
+                            resetOnError={['password', 'password_confirmation']}
                             resetOnSuccess
                             onSuccess={() => {
                                 toast.success('Password updated successfully!');
-                            }}
-                            onError={(errors) => {
-                                if (errors.password) {
-                                    passwordInput.current?.focus();
-                                }
-
-                                if (errors.current_password) {
-                                    currentPasswordInput.current?.focus();
-                                }
                             }}
                             className="space-y-6"
                         >
@@ -195,62 +175,12 @@ export default function Password() {
                                 <>
                                     <div className="grid gap-5 md:grid-cols-2">
                                         <div className="space-y-2">
-                                            <Label htmlFor="current_password">
-                                                Retype old password
-                                            </Label>
-                                            <div className="relative">
-                                                <Input
-                                                    id="current_password"
-                                                    ref={currentPasswordInput}
-                                                    name="current_password"
-                                                    type={
-                                                        visiblePasswords.current_password
-                                                            ? 'text'
-                                                            : 'password'
-                                                    }
-                                                    autoComplete="current-password"
-                                                    placeholder="Retype your old password"
-                                                    className="pr-10"
-                                                />
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    tabIndex={-1}
-                                                    onClick={() =>
-                                                        togglePasswordVisibility(
-                                                            'current_password',
-                                                        )
-                                                    }
-                                                    className="absolute top-1/2 right-1 size-7 -translate-y-1/2 rounded-md text-muted-foreground hover:text-foreground"
-                                                    aria-label={
-                                                        visiblePasswords.current_password
-                                                            ? 'Hide password'
-                                                            : 'Show password'
-                                                    }
-                                                >
-                                                    {visiblePasswords.current_password ? (
-                                                        <EyeOff className="size-4" />
-                                                    ) : (
-                                                        <Eye className="size-4" />
-                                                    )}
-                                                </Button>
-                                            </div>
-                                            <InputError
-                                                message={
-                                                    errors.current_password
-                                                }
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
                                             <Label htmlFor="password">
                                                 New password
                                             </Label>
                                             <div className="relative">
                                                 <Input
                                                     id="password"
-                                                    ref={passwordInput}
                                                     name="password"
                                                     type={
                                                         visiblePasswords.password

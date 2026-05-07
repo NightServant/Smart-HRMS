@@ -26,7 +26,6 @@ test('password can be updated', function () {
         ->actingAs($user)
         ->from(route('user-password.edit'))
         ->put(route('user-password.update'), [
-            'current_password' => 'password',
             'password' => 'new-password',
             'password_confirmation' => 'new-password',
         ]);
@@ -39,19 +38,18 @@ test('password can be updated', function () {
     expect($user->must_change_password)->toBeFalse();
 });
 
-test('correct password must be provided to update password', function () {
+test('password confirmation must match', function () {
     $user = User::factory()->create();
 
     $response = $this
         ->actingAs($user)
         ->from(route('user-password.edit'))
         ->put(route('user-password.update'), [
-            'current_password' => 'wrong-password',
             'password' => 'new-password',
-            'password_confirmation' => 'new-password',
+            'password_confirmation' => 'different-password',
         ]);
 
     $response
-        ->assertSessionHasErrors('current_password')
+        ->assertSessionHasErrors('password')
         ->assertRedirect(route('user-password.edit'));
 });
