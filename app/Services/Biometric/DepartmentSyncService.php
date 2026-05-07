@@ -11,7 +11,39 @@ class DepartmentSyncService
 {
     public function __construct(
         private readonly ZlinkClient $client,
+        private readonly ZlinkPortalClient $portal,
     ) {}
+
+    /**
+     * Resolve a department name to its portal department UUID by walking the
+     * SPA's treeNode response. Falls through to null if nothing matches.
+     *
+     * The open-API equivalent (POST /open-apis/org/v1/departments/search)
+     * returns 405 on this tenant — same root cause that motivated routing
+     * employee creation through the portal SPA.
+     */
+    private function findPortalDepartmentByName(string $name): ?string
+    {
+        $needle = trim(mb_strtolower($name));
+
+        if ($needle === '') {
+            return null;
+        }
+
+        foreach ($this->portal->listDepartmentTreeNodes() as $row) {
+            $rowName = trim(mb_strtolower((string) ($row['name'] ?? '')));
+
+            if ($rowName === $needle) {
+                $id = (string) ($row['id'] ?? $row['departmentId'] ?? '');
+
+                if ($id !== '') {
+                    return $id;
+                }
+            }
+        }
+
+        return null;
+    }
 
     /**
      * Sync the given department's name to Zlink. Creates the department in
@@ -32,7 +64,7 @@ class DepartmentSyncService
             $existingId = (string) ($department->zlink_department_id ?? '');
 
             if ($existingId !== '') {
-                $this->client->updateDepartment($existingId, $name);
+                $this->portal->updateDepartment($existingId, $name);
 
                 $department->forceFill([
                     'zlink_synced_at' => now(),
@@ -43,7 +75,7 @@ class DepartmentSyncService
                 return ['action' => 'updated', 'zlink_department_id' => $existingId];
             }
 
-            $foundId = $this->client->findDepartmentByName($name);
+            $foundId = $this->findPortalDepartmentByName($name);
 
             if ($foundId !== null) {
                 $department->forceFill([
@@ -56,7 +88,7 @@ class DepartmentSyncService
                 return ['action' => 'linked', 'zlink_department_id' => $foundId];
             }
 
-            $newId = $this->client->createDepartment($name);
+            $newId = $this->portal->createDepartment($name);
 
             $department->forceFill([
                 'zlink_department_id' => $newId,

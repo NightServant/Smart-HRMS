@@ -27,6 +27,7 @@ class Employee extends Model
         'employment_status',
         'supervisor_id',
         'zkteco_pin',
+        'zlink_employee_id',
         'webauthn_credential_id',
         'webauthn_public_key',
         'webauthn_sign_count',

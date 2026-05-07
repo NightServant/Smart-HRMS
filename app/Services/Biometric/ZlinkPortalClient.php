@@ -266,6 +266,129 @@ class ZlinkPortalClient
     }
 
     /**
+     * Create an employee on the Zlink portal. Mirrors the SPA's "Add Person"
+     * form on /org/employee — the open API endpoint
+     * (POST /open-apis/org/v1/employees) returns 405 on this tenant, so the
+     * portal endpoint is the working path.
+     *
+     * Captured from the SPA on 2026-05-07. The portal expects the payload as
+     * `application/x-www-form-urlencoded`, NOT JSON, and returns the new
+     * employee's portal UUID under `data.id` with success code `OMSI0006`.
+     *
+     * @param  array<string, mixed>  $payload  see SPA form fields:
+     *                                         employeeCode, firstName, lastName,
+     *                                         departmentId, designationId,
+     *                                         email, phone, gender, joinDate,
+     *                                         tagIds, probationEnd
+     * @return array<string, mixed> the parsed response, with `data.id` on success
+     */
+    public function createEmployee(array $payload): array
+    {
+        return $this->postMultipart('/zlink-api/v1.0/zlink/org/employee', $payload);
+    }
+
+    /**
+     * Create a department on the Zlink portal. Mirrors the SPA's "Add
+     * Department" dialog → POST /zlink-api/v2.0/zlink/org/dept/create with a
+     * JSON body of {name, parentId, leadId}. The open-API equivalent
+     * (POST /open-apis/org/v1/departments) returns 405 on this tenant.
+     *
+     * Captured from the SPA on 2026-05-07. Success code is OMSI0001 and the
+     * new department's UUID is returned as `data.id`.
+     */
+    public function createDepartment(string $name, ?string $parentId = null, ?string $leadId = null): string
+    {
+        $resolvedParent = $parentId
+            ?? (string) config('services.zlink.portal_root_department_id', '');
+
+        if ($resolvedParent === '') {
+            throw new RuntimeException(
+                'ZLINK_PORTAL_ROOT_DEPARTMENT_ID is not configured; portal createDepartment requires a parentId.'
+            );
+        }
+
+        $response = $this->postJson('/zlink-api/v2.0/zlink/org/dept/create', [
+            'name' => $name,
+            'parentId' => $resolvedParent,
+            'leadId' => $leadId,
+        ]);
+
+        $id = (string) (((array) ($response['data'] ?? []))['id'] ?? '');
+
+        if ($id === '') {
+            throw new RuntimeException(sprintf(
+                'Zlink portal createDepartment did not return data.id: %s (%s)',
+                $response['message'] ?? 'unknown',
+                $response['code'] ?? 'no code',
+            ));
+        }
+
+        return $id;
+    }
+
+    /**
+     * Rename / update an existing department on the Zlink portal.
+     *
+     * PUT /zlink-api/v2.0/zlink/org/dept/update/{id} with the same JSON shape
+     * as create: {name, parentId, leadId}. Captured from the SPA on
+     * 2026-05-07. The open-API equivalent (POST /open-apis/org/v1/departments/update)
+     * returns 405 on this tenant.
+     */
+    public function updateDepartment(string $departmentId, string $name, ?string $parentId = null, ?string $leadId = null): array
+    {
+        $resolvedParent = $parentId
+            ?? (string) config('services.zlink.portal_root_department_id', '');
+
+        return $this->putJson('/zlink-api/v2.0/zlink/org/dept/update/'.$departmentId, [
+            'name' => $name,
+            'parentId' => $resolvedParent !== '' ? $resolvedParent : null,
+            'leadId' => $leadId,
+        ]);
+    }
+
+    /**
+     * List Zlink portal departments via the SPA's tree endpoint. Each row
+     * carries `id` (portal UUID) and `name`. Used to resolve a local
+     * department to its `zlink_department_id` without hitting the open API
+     * (which 405s on /open-apis/org/v1/departments/search for this tenant).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listDepartmentTreeNodes(): array
+    {
+        $payload = $this->getJson('/zlink-api/v1.0/zlink/org/department/treeNode');
+
+        return $this->flattenTreeNodes((array) ($payload['data'] ?? []));
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $nodes
+     * @return array<int, array<string, mixed>>
+     */
+    private function flattenTreeNodes(array $nodes): array
+    {
+        $rows = [];
+
+        foreach ($nodes as $node) {
+            if (! is_array($node)) {
+                continue;
+            }
+
+            $rows[] = $node;
+
+            $children = $node['children'] ?? [];
+
+            if (is_array($children) && $children !== []) {
+                foreach ($this->flattenTreeNodes($children) as $child) {
+                    $rows[] = $child;
+                }
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
      * Authenticate against the portal and cache the access + refresh tokens.
      *
      * The portal uses a two-step flow: a plain login returns a "company-less"
@@ -426,6 +549,72 @@ class ZlinkPortalClient
     }
 
     /**
+     * POST as multipart/form-data. The portal's org/employee endpoint silently
+     * drops most fields (firstName, lastName, employeeCode, email, joinDate)
+     * when the request is application/x-www-form-urlencoded — the response
+     * still says "creation successful" but the row is created with auto-
+     * generated stub values. multipart is the only content-type the parser
+     * accepts in full. Verified empirically against the live portal on
+     * 2026-05-07; Chrome DevTools' "Form Data" tab makes both content-types
+     * look identical, which is why the SPA capture was misleading.
+     *
+     * @param  array<string, mixed>  $fields  scalar values are stringified;
+     *                                        nulls are sent as empty strings
+     * @return array<string, mixed>
+     */
+    private function postMultipart(string $path, array $fields): array
+    {
+        $send = function () use ($path, $fields) {
+            $req = $this->authedFormRequest();
+
+            foreach ($fields as $name => $value) {
+                $stringified = (string) ($value ?? '');
+
+                // Guzzle's multipart builder rejects empty `contents`; skip
+                // empty fields entirely. The portal endpoint tolerates this.
+                if ($stringified === '') {
+                    continue;
+                }
+
+                $req = $req->attach((string) $name, $stringified);
+            }
+
+            return $req->post($this->baseUrl.$path);
+        };
+
+        $response = $send();
+
+        if ($response->status() === 401) {
+            $this->authenticate(forceRefresh: true);
+            $response = $send();
+        }
+
+        $response->throw();
+
+        return (array) $response->json();
+    }
+
+    /**
+     * Variant of authedRequest without `asJson()`/`asForm()` so the caller
+     * can apply `attach()` for multipart uploads. The portal SPA submits the
+     * "Add Person" form as multipart/form-data because the form includes a
+     * file-upload field (Facial Photo); the parser then requires multipart
+     * even when the file is omitted.
+     */
+    private function authedFormRequest(): PendingRequest
+    {
+        $token = $this->authenticate();
+
+        return Http::withHeaders(array_merge(
+            $this->spaHeaders(),
+            ['Authorization' => 'Bearer '.$token],
+        ))
+            ->withCookies($this->authCookies($token), $this->cookieDomain())
+            ->acceptJson()
+            ->timeout((int) config('services.zlink.request_timeout', 10));
+    }
+
+    /**
      * @param  array<string, mixed>  $body
      * @return array<string, mixed>
      */
@@ -436,6 +625,24 @@ class ZlinkPortalClient
         if ($response->status() === 401) {
             $this->authenticate(forceRefresh: true);
             $response = $this->authedRequest()->post($this->baseUrl.$path, $body);
+        }
+
+        $response->throw();
+
+        return (array) $response->json();
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     * @return array<string, mixed>
+     */
+    private function putJson(string $path, array $body): array
+    {
+        $response = $this->authedRequest()->put($this->baseUrl.$path, $body);
+
+        if ($response->status() === 401) {
+            $this->authenticate(forceRefresh: true);
+            $response = $this->authedRequest()->put($this->baseUrl.$path, $body);
         }
 
         $response->throw();
