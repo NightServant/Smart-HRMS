@@ -30,6 +30,12 @@ done
 php artisan migrate --force
 php artisan zlink:secrets:migrate
 
+# One-time historical attendance backfill for EMP-002..EMP-021. The command
+# is gated by a system_settings marker, so this is a no-op after the first
+# successful run on any given environment. Trailing `|| true` keeps the
+# container booting even if the backfill fails — recheck logs above.
+php artisan attendance:seed-historical || true
+
 # Retry any failed jobs from prior deploys before backfilling — old failed
 # jobs picked up the old code path (e.g. open-API createDepartment that 405s)
 # and benefit from running on the new portal-API path.
