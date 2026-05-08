@@ -15,7 +15,7 @@ class AttendanceAggregator
             ->where('employee_id', $employeeId)
             ->whereDate('date', $date->toDateString())
             ->orderBy('punch_time')
-            ->get(['punch_time', 'source']);
+            ->get(['punch_time', 'source', 'punch_type']);
 
         if ($punches->isEmpty()) {
             DailyAttendance::query()
@@ -26,11 +26,27 @@ class AttendanceAggregator
             return;
         }
 
-        $timeIn = Carbon::parse($punches->first()->punch_time);
-        $timeOut = Carbon::parse($punches->last()->punch_time);
+        $hasPunchTypes = $punches->whereNotNull('punch_type')->isNotEmpty();
 
-        $minGapMinutes = (int) config('attendance.time_out_min_gap_minutes', 60);
-        $hasTimeOut = abs((int) $timeOut->diffInMinutes($timeIn)) >= $minGapMinutes;
+        if ($hasPunchTypes) {
+            $inPunches = $punches->where('punch_type', '0');
+            $outPunches = $punches->where('punch_type', '1');
+
+            $timeIn = $inPunches->isNotEmpty()
+                ? Carbon::parse($inPunches->first()->punch_time)
+                : Carbon::parse($punches->first()->punch_time);
+
+            $hasTimeOut = $outPunches->isNotEmpty();
+            $timeOut = $hasTimeOut
+                ? Carbon::parse($outPunches->last()->punch_time)
+                : Carbon::parse($punches->last()->punch_time);
+        } else {
+            $timeIn = Carbon::parse($punches->first()->punch_time);
+            $timeOut = Carbon::parse($punches->last()->punch_time);
+
+            $minGapMinutes = (int) config('attendance.time_out_min_gap_minutes', 60);
+            $hasTimeOut = abs((int) $timeOut->diffInMinutes($timeIn)) >= $minGapMinutes;
+        }
 
         $shiftStart = (string) config('attendance.shift_start', '09:00');
         $graceMinutes = (int) config('attendance.grace_period_minutes', 0);

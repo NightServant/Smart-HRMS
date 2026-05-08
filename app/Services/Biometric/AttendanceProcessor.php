@@ -18,7 +18,7 @@ class AttendanceProcessor
     ) {}
 
     /**
-     * @param  array<int, array{pin: string, datetime: string, source?: string}>  $records
+     * @param  array<int, array{pin: string, datetime: string, source?: string, punch_type?: string|null}>  $records
      * @return array{stored: int, issues: int, issue_types: array<int, string>, dates_touched: array<int, array{employee_id: string, date: string}>}
      */
     public function process(BiometricDevice $device, array $records): array
@@ -32,6 +32,7 @@ class AttendanceProcessor
             $pin = trim((string) ($record['pin'] ?? ''));
             $rawDateTime = trim((string) ($record['datetime'] ?? ''));
             $source = (string) ($record['source'] ?? 'biometric');
+            $punchType = isset($record['punch_type']) ? (string) $record['punch_type'] : null;
 
             $employee = $this->resolveEmployee($pin);
 
@@ -60,6 +61,7 @@ class AttendanceProcessor
                     'punch_time' => $punchDateTime,
                     'status' => null,
                     'source' => $source,
+                    'punch_type' => $punchType,
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);

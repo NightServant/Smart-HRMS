@@ -153,7 +153,7 @@ class BiometricWebhookController extends Controller
 
     /**
      * @param  array<string, mixed>  $body
-     * @return array<int, array{pin: string, datetime: string, source: string}>
+     * @return array<int, array{pin: string, datetime: string, source: string, punch_type: string|null}>
      */
     private function extractAttLogs(array $body): array
     {
@@ -183,10 +183,13 @@ class BiometricWebhookController extends Controller
                 continue;
             }
 
+            $attState = isset($row['attState']) ? trim((string) $row['attState']) : null;
+
             $records[] = [
                 'pin' => $pin,
                 'datetime' => $time,
                 'source' => 'biometric',
+                'punch_type' => ($attState !== null && $attState !== '') ? $attState : null,
             ];
         }
 
