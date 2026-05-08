@@ -19,15 +19,22 @@ return new class extends Migration
             ->pluck('Key_name')
             ->unique();
 
-        Schema::table('daily_attendance', function (Blueprint $table) use ($indexes) {
-            if ($indexes->contains('daily_attendance_employee_id_date_unique')) {
-                $table->dropUnique(['employee_id', 'date']);
-            }
-
-            if (! $indexes->contains('daily_attendance_employee_id_date_shift_index_unique')) {
+        // Add the new composite unique BEFORE dropping the old one. The FK on
+        // employee_id is supported by the leftmost prefix of (employee_id, date),
+        // so dropping the old index in the same ALTER would leave the FK
+        // temporarily unsupported (MySQL error 1553). Two separate ALTER
+        // statements let InnoDB rebind the FK to the new index.
+        if (! $indexes->contains('daily_attendance_employee_id_date_shift_index_unique')) {
+            Schema::table('daily_attendance', function (Blueprint $table) {
                 $table->unique(['employee_id', 'date', 'shift_index']);
-            }
-        });
+            });
+        }
+
+        if ($indexes->contains('daily_attendance_employee_id_date_unique')) {
+            Schema::table('daily_attendance', function (Blueprint $table) {
+                $table->dropUnique(['employee_id', 'date']);
+            });
+        }
     }
 
     public function down(): void
@@ -36,15 +43,17 @@ return new class extends Migration
             ->pluck('Key_name')
             ->unique();
 
-        Schema::table('daily_attendance', function (Blueprint $table) use ($indexes) {
-            if ($indexes->contains('daily_attendance_employee_id_date_shift_index_unique')) {
-                $table->dropUnique(['employee_id', 'date', 'shift_index']);
-            }
-
-            if (! $indexes->contains('daily_attendance_employee_id_date_unique')) {
+        if (! $indexes->contains('daily_attendance_employee_id_date_unique')) {
+            Schema::table('daily_attendance', function (Blueprint $table) {
                 $table->unique(['employee_id', 'date']);
-            }
-        });
+            });
+        }
+
+        if ($indexes->contains('daily_attendance_employee_id_date_shift_index_unique')) {
+            Schema::table('daily_attendance', function (Blueprint $table) {
+                $table->dropUnique(['employee_id', 'date', 'shift_index']);
+            });
+        }
 
         if (Schema::hasColumn('daily_attendance', 'shift_index')) {
             Schema::table('daily_attendance', function (Blueprint $table) {
