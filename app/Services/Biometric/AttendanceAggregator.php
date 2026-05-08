@@ -40,70 +40,139 @@ class AttendanceAggregator
         $lateThreshold = (int) ($this->setting('late_threshold_minutes', (string) config('attendance.grace_period_minutes', 15)));
         $minGapMinutes = (int) config('attendance.time_out_min_gap_minutes', 1);
 
-        [$morningPunches, $afternoonPunches] = $punches->partition(
-            fn ($punch) => Carbon::parse($punch->punch_time)->lessThan($cutoff),
-        );
+        $pairs = $this->pairPunches($punches, $minGapMinutes);
 
-        $rows = [];
-
-        if ($morningPunches->isNotEmpty()) {
-            $rows[] = $this->buildPeriodRow($morningPunches, $morningStart, $lateThreshold, $minGapMinutes, 1);
+        if ($pairs === []) {
+            return;
         }
 
-        if ($afternoonPunches->isNotEmpty()) {
-            $rows[] = $this->buildPeriodRow($afternoonPunches, $afternoonStart, $lateThreshold, $minGapMinutes, 2);
-        }
+        $morningSeen = false;
+        $afternoonSeen = false;
+        $shiftIndex = 0;
 
-        foreach ($rows as $row) {
+        foreach ($pairs as $pair) {
+            $shiftIndex++;
+            $isMorning = $pair['time_in']->lessThan($cutoff);
+            $isFirstInPeriod = $isMorning ? ! $morningSeen : ! $afternoonSeen;
+
+            $lateMinutes = 0;
+            if ($isFirstInPeriod) {
+                $threshold = ($isMorning ? $morningStart : $afternoonStart)
+                    ->copy()
+                    ->addMinutes($lateThreshold);
+
+                if ($pair['time_in']->greaterThan($threshold)) {
+                    $lateMinutes = abs((int) $threshold->diffInMinutes($pair['time_in']));
+                }
+            }
+
+            $status = match (true) {
+                $pair['time_out'] === null => 'incomplete',
+                $lateMinutes > 0 => 'late',
+                default => 'on_time',
+            };
+
             DailyAttendance::query()->insert([
                 'employee_id' => $employeeId,
                 'date' => $date->toDateString(),
-                'shift_index' => $row['shift_index'],
-                'time_in' => $row['time_in'],
-                'time_out' => $row['time_out'],
-                'status' => $row['status'],
-                'late_minutes' => $row['late_minutes'],
-                'source' => $row['source'],
+                'shift_index' => $shiftIndex,
+                'time_in' => $pair['time_in']->format('H:i:s'),
+                'time_out' => $pair['time_out']?->format('H:i:s'),
+                'status' => $status,
+                'late_minutes' => $lateMinutes,
+                'source' => $pair['source'],
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+
+            if ($isMorning) {
+                $morningSeen = true;
+            } else {
+                $afternoonSeen = true;
+            }
         }
     }
 
     /**
+     * Walk punches chronologically and emit one (in, out) pair per shift.
+     *
+     * - punch_type '0' = check-in, '1' = check-out. With unknown/null
+     *   punch_type the kind is inferred from the open/closed state of the
+     *   current pair (alternating).
+     * - A check-in arriving while another pair is still open closes the
+     *   open one as incomplete and starts a new one — this is what makes
+     *   a re-time-in after a time-out (or after a forgotten time-out)
+     *   produce its own row instead of overriding the prior time-out.
+     * - Same-type consecutive punches within $minGapMinutes are treated as
+     *   double-tap noise and skipped.
+     * - Orphan check-outs (no preceding check-in) are dropped.
+     * - A closing punch within $minGapMinutes of its opener is treated as
+     *   a duplicate tap and the time-out is dropped.
+     *
      * @param  Collection<int, AttendanceRecord>  $punches
-     * @return array{shift_index: int, time_in: string, time_out: ?string, status: string, late_minutes: int, source: string}
+     * @return array<int, array{time_in: Carbon, time_out: ?Carbon, source: string}>
      */
-    private function buildPeriodRow(Collection $punches, Carbon $periodStart, int $lateThreshold, int $minGapMinutes, int $shiftIndex): array
+    private function pairPunches(Collection $punches, int $minGapMinutes): array
     {
-        $first = $punches->first();
-        $last = $punches->last();
+        $pairs = [];
+        $open = null;
+        $lastTime = null;
+        $lastType = null;
 
-        $timeIn = Carbon::parse($first->punch_time);
-        $hasOut = $first !== $last;
-        $timeOut = $hasOut ? Carbon::parse($last->punch_time) : null;
+        foreach ($punches as $punch) {
+            $time = Carbon::parse($punch->punch_time);
+            $type = $punch->punch_type;
+            $known = $type === '0' || $type === '1' || $type === 0 || $type === 1;
+            $isIn = $known ? ($type === '0' || $type === 0) : ($open === null);
 
-        if ($hasOut) {
-            $gap = abs((int) $timeOut->diffInMinutes($timeIn));
-
-            if ($gap < $minGapMinutes) {
-                $hasOut = false;
-                $timeOut = null;
+            if ($lastTime !== null && $type === $lastType && abs((int) $time->diffInMinutes($lastTime)) < $minGapMinutes) {
+                continue;
             }
+
+            $lastTime = $time;
+            $lastType = $type;
+
+            if ($isIn) {
+                if ($open !== null) {
+                    $pairs[] = $this->finalizePair($open, null, null, $minGapMinutes);
+                }
+
+                $open = [
+                    'time_in' => $time,
+                    'sources' => array_filter([$punch->source]),
+                ];
+
+                continue;
+            }
+
+            if ($open === null) {
+                continue;
+            }
+
+            $pairs[] = $this->finalizePair($open, $time, $punch->source, $minGapMinutes);
+            $open = null;
         }
 
-        $threshold = $periodStart->copy()->addMinutes($lateThreshold);
-        $lateMinutes = $timeIn->greaterThan($threshold)
-            ? abs((int) $threshold->diffInMinutes($timeIn))
-            : 0;
+        if ($open !== null) {
+            $pairs[] = $this->finalizePair($open, null, null, $minGapMinutes);
+        }
 
-        $status = match (true) {
-            ! $hasOut => 'incomplete',
-            $lateMinutes > 0 => 'late',
-            default => 'on_time',
-        };
+        return $pairs;
+    }
 
-        $sources = collect([$first->source, $hasOut ? $last->source : null])
+    /**
+     * @param  array{time_in: Carbon, sources: array<int, string>}  $open
+     * @return array{time_in: Carbon, time_out: ?Carbon, source: string}
+     */
+    private function finalizePair(array $open, ?Carbon $timeOut, ?string $outSource, int $minGapMinutes): array
+    {
+        if ($timeOut !== null && abs((int) $timeOut->diffInMinutes($open['time_in'])) < $minGapMinutes) {
+            $timeOut = null;
+            $outSource = null;
+        }
+
+        $sources = collect($open['sources'])
+            ->push($outSource)
             ->filter()
             ->unique()
             ->values();
@@ -115,11 +184,8 @@ class AttendanceAggregator
         };
 
         return [
-            'shift_index' => $shiftIndex,
-            'time_in' => $timeIn->format('H:i:s'),
-            'time_out' => $hasOut ? $timeOut->format('H:i:s') : null,
-            'status' => $status,
-            'late_minutes' => $lateMinutes,
+            'time_in' => $open['time_in'],
+            'time_out' => $timeOut,
             'source' => $source,
         ];
     }
