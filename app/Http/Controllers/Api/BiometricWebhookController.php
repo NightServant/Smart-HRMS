@@ -132,6 +132,10 @@ class BiometricWebhookController extends Controller
                     static fn (array $r): string => (string) ($r['pin'] ?? ''),
                     $records,
                 ))),
+                'att_states' => array_values(array_unique(array_map(
+                    static fn (array $r): string => (string) ($r['punch_type'] ?? ''),
+                    $records,
+                ))),
                 'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
             ]);
         } else {

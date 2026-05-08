@@ -26,20 +26,17 @@ class AttendanceAggregator
             return;
         }
 
-        $hasPunchTypes = $punches->whereNotNull('punch_type')->isNotEmpty();
+        $outPunches = $punches->where('punch_type', '1');
 
-        if ($hasPunchTypes) {
+        if ($outPunches->isNotEmpty()) {
             $inPunches = $punches->where('punch_type', '0');
-            $outPunches = $punches->where('punch_type', '1');
 
             $timeIn = $inPunches->isNotEmpty()
                 ? Carbon::parse($inPunches->first()->punch_time)
                 : Carbon::parse($punches->first()->punch_time);
 
-            $hasTimeOut = $outPunches->isNotEmpty();
-            $timeOut = $hasTimeOut
-                ? Carbon::parse($outPunches->last()->punch_time)
-                : Carbon::parse($punches->last()->punch_time);
+            $timeOut = Carbon::parse($outPunches->last()->punch_time);
+            $hasTimeOut = true;
         } else {
             $timeIn = Carbon::parse($punches->first()->punch_time);
             $timeOut = Carbon::parse($punches->last()->punch_time);

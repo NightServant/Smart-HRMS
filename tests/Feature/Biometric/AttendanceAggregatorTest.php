@@ -98,6 +98,60 @@ test('mixed manual and biometric sources produce mixed source label', function (
     expect($row->status)->toBe('on_time');
 });
 
+test('all-zero attState punches fall back to gap heuristic and produce time_out', function () {
+    AttendanceRecord::query()->create([
+        'employee_id' => 'AGG-001',
+        'date' => '2026-04-26',
+        'punch_time' => '2026-04-26 07:30:00',
+        'status' => null,
+        'source' => 'biometric',
+        'punch_type' => '0',
+    ]);
+    AttendanceRecord::query()->create([
+        'employee_id' => 'AGG-001',
+        'date' => '2026-04-26',
+        'punch_time' => '2026-04-26 17:30:00',
+        'status' => null,
+        'source' => 'biometric',
+        'punch_type' => '0',
+    ]);
+
+    app(AttendanceAggregator::class)->recomputeForEmployeeDate('AGG-001', CarbonImmutable::parse('2026-04-26'));
+
+    $row = DailyAttendance::query()->firstWhere(['employee_id' => 'AGG-001', 'date' => '2026-04-26']);
+
+    expect($row->status)->toBe('on_time');
+    expect($row->time_in)->toBe('07:30:00');
+    expect($row->time_out)->toBe('17:30:00');
+});
+
+test('explicit attState=1 punch is honored as time_out regardless of gap', function () {
+    AttendanceRecord::query()->create([
+        'employee_id' => 'AGG-001',
+        'date' => '2026-04-26',
+        'punch_time' => '2026-04-26 07:30:00',
+        'status' => null,
+        'source' => 'biometric',
+        'punch_type' => '0',
+    ]);
+    AttendanceRecord::query()->create([
+        'employee_id' => 'AGG-001',
+        'date' => '2026-04-26',
+        'punch_time' => '2026-04-26 07:30:30',
+        'status' => null,
+        'source' => 'biometric',
+        'punch_type' => '1',
+    ]);
+
+    app(AttendanceAggregator::class)->recomputeForEmployeeDate('AGG-001', CarbonImmutable::parse('2026-04-26'));
+
+    $row = DailyAttendance::query()->firstWhere(['employee_id' => 'AGG-001', 'date' => '2026-04-26']);
+
+    expect($row->time_in)->toBe('07:30:00');
+    expect($row->time_out)->toBe('07:30:30');
+    expect($row->status)->toBe('on_time');
+});
+
 test('two punches within the min gap window are treated as incomplete', function () {
     seedPunch('AGG-001', '2026-04-26 07:30:00');
     seedPunch('AGG-001', '2026-04-26 08:00:00');
