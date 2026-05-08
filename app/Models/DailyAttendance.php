@@ -18,6 +18,7 @@ class DailyAttendance extends Model
     protected $fillable = [
         'employee_id',
         'date',
+        'shift_index',
         'time_in',
         'time_out',
         'status',

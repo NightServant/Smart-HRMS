@@ -40,9 +40,40 @@ class HistoricalPerformanceSeeder extends Seeder
 
     private const ATTENDANCE_START = '2021-01-01';
 
-    private const SHIFT_START = '08:00:00';
+    private const MORNING_START = '08:00:00';
+
+    private const MORNING_END = '12:00:00';
+
+    private const AFTERNOON_START = '13:00:00';
+
+    private const AFTERNOON_END = '17:00:00';
 
     private const SOURCE_MANUAL_RATIO = 0.20;
+
+    /** Inclusive lower bound for employee_id; null disables the filter. */
+    public ?string $employeeIdMin = 'EMP-002';
+
+    /** Inclusive upper bound for employee_id; null disables the filter. */
+    public ?string $employeeIdMax = 'EMP-021';
+
+    /** When true, attendance generation stops the day before today to avoid clobbering live punches. */
+    public bool $stopBeforeToday = true;
+
+    /** When true, skip the Zlink fingerprint precheck (useful when reseeding offline). */
+    public bool $skipFingerprintCheck = true;
+
+    /**
+     * When true, wipe existing daily_attendance + attendance_records rows for the filtered
+     * employees before inserting. Safe to set independently of $wipeIpcr so attendance can
+     * be re-seeded while keeping finalized IPCR submissions intact.
+     */
+    public bool $wipeAttendance = false;
+
+    /**
+     * When true, wipe existing IPCR targets, submissions, appeals, audit logs, notifications,
+     * and historical_data_records for the filtered employees before inserting.
+     */
+    public bool $wipeIpcr = false;
 
     public function __construct(
         private readonly IpcrFormTemplateService $template = new IpcrFormTemplateService,
@@ -51,51 +82,89 @@ class HistoricalPerformanceSeeder extends Seeder
 
     public function run(): void
     {
-        $employees = Employee::query()
+        $query = Employee::query()
             ->with('department')
-            ->whereHas('department', fn ($query) => $query->where('name', 'Administrative Office'))
+            ->whereHas('department', fn ($subQuery) => $subQuery->where('name', 'Administrative Office'))
             ->where('employee_id', '!=', 'EMP-001')
-            ->orderBy('employee_id')
-            ->get();
+            ->orderBy('employee_id');
+
+        if ($this->employeeIdMin !== null) {
+            $query->where('employee_id', '>=', $this->employeeIdMin);
+        }
+
+        if ($this->employeeIdMax !== null) {
+            $query->where('employee_id', '<=', $this->employeeIdMax);
+        }
+
+        $employees = $query->get();
 
         if ($employees->isEmpty()) {
-            $this->command?->warn('No Admin Office employees found — skipping historical performance seeder.');
+            $this->command?->warn('No employees matched the seeder filter — nothing to do.');
 
             return;
         }
 
-        $this->resetState();
+        $this->command?->info(sprintf(
+            'Seeding historical data for %d employees (%s..%s).',
+            $employees->count(),
+            $employees->first()->employee_id,
+            $employees->last()->employee_id,
+        ));
+
+        if ($this->wipeAttendance) {
+            $this->resetAttendanceForEmployees($employees);
+        }
+
+        if ($this->wipeIpcr) {
+            $this->resetIpcrForEmployees($employees);
+        }
+
+        if (! $this->wipeAttendance && ! $this->wipeIpcr) {
+            $this->command?->info('Both wipe flags disabled — seeder will skip employees/dates that already have records.');
+        }
+
         $this->seedAttendance($employees);
         $this->seedIpcrTargetsAndSubmissions($employees);
     }
 
-    private function resetState(): void
+    /**
+     * @param  Collection<int, Employee>  $employees
+     */
+    private function resetAttendanceForEmployees(Collection $employees): void
     {
-        $driver = DB::getDriverName();
+        $ids = $employees->pluck('employee_id')->all();
 
-        if ($driver === 'sqlite') {
-            DB::table('daily_attendance')->delete();
-            DB::table('attendance_records')->delete();
-            DB::table('ipcr_appeals')->delete();
-            DB::table('ipcr_submissions')->delete();
-            DB::table('ipcr_targets')->delete();
-            DB::table('historical_data_records')->delete();
-        } else {
-            DB::statement('SET FOREIGN_KEY_CHECKS=0');
-            DB::table('daily_attendance')->truncate();
-            DB::table('attendance_records')->truncate();
-            DB::table('ipcr_appeals')->truncate();
-            DB::table('ipcr_submissions')->truncate();
-            DB::table('ipcr_targets')->truncate();
-            DB::table('historical_data_records')->truncate();
-            DB::statement('SET FOREIGN_KEY_CHECKS=1');
-        }
+        DB::table('daily_attendance')->whereIn('employee_id', $ids)->delete();
+        DB::table('attendance_records')->whereIn('employee_id', $ids)->delete();
+
+        $this->command?->info(sprintf(
+            'Wiped attendance rows for %d employees.',
+            count($ids),
+        ));
+    }
+
+    /**
+     * @param  Collection<int, Employee>  $employees
+     */
+    private function resetIpcrForEmployees(Collection $employees): void
+    {
+        $ids = $employees->pluck('employee_id')->all();
+        $names = $employees->pluck('name')->all();
+
+        DB::table('ipcr_appeals')->whereIn('employee_id', $ids)->delete();
+        DB::table('ipcr_submissions')->whereIn('employee_id', $ids)->delete();
+        DB::table('ipcr_targets')->whereIn('employee_id', $ids)->delete();
+        DB::table('historical_data_records')->whereIn('employee_name', $names)->delete();
 
         IwrAuditLog::query()
             ->whereIn('document_type', ['ipcr', 'ipcr_target'])
+            ->whereIn('employee_id', $ids)
             ->delete();
 
         Notification::query()
+            ->whereIn('user_id', function ($subQuery) use ($ids): void {
+                $subQuery->select('id')->from('users')->whereIn('employee_id', $ids);
+            })
             ->where(function ($query): void {
                 $query->where('type', 'like', 'ipcr%')
                     ->orWhere(function ($inner): void {
@@ -104,6 +173,11 @@ class HistoricalPerformanceSeeder extends Seeder
                     });
             })
             ->delete();
+
+        $this->command?->info(sprintf(
+            'Wiped IPCR rows for %d employees.',
+            count($ids),
+        ));
     }
 
     /**
@@ -111,20 +185,33 @@ class HistoricalPerformanceSeeder extends Seeder
      */
     private function seedAttendance(Collection $employees): void
     {
-        // Seed every workday up to and including today. May 1 (Labor Day)
-        // and the May 2–3 weekend are skipped by the holiday/weekend filter
-        // below, so they don't need a special-case cutoff.
-        $cutoff = CarbonImmutable::today();
+        $cutoff = $this->stopBeforeToday
+            ? CarbonImmutable::today()->subDay()
+            : CarbonImmutable::today();
         $attendanceLowerBound = CarbonImmutable::parse(self::ATTENDANCE_START);
-        $portal = app(ZlinkPortalClient::class);
+        $portal = $this->skipFingerprintCheck ? null : app(ZlinkPortalClient::class);
 
         foreach ($employees as $index => $employee) {
-            if (! $this->hasZlinkFingerprint($employee, $portal)) {
+            if ($portal !== null && ! $this->hasZlinkFingerprint($employee, $portal)) {
                 $this->command?->info(
                     "Skipping attendance for {$employee->employee_id} — no fingerprint template on Zlink yet."
                 );
 
                 continue;
+            }
+
+            if (! $this->wipeAttendance) {
+                $hasExisting = DB::table('daily_attendance')
+                    ->where('employee_id', $employee->employee_id)
+                    ->exists();
+
+                if ($hasExisting) {
+                    $this->command?->info(
+                        "Skipping attendance for {$employee->employee_id} — already has daily_attendance rows."
+                    );
+
+                    continue;
+                }
             }
 
             $archetype = $this->archetypeFor($index);
@@ -153,7 +240,7 @@ class HistoricalPerformanceSeeder extends Seeder
                     continue;
                 }
 
-                $row = $this->buildDailyRow(
+                $built = $this->buildShiftRows(
                     $employee->employee_id,
                     $cursor,
                     $archetype,
@@ -161,10 +248,12 @@ class HistoricalPerformanceSeeder extends Seeder
                     $dayIndex,
                 );
 
-                $dailyRows[] = $row['daily'];
-                $punchRows[] = $row['punch_in'];
-                if ($row['punch_out'] !== null) {
-                    $punchRows[] = $row['punch_out'];
+                foreach ($built['daily'] as $dailyRow) {
+                    $dailyRows[] = $dailyRow;
+                }
+
+                foreach ($built['punches'] as $punchRow) {
+                    $punchRows[] = $punchRow;
                 }
 
                 $cursor = $cursor->addDay();
@@ -178,6 +267,13 @@ class HistoricalPerformanceSeeder extends Seeder
             foreach (array_chunk($punchRows, 500) as $chunk) {
                 DB::table('attendance_records')->insert($chunk);
             }
+
+            $this->command?->info(sprintf(
+                '  %s: %d daily rows, %d raw punches.',
+                $employee->employee_id,
+                count($dailyRows),
+                count($punchRows),
+            ));
         }
     }
 
@@ -210,94 +306,163 @@ class HistoricalPerformanceSeeder extends Seeder
     }
 
     /**
+     * Build per-period attendance rows + raw punches for a single workday.
+     *
+     * Each workday yields up to two daily_attendance rows (shift_index 1 =
+     * morning, 2 = afternoon) and up to four raw punches (in/out per period).
+     * Lateness, incompleteness, and source are rolled per period using the
+     * employee's archetype so the dataset shows realistic per-period drift.
+     *
      * @param  array<string, float>  $archetype
      * @return array{
-     *     daily: array<string, mixed>,
-     *     punch_in: array<string, mixed>,
-     *     punch_out: array<string, mixed>|null
+     *     daily: array<int, array<string, mixed>>,
+     *     punches: array<int, array<string, mixed>>
      * }
      */
-    private function buildDailyRow(
+    private function buildShiftRows(
         string $employeeId,
         CarbonImmutable $date,
         array $archetype,
         int $yearOffset,
         int $dayIndex,
     ): array {
-        $shiftStart = Carbon::parse($date->toDateString().' '.self::SHIFT_START);
+        $now = Carbon::now();
+        $sourceRoll = $this->rng->getFloat(0, 1);
+        $source = $sourceRoll < self::SOURCE_MANUAL_RATIO ? 'manual' : 'biometric';
 
         $yearDrift = $archetype['drift'] * $yearOffset;
         $intraYearTrend = min(1.0, max(0.0, $dayIndex / 260.0));
         $latenessRate = max(0.02, $archetype['late_rate'] + $yearDrift + $archetype['drift'] * $intraYearTrend * 0.5);
         $incompleteRate = max(0.0, $archetype['incomplete_rate'] + $yearDrift * 0.5);
 
-        $roll = $this->rng->getFloat(0, 1);
+        $morningStart = Carbon::parse($date->toDateString().' '.self::MORNING_START);
+        $morningEnd = Carbon::parse($date->toDateString().' '.self::MORNING_END);
+        $afternoonStart = Carbon::parse($date->toDateString().' '.self::AFTERNOON_START);
+        $afternoonEnd = Carbon::parse($date->toDateString().' '.self::AFTERNOON_END);
 
-        $isLate = $roll < $latenessRate;
-        $isIncomplete = $roll < $incompleteRate;
+        $morning = $this->rollPeriod($morningStart, $morningEnd, $latenessRate, $incompleteRate);
+        $afternoon = $this->rollPeriod($afternoonStart, $afternoonEnd, $latenessRate, $incompleteRate);
+
+        $dailyRows = [];
+        $punchRows = [];
+
+        if ($morning !== null) {
+            $dailyRows[] = $this->dailyRow($employeeId, $date, 1, $morning, $source, $now);
+            foreach ($this->punchRowsFor($employeeId, $date, $morning, $source, $now, '0', '1') as $punch) {
+                $punchRows[] = $punch;
+            }
+        }
+
+        if ($afternoon !== null) {
+            $dailyRows[] = $this->dailyRow($employeeId, $date, 2, $afternoon, $source, $now);
+            foreach ($this->punchRowsFor($employeeId, $date, $afternoon, $source, $now, '0', '1') as $punch) {
+                $punchRows[] = $punch;
+            }
+        }
+
+        return [
+            'daily' => $dailyRows,
+            'punches' => $punchRows,
+        ];
+    }
+
+    /**
+     * Roll a single period (morning or afternoon). Returns null when the
+     * employee is rolled fully absent for that period.
+     *
+     * @return array{time_in: Carbon, time_out: ?Carbon, late_minutes: int, status: string}|null
+     */
+    private function rollPeriod(Carbon $periodStart, Carbon $periodEnd, float $latenessRate, float $incompleteRate): ?array
+    {
+        // Per-period absence is rare — keep historical workdays mostly populated.
+        $absent = $this->rng->getFloat(0, 1) < ($incompleteRate * 0.25);
+
+        if ($absent) {
+            return null;
+        }
+
+        $isLate = $this->rng->getFloat(0, 1) < $latenessRate;
+        $isIncomplete = $this->rng->getFloat(0, 1) < $incompleteRate;
 
         if ($isLate) {
-            $minutesPastShift = $this->rng->getInt(5, 45);
-            $timeIn = $shiftStart->copy()->addMinutes($minutesPastShift);
-            $lateMinutes = $minutesPastShift;
+            $minutesPast = $this->rng->getInt(5, 30);
+            $timeIn = $periodStart->copy()->addMinutes($minutesPast);
+            $lateMinutes = $minutesPast;
         } else {
-            $minutesBeforeShift = $this->rng->getInt(5, 30);
-            $timeIn = $shiftStart->copy()->subMinutes($minutesBeforeShift);
+            $minutesBefore = $this->rng->getInt(2, 15);
+            $timeIn = $periodStart->copy()->subMinutes($minutesBefore);
             $lateMinutes = 0;
         }
 
         $timeOut = null;
         if (! $isIncomplete) {
-            $closing = Carbon::parse($date->toDateString().' 17:00:00');
-            $timeOut = $closing->copy()->addMinutes($this->rng->getInt(0, 90));
+            $minutesAfter = $this->rng->getInt(0, 20);
+            $timeOut = $periodEnd->copy()->addMinutes($minutesAfter);
         }
-
-        $sourceRoll = $this->rng->getFloat(0, 1);
-        $source = $sourceRoll < self::SOURCE_MANUAL_RATIO ? 'manual' : 'biometric';
 
         $status = $isIncomplete ? 'incomplete' : ($isLate ? 'late' : 'on_time');
 
-        $now = Carbon::now();
-
-        $daily = [
-            'employee_id' => $employeeId,
-            'date' => $date->toDateString(),
-            'time_in' => $timeIn->format('H:i:s'),
-            'time_out' => $timeOut?->format('H:i:s'),
-            'status' => $status,
+        return [
+            'time_in' => $timeIn,
+            'time_out' => $timeOut,
             'late_minutes' => $lateMinutes,
-            'source' => $source,
-            'created_at' => $now,
-            'updated_at' => $now,
+            'status' => $status,
         ];
+    }
 
-        $punchIn = [
+    /**
+     * @param  array{time_in: Carbon, time_out: ?Carbon, late_minutes: int, status: string}  $period
+     * @return array<string, mixed>
+     */
+    private function dailyRow(string $employeeId, CarbonImmutable $date, int $shiftIndex, array $period, string $source, Carbon $now): array
+    {
+        return [
             'employee_id' => $employeeId,
             'date' => $date->toDateString(),
-            'punch_time' => $timeIn->toDateTimeString(),
-            'status' => $isLate ? 'Late' : 'Present',
+            'shift_index' => $shiftIndex,
+            'time_in' => $period['time_in']->format('H:i:s'),
+            'time_out' => $period['time_out']?->format('H:i:s'),
+            'status' => $period['status'],
+            'late_minutes' => $period['late_minutes'],
             'source' => $source,
             'created_at' => $now,
             'updated_at' => $now,
         ];
+    }
 
-        $punchOut = $timeOut !== null
-            ? [
+    /**
+     * @param  array{time_in: Carbon, time_out: ?Carbon}  $period
+     * @return array<int, array<string, mixed>>
+     */
+    private function punchRowsFor(string $employeeId, CarbonImmutable $date, array $period, string $source, Carbon $now, string $inType, string $outType): array
+    {
+        $rows = [];
+
+        $rows[] = [
+            'employee_id' => $employeeId,
+            'date' => $date->toDateString(),
+            'punch_time' => $period['time_in']->toDateTimeString(),
+            'status' => null,
+            'source' => $source,
+            'punch_type' => $source === 'biometric' ? $inType : null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ];
+
+        if ($period['time_out'] !== null) {
+            $rows[] = [
                 'employee_id' => $employeeId,
                 'date' => $date->toDateString(),
-                'punch_time' => $timeOut->toDateTimeString(),
-                'status' => 'Present',
+                'punch_time' => $period['time_out']->toDateTimeString(),
+                'status' => null,
                 'source' => $source,
+                'punch_type' => $source === 'biometric' ? $outType : null,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ]
-            : null;
+            ];
+        }
 
-        return [
-            'daily' => $daily,
-            'punch_in' => $punchIn,
-            'punch_out' => $punchOut,
-        ];
+        return $rows;
     }
 
     /**
@@ -387,6 +552,20 @@ class HistoricalPerformanceSeeder extends Seeder
     private function seedIpcrTargetsAndSubmissions(Collection $employees): void
     {
         foreach ($employees as $index => $employee) {
+            if (! $this->wipeIpcr) {
+                $hasExisting = IpcrSubmission::query()
+                    ->where('employee_id', $employee->employee_id)
+                    ->exists();
+
+                if ($hasExisting) {
+                    $this->command?->info(
+                        "Skipping IPCR for {$employee->employee_id} — already has submissions."
+                    );
+
+                    continue;
+                }
+            }
+
             $archetype = $this->archetypeFor($index);
             $hireDate = $employee->date_hired
                 ? CarbonImmutable::parse($employee->date_hired)

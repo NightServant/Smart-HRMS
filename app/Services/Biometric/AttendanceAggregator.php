@@ -4,8 +4,10 @@ namespace App\Services\Biometric;
 
 use App\Models\AttendanceRecord;
 use App\Models\DailyAttendance;
+use App\Models\SystemSetting;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 class AttendanceAggregator
 {
@@ -17,70 +19,121 @@ class AttendanceAggregator
             ->orderBy('punch_time')
             ->get(['punch_time', 'source', 'punch_type']);
 
-        if ($punches->isEmpty()) {
-            DailyAttendance::query()
-                ->where('employee_id', $employeeId)
-                ->whereDate('date', $date->toDateString())
-                ->delete();
+        DailyAttendance::query()
+            ->where('employee_id', $employeeId)
+            ->whereDate('date', $date->toDateString())
+            ->delete();
 
+        if ($punches->isEmpty()) {
             return;
         }
 
-        $outPunches = $punches->where('punch_type', '1');
+        $morningStart = $this->parseTimeOnDate($date, $this->setting('morning_start', (string) config('attendance.shift_start', '08:00')));
+        $morningEnd = $this->parseTimeOnDate($date, $this->setting('morning_end', '12:00'));
+        $afternoonStart = $this->parseTimeOnDate($date, $this->setting('afternoon_start', '13:00'));
 
-        if ($outPunches->isNotEmpty()) {
-            $inPunches = $punches->where('punch_type', '0');
+        $cutoff = Carbon::createFromTimestamp(
+            (int) round(($morningEnd->getTimestamp() + $afternoonStart->getTimestamp()) / 2),
+            $morningEnd->getTimezone(),
+        );
 
-            $timeIn = $inPunches->isNotEmpty()
-                ? Carbon::parse($inPunches->first()->punch_time)
-                : Carbon::parse($punches->first()->punch_time);
+        $lateThreshold = (int) ($this->setting('late_threshold_minutes', (string) config('attendance.grace_period_minutes', 15)));
+        $minGapMinutes = (int) config('attendance.time_out_min_gap_minutes', 1);
 
-            $timeOut = Carbon::parse($outPunches->last()->punch_time);
-            $hasTimeOut = true;
-        } else {
-            $timeIn = Carbon::parse($punches->first()->punch_time);
-            $timeOut = Carbon::parse($punches->last()->punch_time);
+        [$morningPunches, $afternoonPunches] = $punches->partition(
+            fn ($punch) => Carbon::parse($punch->punch_time)->lessThan($cutoff),
+        );
 
-            $minGapMinutes = (int) config('attendance.time_out_min_gap_minutes', 60);
-            $hasTimeOut = abs((int) $timeOut->diffInMinutes($timeIn)) >= $minGapMinutes;
+        $rows = [];
+
+        if ($morningPunches->isNotEmpty()) {
+            $rows[] = $this->buildPeriodRow($morningPunches, $morningStart, $lateThreshold, $minGapMinutes, 1);
         }
 
-        $shiftStart = (string) config('attendance.shift_start', '09:00');
-        $graceMinutes = (int) config('attendance.grace_period_minutes', 0);
-        $shiftThreshold = Carbon::parse($date->toDateString().' '.$shiftStart)->addMinutes($graceMinutes);
+        if ($afternoonPunches->isNotEmpty()) {
+            $rows[] = $this->buildPeriodRow($afternoonPunches, $afternoonStart, $lateThreshold, $minGapMinutes, 2);
+        }
 
-        $lateMinutes = $timeIn->greaterThan($shiftThreshold)
-            ? abs((int) $shiftThreshold->diffInMinutes($timeIn))
+        foreach ($rows as $row) {
+            DailyAttendance::query()->insert([
+                'employee_id' => $employeeId,
+                'date' => $date->toDateString(),
+                'shift_index' => $row['shift_index'],
+                'time_in' => $row['time_in'],
+                'time_out' => $row['time_out'],
+                'status' => $row['status'],
+                'late_minutes' => $row['late_minutes'],
+                'source' => $row['source'],
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+    }
+
+    /**
+     * @param  Collection<int, AttendanceRecord>  $punches
+     * @return array{shift_index: int, time_in: string, time_out: ?string, status: string, late_minutes: int, source: string}
+     */
+    private function buildPeriodRow(Collection $punches, Carbon $periodStart, int $lateThreshold, int $minGapMinutes, int $shiftIndex): array
+    {
+        $first = $punches->first();
+        $last = $punches->last();
+
+        $timeIn = Carbon::parse($first->punch_time);
+        $hasOut = $first !== $last;
+        $timeOut = $hasOut ? Carbon::parse($last->punch_time) : null;
+
+        if ($hasOut) {
+            $gap = abs((int) $timeOut->diffInMinutes($timeIn));
+
+            if ($gap < $minGapMinutes) {
+                $hasOut = false;
+                $timeOut = null;
+            }
+        }
+
+        $threshold = $periodStart->copy()->addMinutes($lateThreshold);
+        $lateMinutes = $timeIn->greaterThan($threshold)
+            ? abs((int) $threshold->diffInMinutes($timeIn))
             : 0;
 
-        if (! $hasTimeOut) {
-            $status = 'incomplete';
-        } else {
-            $status = $lateMinutes > 0 ? 'late' : 'on_time';
-        }
+        $status = match (true) {
+            ! $hasOut => 'incomplete',
+            $lateMinutes > 0 => 'late',
+            default => 'on_time',
+        };
 
-        $sources = $punches->pluck('source')->unique()->filter()->values();
+        $sources = collect([$first->source, $hasOut ? $last->source : null])
+            ->filter()
+            ->unique()
+            ->values();
+
         $source = match (true) {
             $sources->count() > 1 => 'mixed',
             $sources->count() === 1 => (string) $sources->first(),
             default => (string) config('attendance.default_source', 'biometric'),
         };
 
-        DailyAttendance::query()->updateOrInsert(
-            [
-                'employee_id' => $employeeId,
-                'date' => $date->toDateString(),
-            ],
-            [
-                'time_in' => $timeIn->format('H:i:s'),
-                'time_out' => $hasTimeOut ? $timeOut->format('H:i:s') : null,
-                'status' => $status,
-                'late_minutes' => $lateMinutes,
-                'source' => $source,
-                'updated_at' => now(),
-                'created_at' => now(),
-            ],
-        );
+        return [
+            'shift_index' => $shiftIndex,
+            'time_in' => $timeIn->format('H:i:s'),
+            'time_out' => $hasOut ? $timeOut->format('H:i:s') : null,
+            'status' => $status,
+            'late_minutes' => $lateMinutes,
+            'source' => $source,
+        ];
+    }
+
+    private function setting(string $key, string $default): string
+    {
+        $value = SystemSetting::get($key, $default);
+
+        return $value === null || $value === '' ? $default : (string) $value;
+    }
+
+    private function parseTimeOnDate(CarbonImmutable $date, string $hms): Carbon
+    {
+        return Carbon::parse($date->toDateString().' '.$hms);
     }
 
     /**
