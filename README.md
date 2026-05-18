@@ -33,7 +33,7 @@ Uses a **Linear Regression model** trained on three years of quarterly performan
 ### 3. Real-Time HR Analytics Dashboard
 > *Live operational metrics powered by FlatFAT*
 
-Displays aggregated HR metrics in real time using the **FlatFAT algorithm**, including live employee attendance pulled directly from the biometric device (ZKTeco / ADMS protocol). HR personnel get an at-a-glance view of workforce status without waiting for end-of-day reports.
+Displays aggregated HR metrics in real time using the **FlatFAT algorithm**, including live employee attendance streamed from the biometric terminal via the **ZKBio Zlink cloud webhook** (`acc_transaction:push`). HR personnel get an at-a-glance view of workforce status without waiting for end-of-day reports.
 
 ### 4. Automated Training Recommendation Engine (ATRE)
 > *Closing competency gaps*
@@ -165,7 +165,7 @@ While Smart HRMS covers a broad range of HR workflows, it is intentionally **sco
 - **No payroll management** — salary computation, pay slip generation, tax withholding, and benefits disbursement are out of scope.
 - **No recruitment management** — applicant tracking, job posting, interview scheduling, and onboarding pipelines are not included.
 - **Limited mobile experience** — the interface is responsive but not packaged as a native mobile application.
-- **Biometric dependency** — real-time attendance metrics depend on a properly configured ZKTeco-compatible device using the ADMS protocol.
+- **Biometric dependency** — real-time attendance metrics depend on a ZKTeco terminal bound to a ZKBio Zlink tenant; events reach the system through the Zlink cloud webhook.
 - **English-only UI** — no multi-language localization at this time.
 
 ---
