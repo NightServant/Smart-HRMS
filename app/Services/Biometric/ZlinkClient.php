@@ -316,11 +316,32 @@ class ZlinkClient
     {
         $url = "{$this->baseUrl}{$path}";
 
-        $response = $this->authedRequest()->post($url, $body);
+        $response = $this->authedRequest()
+            ->withOptions(['allow_redirects' => ['track_redirects' => true]])
+            ->post($url, $body);
 
         if ($response->status() === 401) {
             $this->authenticate(forceRefresh: true);
-            $response = $this->authedRequest()->post($url, $body);
+            $response = $this->authedRequest()
+                ->withOptions(['allow_redirects' => ['track_redirects' => true]])
+                ->post($url, $body);
+        }
+
+        // TEMP DIAGNOSTIC: capture the full wire exchange for non-2xx responses
+        // so we can see why org writes return an empty-body 405 (esp. the Allow
+        // header and any redirect history). Remove after root cause is found.
+        if ($response->failed()) {
+            \Illuminate\Support\Facades\Log::warning('Zlink postJson non-2xx.', [
+                'request_url' => $url,
+                'request_method' => 'POST',
+                'request_body' => $body,
+                'status' => $response->status(),
+                'allow_header' => $response->header('Allow'),
+                'redirect_history' => $response->header('X-Guzzle-Redirect-History'),
+                'redirect_status_history' => $response->header('X-Guzzle-Redirect-Status-History'),
+                'response_headers' => $response->headers(),
+                'response_body' => mb_substr($response->body(), 0, 2000),
+            ]);
         }
 
         $response->throw();
