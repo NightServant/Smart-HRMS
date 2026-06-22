@@ -12,19 +12,25 @@ use Throwable;
 class EmployeeSyncService
 {
     public function __construct(
-        private readonly ZlinkPortalClient $portal,
+        private readonly ZlinkClient $client,
         private readonly DepartmentSyncService $departmentSync,
     ) {}
 
     /**
-     * Look up the portal's internal employee UUID for the given employeeCode.
-     * Used to backfill `zlink_employee_id` when create returns "duplicate" —
-     * the duplicate response doesn't include the existing record's id, so we
-     * have to round-trip the portal's employee/list endpoint.
+     * Look up Zlink's internal employee id for the given employeeCode. Used to
+     * backfill `zlink_employee_id` when create reports a duplicate — the
+     * duplicate response doesn't include the existing record's id, so we have
+     * to round-trip the open-API employee search.
      */
-    private function lookupPortalEmployeeId(string $employeeCode): ?string
+    private function lookupEmployeeId(string $employeeCode): ?string
     {
-        return $this->portal->findPortalEmployeeIdByCode($employeeCode);
+        foreach ($this->client->listEmployees($employeeCode) as $row) {
+            if (($row['employeeCode'] ?? null) === $employeeCode && isset($row['id'])) {
+                return (string) $row['id'];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -70,17 +76,12 @@ class EmployeeSyncService
     }
 
     /**
-     * Push the employee record to the Zlink portal.
+     * Push the employee record to Zlink via the public open API
+     * (POST /open-apis/org/v1/employees through ZlinkClient).
      *
-     * Goes through ZlinkPortalClient::createEmployee — the open API endpoint
-     * (POST /open-apis/org/v1/employees) is gated/disabled on this tenant and
-     * the dependent /open-apis/org/v1/departments/search returns 405. The SPA
-     * portal endpoint (POST /zlink-api/v1.0/zlink/org/employee) is the working
-     * path; the same approach already powers remoteRegistration and the v2.0
-     * credentials DELETE.
-     *
-     * Idempotent: if the portal reports a duplicate employeeCode the local
-     * record is marked synced without retrying creation.
+     * Idempotent: if Zlink reports a duplicate employeeCode the local record
+     * is linked to the existing person and marked synced without retrying
+     * creation.
      *
      * @return array{action: 'created'|'linked', emp_code: string, zlink_employee_id: ?string}
      */
@@ -117,7 +118,7 @@ class EmployeeSyncService
 
         $joinDate = $employee->date_hired?->toDateString() ?? now()->toDateString();
 
-        // Email intentionally omitted: Zlink portal enforces a global email
+        // Email intentionally omitted: Zlink enforces a global email
         // uniqueness lock that survives employee resignation, so any stub
         // record we created earlier (or will create in the future) permanently
         // burns its email slot. Biometric attendance doesn't need email; the
@@ -132,35 +133,26 @@ class EmployeeSyncService
         ];
 
         try {
-            $response = $this->portal->createEmployee($payload);
-            $code = (string) ($response['code'] ?? '');
-            $message = (string) ($response['message'] ?? '');
-            $portalEmployeeId = (string) (((array) ($response['data'] ?? []))['id'] ?? '');
+            $action = 'created';
+            $zlinkEmployeeId = '';
 
-            $isSuccess = $portalEmployeeId !== ''
-                || $code === 'OMSI0006'
-                || stripos($message, 'success') !== false;
+            try {
+                $response = $this->client->createEmployee($payload);
+                $zlinkEmployeeId = (string) (((array) ($response['data'] ?? []))['id'] ?? '');
+            } catch (Throwable $createException) {
+                // The open API rejects a duplicate employeeCode with an error
+                // code/message. Treat that as "already exists" and link to the
+                // existing person; rethrow anything else to the outer handler.
+                if (! $this->isDuplicateError($createException->getMessage())) {
+                    throw $createException;
+                }
 
-            $isDuplicate = ! $isSuccess && (
-                str_contains(strtolower($message), 'exist')
-                || str_contains(strtolower($message), 'duplicate')
-            );
+                $action = 'linked';
 
-            if (! $isSuccess && ! $isDuplicate) {
-                throw new RuntimeException(sprintf(
-                    'Zlink portal createEmployee failed: %s (%s)',
-                    $message !== '' ? $message : 'unknown error',
-                    $code !== '' ? $code : 'no code',
-                ));
-            }
-
-            $action = $isSuccess ? 'created' : 'linked';
-
-            // On the duplicate path the portal doesn't return the existing
-            // record's id, so resolve it ourselves to keep zlink_employee_id
-            // populated (needed later for fingerprint enrollment lookups).
-            if ($portalEmployeeId === '') {
-                $portalEmployeeId = (string) ($this->lookupPortalEmployeeId($empCode) ?? '');
+                // The duplicate response carries no id, so resolve it from the
+                // existing person to keep zlink_employee_id populated (needed
+                // later for fingerprint enrollment lookups).
+                $zlinkEmployeeId = (string) ($this->lookupEmployeeId($empCode) ?? '');
             }
 
             $update = [
@@ -169,8 +161,8 @@ class EmployeeSyncService
                 'zlink_sync_error' => null,
             ];
 
-            if ($portalEmployeeId !== '') {
-                $update['zlink_employee_id'] = $portalEmployeeId;
+            if ($zlinkEmployeeId !== '') {
+                $update['zlink_employee_id'] = $zlinkEmployeeId;
             }
 
             $employee->forceFill($update)->save();
@@ -178,7 +170,7 @@ class EmployeeSyncService
             return [
                 'action' => $action,
                 'emp_code' => $empCode,
-                'zlink_employee_id' => $portalEmployeeId !== '' ? $portalEmployeeId : null,
+                'zlink_employee_id' => $zlinkEmployeeId !== '' ? $zlinkEmployeeId : null,
             ];
         } catch (Throwable $e) {
             $employee->forceFill([
@@ -201,6 +193,18 @@ class EmployeeSyncService
 
             throw $e;
         }
+    }
+
+    /**
+     * Whether a Zlink create error indicates the employeeCode already exists,
+     * in which case the sync links to the existing person rather than failing.
+     */
+    private function isDuplicateError(string $message): bool
+    {
+        $needle = strtolower($message);
+
+        return str_contains($needle, 'exist')
+            || str_contains($needle, 'duplicate');
     }
 
     /**

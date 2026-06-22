@@ -5,45 +5,14 @@ namespace App\Services\Biometric;
 use App\Models\ActivityLog;
 use App\Models\Department;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 class DepartmentSyncService
 {
     public function __construct(
         private readonly ZlinkClient $client,
-        private readonly ZlinkPortalClient $portal,
     ) {}
-
-    /**
-     * Resolve a department name to its portal department UUID by walking the
-     * SPA's treeNode response. Falls through to null if nothing matches.
-     *
-     * The open-API equivalent (POST /open-apis/org/v1/departments/search)
-     * returns 405 on this tenant — same root cause that motivated routing
-     * employee creation through the portal SPA.
-     */
-    private function findPortalDepartmentByName(string $name): ?string
-    {
-        $needle = trim(mb_strtolower($name));
-
-        if ($needle === '') {
-            return null;
-        }
-
-        foreach ($this->portal->listDepartmentTreeNodes() as $row) {
-            $rowName = trim(mb_strtolower((string) ($row['name'] ?? '')));
-
-            if ($rowName === $needle) {
-                $id = (string) ($row['id'] ?? $row['departmentId'] ?? '');
-
-                if ($id !== '') {
-                    return $id;
-                }
-            }
-        }
-
-        return null;
-    }
 
     /**
      * Sync the given department's name to Zlink. Creates the department in
@@ -64,7 +33,7 @@ class DepartmentSyncService
             $existingId = (string) ($department->zlink_department_id ?? '');
 
             if ($existingId !== '') {
-                $this->portal->updateDepartment($existingId, $name);
+                $this->client->updateDepartment($existingId, $name);
 
                 $department->forceFill([
                     'zlink_synced_at' => now(),
@@ -75,7 +44,7 @@ class DepartmentSyncService
                 return ['action' => 'updated', 'zlink_department_id' => $existingId];
             }
 
-            $foundId = $this->findPortalDepartmentByName($name);
+            $foundId = $this->client->findDepartmentByName($name);
 
             if ($foundId !== null) {
                 $department->forceFill([
@@ -89,15 +58,13 @@ class DepartmentSyncService
             }
 
             try {
-                $newId = $this->portal->createDepartment($name);
+                $newId = $this->client->createDepartment($name);
             } catch (Throwable $createException) {
                 // Zlink returns ZCOR0056 "Department duplicated" when a dept
-                // with this name already exists on the portal. Our programmatic
-                // session sometimes can't see it via treeNode (the SPA can,
-                // but the same auth call from PHP returns an empty tree —
-                // suspected company/permission scoping issue). Surface a
-                // clear error directing the operator to run the manual-link
-                // command instead of silently looping retries.
+                // with this name already exists but the search endpoint didn't
+                // surface it (permission/company scoping). Surface a clear
+                // error directing the operator to run the manual-link command
+                // instead of silently looping retries.
                 $msg = $createException->getMessage();
 
                 if (str_contains($msg, 'ZCOR0056') || str_contains(strtolower($msg), 'duplicated')) {
