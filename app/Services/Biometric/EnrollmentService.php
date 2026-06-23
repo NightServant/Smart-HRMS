@@ -165,12 +165,22 @@ class EnrollmentService
         // templates already live on the portal.
         if ($hasPin && $fingerprintCount === 0 && $this->portal->isConfigured()) {
             try {
-                $credentialIds = $this->portal->findCredentialIdsByEmployeeCode(
+                $credentials = $this->portal->findFingerprintCredentials(
                     (string) $employee->zkteco_pin,
                 );
 
-                if ($credentialIds !== []) {
-                    $fingerprintCount = count($credentialIds);
+                if ($credentials !== []) {
+                    $fingerprintCount = count($credentials);
+
+                    // The credential list carries the finger slot inline as
+                    // `signatureIndex`, so we don't need the (null-returning)
+                    // versionMap endpoint to label the finger.
+                    foreach ($credentials as $credential) {
+                        if ($credential['signatureIndex'] !== null) {
+                            $fingerIndex ??= $credential['signatureIndex'];
+                            break;
+                        }
+                    }
                 }
             } catch (Throwable $e) {
                 Log::info('Portal credential/employee/list lookup failed; falling back to next signal.', [

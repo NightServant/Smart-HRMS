@@ -241,6 +241,59 @@ class ZlinkPortalClient
     }
 
     /**
+     * List the employee's fingerprint credentials with their finger slot. The
+     * SPA's cms/credential/employee/list returns each credential inline with
+     * `id`, `bioType`, and `signatureIndex` (the ZKTeco finger slot 0–9) — so a
+     * single call yields both "is enrolled?" and "which finger?". This is the
+     * reliable signal: the companion v2.0 fingerprint/devices endpoint returns
+     * `fingerprintVersionMap: null` on this tenant even when credentials exist.
+     *
+     * @return array<int, array{id: string, signatureIndex: ?int}>
+     */
+    public function findFingerprintCredentials(string $employeeCode, int $bioType = 1): array
+    {
+        if ($employeeCode === '') {
+            return [];
+        }
+
+        $payload = $this->postJson('/zlink-api/v1.0/zlink/cms/credential/employee/list', [
+            'pageNumber' => 1,
+            'pageSize' => 10,
+            'employeeCode' => $employeeCode,
+            'current' => 1,
+        ]);
+
+        $employees = (array) (((array) ($payload['data'] ?? []))['employees'] ?? []);
+        $credentials = [];
+
+        foreach ($employees as $employee) {
+            $rows = (array) ((is_array($employee) ? $employee : [])['credentials'] ?? []);
+
+            foreach ($rows as $credential) {
+                if (! is_array($credential)) {
+                    continue;
+                }
+
+                $rowBioType = (int) ($credential['bioType'] ?? 0);
+                $id = (string) ($credential['id'] ?? '');
+
+                if ($rowBioType !== $bioType || $id === '') {
+                    continue;
+                }
+
+                $credentials[] = [
+                    'id' => $id,
+                    'signatureIndex' => isset($credential['signatureIndex']) && is_numeric($credential['signatureIndex'])
+                        ? (int) $credential['signatureIndex']
+                        : null,
+                ];
+            }
+        }
+
+        return $credentials;
+    }
+
+    /**
      * List the devices that hold a fingerprint credential for the given
      * portal employee. Used as the third "is the user enrolled?" signal —
      * when the open-API fingerprints/search endpoint 404s (face-only Zlink

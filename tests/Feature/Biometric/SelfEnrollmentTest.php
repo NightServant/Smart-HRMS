@@ -355,6 +355,73 @@ test('enrollment-status reports finger_captured when the portal lists an enrolle
     });
 });
 
+test('enrollment-status derives finger_index from the credential list signatureIndex even when versionMap is null', function () {
+    // Validated against the live portal: cms/credential/employee/list returns
+    // the finger slot under `signatureIndex` on each credential, while the v2.0
+    // fingerprint/devices endpoint returns fingerprintVersionMap: null on this
+    // tenant even when the user IS enrolled. The finger index must therefore
+    // come from the credential list, not the (useless) versionMap path.
+    config([
+        'services.zlink.portal_url' => 'https://zlink-portal.test',
+        'services.zlink.portal_username' => 'admin@example.test',
+        'services.zlink.portal_password' => 'secret',
+        'services.zlink.portal_company_id' => 'company-uuid-1',
+    ]);
+
+    Employee::query()->where('employee_id', 'EMP-300')->update(['zkteco_pin' => 'EMP300']);
+
+    Http::fake([
+        'https://zlink-open.test/open-apis/authen/v1/tenantToken/internal' => Http::response([
+            'code' => 'ZCOP0000',
+            'data' => ['tenantToken' => 't-fake', 'expiresIn' => 3600],
+        ], 200),
+        'https://zlink-open.test/open-apis/biometric/v1/fingerprints/search' => Http::response('Not Found', 404),
+        'https://zlink-portal.test/zlink-api/v1.0/zlink/customer/sso/login' => Http::response([
+            'code' => 'ZCOP0000',
+            'data' => ['access_token' => 'login-token', 'refresh_token' => 'r', 'expires_in' => 3600],
+        ], 200),
+        'https://zlink-portal.test/zlink-api/v1.0/zlink/customer/sso/user/switchCompany' => Http::response([
+            'code' => 'ZCOP0000',
+            'data' => ['access_token' => 'company-scoped-token', 'expires_in' => 3600],
+        ], 200),
+        'https://zlink-portal.test/zlink-api/v1.0/zlink/cms/credential/employee/list' => Http::response([
+            'code' => 'OMSI0000',
+            'data' => [
+                'totalCount' => 1,
+                'employees' => [[
+                    'id' => 'zlink-uuid-emp300',
+                    'employeeCode' => 'EMP300',
+                    'credentials' => [[
+                        'id' => 'cred-uuid-1',
+                        'employeeId' => 'zlink-uuid-emp300',
+                        'bioType' => 1,
+                        'signatureIndex' => 3,
+                    ]],
+                ]],
+            ],
+        ], 200),
+        // versionMap is null on this tenant even when enrolled — must NOT be
+        // required to surface the finger index.
+        'https://zlink-portal.test/zlink-api/v2.0/zlink/cms/credential/fingerprint/devices' => Http::response([
+            'code' => 'CMSR0000',
+            'data' => ['fingerprintVersionMap' => null],
+        ], 200),
+    ]);
+
+    $user = User::factory()->create([
+        'employee_id' => 'EMP-300',
+        'role' => User::ROLE_EMPLOYEE,
+    ]);
+
+    $response = $this->actingAs($user)->getJson('/api/biometrics/enrollment-status');
+
+    $response->assertOk();
+    $response->assertJsonPath('finger_captured', true);
+    $response->assertJsonPath('fingerprint_count', 1);
+    $response->assertJsonPath('finger_index', 3);
+    $response->assertJsonPath('finger_label', 'Left Index');
+});
+
 test('enrollment-status reports finger_captured=false when the portal returns no devices', function () {
     config([
         'services.zlink.portal_url' => 'https://zlink-portal.test',
