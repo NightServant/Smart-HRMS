@@ -140,7 +140,11 @@ test('DepartmentSyncService updates instead of creating when a mapping already e
     app(DepartmentSyncService::class)->sync($department);
 
     expect($department->fresh()->zlink_sync_status)->toBe('synced');
-    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/open-apis/org/v1/departments/update'));
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/open-apis/org/v1/departments/update')
+        // Open API keys by `id` (not `departmentId`) and needs `parentId`,
+        // else it returns HTTP 500 ZKER0999.
+        && ($request->data()['id'] ?? null) === 'zlink-dept-existing'
+        && ($request->data()['parentId'] ?? null) === 'zlink-root-dept');
     Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/open-apis/org/v1/departments')
         && $request->method() === 'POST');
 });

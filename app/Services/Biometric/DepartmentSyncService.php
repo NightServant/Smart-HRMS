@@ -33,7 +33,7 @@ class DepartmentSyncService
             $existingId = (string) ($department->zlink_department_id ?? '');
 
             if ($existingId !== '') {
-                $this->client->updateDepartment($existingId, $name);
+                $this->client->updateDepartment($existingId, $name, $this->rootParentId());
 
                 $department->forceFill([
                     'zlink_synced_at' => now(),
@@ -57,17 +57,8 @@ class DepartmentSyncService
                 return ['action' => 'linked', 'zlink_department_id' => $foundId];
             }
 
-            // Zlink's open API requires parentDeptId (ZCOP1002 otherwise). On
-            // this tenant every SHRMS department is a direct child of the
-            // company root, so reuse the configured root UUID as the parent.
-            $parentId = (string) config('services.zlink.portal_root_department_id', '');
-
-            if ($parentId === '') {
-                throw new RuntimeException('ZLINK_PORTAL_ROOT_DEPARTMENT_ID is not configured; Zlink createDepartment requires a parent department id.');
-            }
-
             try {
-                $newId = $this->client->createDepartment($name, $parentId);
+                $newId = $this->client->createDepartment($name, $this->rootParentId());
             } catch (Throwable $createException) {
                 // Zlink returns ZCOR0056 "Department duplicated" when a dept
                 // with this name already exists but the search endpoint didn't
@@ -116,5 +107,23 @@ class DepartmentSyncService
 
             throw $e;
         }
+    }
+
+    /**
+     * Resolve the configured company-root department id used as the `parentId`
+     * for both create and update. The open API treats `parentId` as part of the
+     * department resource (omitting it returns ZCOP1002 on create / ZKER0999 on
+     * update); on this tenant every SHRMS department is a direct child of the
+     * company root, so the configured root id is the parent for all of them.
+     */
+    private function rootParentId(): string
+    {
+        $parentId = (string) config('services.zlink.portal_root_department_id', '');
+
+        if ($parentId === '') {
+            throw new RuntimeException('ZLINK_PORTAL_ROOT_DEPARTMENT_ID is not configured; Zlink department sync requires a parent department id.');
+        }
+
+        return $parentId;
     }
 }

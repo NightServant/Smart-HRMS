@@ -148,16 +148,26 @@ class ZlinkClient
     }
 
     /**
-     * Rename / update a department in Zlink by its departmentId.
+     * Rename / update a department in Zlink by its id.
+     *
+     * The open API keys the department by `id` (not `departmentId`) and treats
+     * `parentId` as part of the resource; sending `{departmentId, name}` makes
+     * the gateway return HTTP 500 ZKER0999. Mirror the create contract.
      *
      * @return array<string, mixed>
      */
-    public function updateDepartment(string $departmentId, string $name): array
+    public function updateDepartment(string $id, string $name, ?string $parentId = null): array
     {
-        return $this->postJson('/open-apis/org/v1/departments/update', [
-            'departmentId' => $departmentId,
+        $body = [
+            'id' => $id,
             'name' => $name,
-        ]);
+        ];
+
+        if ($parentId !== null && $parentId !== '') {
+            $body['parentId'] = $parentId;
+        }
+
+        return $this->postJson('/open-apis/org/v1/departments/update', $body);
     }
 
     /**
