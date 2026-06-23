@@ -23,6 +23,7 @@ beforeEach(function () {
         'services.zlink.url' => 'https://zlink-open.test',
         'services.zlink.app_key' => 'test-app-key',
         'services.zlink.app_secret' => 'test-app-secret',
+        'services.zlink.portal_root_department_id' => 'zlink-root-dept',
     ]);
 });
 
@@ -110,6 +111,22 @@ test('DepartmentSyncService creates a new department when no mapping exists', fu
     expect($department->zlink_department_id)->toBe('zlink-dept-1');
     expect($department->zlink_sync_status)->toBe('synced');
     Http::assertSent(fn ($request) => str_ends_with($request->url(), '/open-apis/org/v1/departments')
+        && $request->method() === 'POST'
+        // Zlink's open API requires parentDeptId (ZCOP1002 otherwise).
+        && ($request->data()['parentDeptId'] ?? null) === 'zlink-root-dept');
+});
+
+test('DepartmentSyncService fails clearly when no root parent department is configured', function () {
+    fakeZlinkBase();
+    config(['services.zlink.portal_root_department_id' => '']);
+
+    $department = Department::factory()->create();
+
+    expect(fn () => app(DepartmentSyncService::class)->sync($department))
+        ->toThrow(RuntimeException::class);
+
+    expect($department->fresh()->zlink_sync_status)->toBe('failed');
+    Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/open-apis/org/v1/departments')
         && $request->method() === 'POST');
 });
 

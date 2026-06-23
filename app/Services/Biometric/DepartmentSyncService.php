@@ -57,8 +57,17 @@ class DepartmentSyncService
                 return ['action' => 'linked', 'zlink_department_id' => $foundId];
             }
 
+            // Zlink's open API requires parentDeptId (ZCOP1002 otherwise). On
+            // this tenant every SHRMS department is a direct child of the
+            // company root, so reuse the configured root UUID as the parent.
+            $parentId = (string) config('services.zlink.portal_root_department_id', '');
+
+            if ($parentId === '') {
+                throw new RuntimeException('ZLINK_PORTAL_ROOT_DEPARTMENT_ID is not configured; Zlink createDepartment requires a parent department id.');
+            }
+
             try {
-                $newId = $this->client->createDepartment($name);
+                $newId = $this->client->createDepartment($name, $parentId);
             } catch (Throwable $createException) {
                 // Zlink returns ZCOR0056 "Department duplicated" when a dept
                 // with this name already exists but the search endpoint didn't
