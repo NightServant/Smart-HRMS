@@ -129,7 +129,10 @@ class ZlinkClient
         $body = ['name' => $name];
 
         if ($parentId !== null && $parentId !== '') {
-            $body['parentDeptId'] = $parentId;
+            // The open API names the parent field `parentId` (not `parentDeptId`);
+            // sending the wrong key makes Zlink report ZCOP1002 "Parent department
+            // ID is required". See the department schema in the open-API docs.
+            $body['parentId'] = $parentId;
         }
 
         $payload = $this->postJson('/open-apis/org/v1/departments', $body);
@@ -244,20 +247,10 @@ class ZlinkClient
      */
     public function listDepartments(): array
     {
-        $rows = $this->paginatedSearch(
+        return $this->paginatedSearch(
             path: '/open-apis/org/v1/departments/search',
             listKey: 'depts',
         );
-
-        // TEMP DIAGNOSTIC (revert): dump the live open-API department schema so
-        // we can find the correct parent field name + root id for createDepartment
-        // (createDepartment still returns ZCOP1002 despite sending parentDeptId).
-        \Illuminate\Support\Facades\Log::info('ZLINK_DEPT_DUMP', [
-            'count' => count($rows),
-            'sample' => array_slice($rows, 0, 12),
-        ]);
-
-        return $rows;
     }
 
     /**

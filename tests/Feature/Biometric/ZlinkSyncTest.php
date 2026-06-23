@@ -112,8 +112,8 @@ test('DepartmentSyncService creates a new department when no mapping exists', fu
     expect($department->zlink_sync_status)->toBe('synced');
     Http::assertSent(fn ($request) => str_ends_with($request->url(), '/open-apis/org/v1/departments')
         && $request->method() === 'POST'
-        // Zlink's open API requires parentDeptId (ZCOP1002 otherwise).
-        && ($request->data()['parentDeptId'] ?? null) === 'zlink-root-dept');
+        // Zlink's open API requires parentId (ZCOP1002 otherwise).
+        && ($request->data()['parentId'] ?? null) === 'zlink-root-dept');
 });
 
 test('DepartmentSyncService fails clearly when no root parent department is configured', function () {
