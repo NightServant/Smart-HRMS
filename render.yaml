@@ -74,6 +74,10 @@ services:
         value: https://zlink.minervaiot.com
       - key: ZLINK_URL
         value: https://zlink-open.minervaiot.com
+      - key: ZLINK_PROXY_URL
+        value: https://smart-hrms-zlink.egabecervantes.workers.dev
+      - key: ZLINK_PROXY_API_KEY
+        sync: false   # bearer key to the fingerprint proxy Worker (set in dashboard)
       - key: ZLINK_DEFAULT_DEPARTMENT_ID
         sync: false
       - key: ZLINK_DEFAULT_DEVICE_SN
@@ -177,6 +181,10 @@ services:
         value: https://zlink-open.minervaiot.com
       - key: ZLINK_PORTAL_URL
         value: https://zlink.minervaiot.com
+      - key: ZLINK_PROXY_URL
+        value: https://smart-hrms-zlink.egabecervantes.workers.dev
+      - key: ZLINK_PROXY_API_KEY
+        sync: false   # bearer key to the fingerprint proxy Worker (set in dashboard)
       - key: ZLINK_APP_KEY
         sync: false
       - key: ZLINK_APP_SECRET
