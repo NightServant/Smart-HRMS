@@ -140,11 +140,21 @@ test('detected enrollment is persisted to the employee row and short-circuits su
             'code' => 'ZCOP0000',
             'data' => ['access_token' => 'company-scoped-token', 'expires_in' => 3600],
         ], 200),
-        'https://zlink-portal.test/zlink-api/v2.0/zlink/cms/credential/fingerprint/devices' => Http::response([
-            'code' => 'CMSR0000',
-            'data' => ['fingerprintVersionMap' => [
-                'DEV-SN-1' => ['version' => 1, 'fingerIndex' => 2],
-            ]],
+        'https://zlink-portal.test/zlink-api/v1.0/zlink/cms/credential/employee/list' => Http::response([
+            'code' => 'OMSI0000',
+            'data' => [
+                'totalCount' => 1,
+                'employees' => [[
+                    'id' => 'zlink-uuid-emp300',
+                    'employeeCode' => 'EMP300',
+                    'credentials' => [[
+                        'id' => 'cred-uuid-1',
+                        'employeeId' => 'zlink-uuid-emp300',
+                        'bioType' => 1,
+                        'signatureIndex' => 2,
+                    ]],
+                ]],
+            ],
         ], 200),
     ]);
 
@@ -153,7 +163,7 @@ test('detected enrollment is persisted to the employee row and short-circuits su
         'role' => User::ROLE_EMPLOYEE,
     ]);
 
-    // First call detects enrollment via fingerprintVersionMap and persists.
+    // First call detects enrollment via the credential list and persists.
     $this->actingAs($user)->getJson('/api/biometrics/enrollment-status')
         ->assertOk()
         ->assertJsonPath('finger_captured', true)
@@ -264,95 +274,6 @@ test('enrollment-status reports finger_captured once the active registration ses
     $this->actingAs($user)->getJson('/api/biometrics/enrollment-status')
         ->assertOk()
         ->assertJsonPath('finger_captured', true);
-});
-
-test('enrollment-status reports finger_captured when the portal lists an enrolled device', function () {
-    // The open-API fingerprints/search endpoint 404s on this tenant and the
-    // webhook can't reach localhost from Zlink's cloud, so the portal
-    // biological-template endpoint is the only way to detect a fingerprint
-    // that was just enrolled at the terminal.
-    config([
-        'services.zlink.portal_url' => 'https://zlink-portal.test',
-        'services.zlink.portal_username' => 'admin@example.test',
-        'services.zlink.portal_password' => 'secret',
-        'services.zlink.portal_company_id' => 'company-uuid-1',
-    ]);
-
-    Employee::query()->where('employee_id', 'EMP-300')->update(['zkteco_pin' => 'EMP300']);
-
-    Http::fake([
-        'https://zlink-open.test/open-apis/authen/v1/tenantToken/internal' => Http::response([
-            'code' => 'ZCOP0000',
-            'data' => ['tenantToken' => 't-fake', 'expiresIn' => 3600],
-        ], 200),
-        // Open-API fingerprint search not available on this tenant.
-        'https://zlink-open.test/open-apis/biometric/v1/fingerprints/search' => Http::response('Not Found', 404),
-        'https://zlink-open.test/open-apis/org/v1/employees/search' => Http::response([
-            'code' => 'ZCOP0000',
-            'data' => [
-                'currentPage' => 1,
-                'totalPages' => 1,
-                'employee' => [['id' => 'zlink-uuid-emp300', 'employeeCode' => 'EMP300']],
-            ],
-        ], 200),
-        'https://zlink-portal.test/zlink-api/v1.0/zlink/customer/sso/login' => Http::response([
-            'code' => 'ZCOP0000',
-            'data' => ['access_token' => 'login-token', 'refresh_token' => 'portal-refresh', 'expires_in' => 3600],
-        ], 200),
-        'https://zlink-portal.test/zlink-api/v1.0/zlink/customer/sso/user/switchCompany' => Http::response([
-            'code' => 'ZCOP0000',
-            'data' => ['access_token' => 'company-scoped-token', 'expires_in' => 3600],
-        ], 200),
-        // Production shape: code CMSR0000, data.fingerprintVersionMap is
-        // keyed by SIGNATURE VERSION (e.g. "13.0"), not by device serial.
-        // Each value contains cmsCredentialRespVos[], where each credential
-        // carries the actual ZKTeco finger slot under `signatureIndex`.
-        'https://zlink-portal.test/zlink-api/v2.0/zlink/cms/credential/fingerprint/devices' => Http::response([
-            'code' => 'CMSR0000',
-            'data' => [
-                'fingerprintVersionMap' => [
-                    '13.0' => [
-                        'cmsCredentialRespVos' => [
-                            [
-                                'id' => 'cred-uuid-1',
-                                'employeeCode' => 'EMP300',
-                                'signatureIndex' => 0,
-                                'signatureNumber' => 5,
-                                'bioType' => 1,
-                            ],
-                        ],
-                        'deviceCount' => 1,
-                        'deviceName' => ['Shrms'],
-                    ],
-                ],
-            ],
-        ], 200),
-    ]);
-
-    $user = User::factory()->create([
-        'employee_id' => 'EMP-300',
-        'role' => User::ROLE_EMPLOYEE,
-    ]);
-
-    $response = $this->actingAs($user)->getJson('/api/biometrics/enrollment-status');
-
-    $response->assertOk();
-    $response->assertJsonPath('finger_captured', true);
-    $response->assertJsonPath('fingerprint_count', 1);
-    $response->assertJsonPath('finger_index', 0);
-    $response->assertJsonPath('finger_label', 'Left Pinky');
-
-    Http::assertSent(function ($request) {
-        if (! str_contains($request->url(), '/cms/credential/fingerprint/devices')) {
-            return false;
-        }
-
-        $body = $request->data();
-
-        return ($body['employeeId'] ?? null) === 'zlink-uuid-emp300'
-            && ($body['bioType'] ?? null) === 1
-            && ($body['signatureNumber'] ?? null) === 5;
-    });
 });
 
 test('enrollment-status derives finger_index from the credential list signatureIndex even when versionMap is null', function () {

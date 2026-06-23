@@ -198,18 +198,6 @@ class EnrollmentService
             $fingerprintCount = 1;
         }
 
-        // Fourth signal: ask the portal which devices hold a fingerprint
-        // credential for this employee. Mostly used to recover the finger
-        // index when the second signal confirmed enrollment but didn't
-        // expose which slot was captured. On this tenant the call is known
-        // to return an empty version map even when credentials exist, so
-        // it can't establish enrollment on its own.
-        if ($hasPin && ($fingerprintCount === 0 || $fingerIndex === null)) {
-            $portal = $this->inspectPortalFingerprintDevices($employee);
-            $fingerprintCount = max($fingerprintCount, $portal['count']);
-            $fingerIndex ??= $portal['finger_index'];
-        }
-
         // Canonical "enrolled" signal: an actual fingerprint template on
         // Zlink. Historical biometric punches are NOT a signal — once a
         // user explicitly deletes their fingerprint, past punches must not
@@ -424,166 +412,6 @@ class EnrollmentService
         }
 
         return 'pending';
-    }
-
-    /**
-     * Inspect the portal SPA's biological-template endpoint for this
-     * employee. Returns the device count holding a fingerprint credential
-     * and the first observed fingerIndex (so callers can label which finger
-     * was captured).
-     *
-     * @return array{count: int, finger_index: ?int}
-     */
-    private function inspectPortalFingerprintDevices(Employee $employee): array
-    {
-        $empty = ['count' => 0, 'finger_index' => null];
-
-        if (! $this->portal->isConfigured()) {
-            Log::info('Skipping portal fingerprint lookup: portal not configured.', [
-                'employee_id' => $employee->employee_id,
-            ]);
-
-            return $empty;
-        }
-
-        $portalEmployeeId = $this->resolvePortalEmployeeId($employee);
-
-        if ($portalEmployeeId === null) {
-            Log::info('Skipping portal fingerprint lookup: could not resolve portal employee id.', [
-                'employee_id' => $employee->employee_id,
-                'pin' => $employee->zkteco_pin,
-            ]);
-
-            return $empty;
-        }
-
-        try {
-            $response = $this->portal->listEmployeeFingerprintDevices($portalEmployeeId);
-        } catch (Throwable $e) {
-            Log::info('Zlink portal fingerprint/devices lookup failed; falling back to attendance heuristic.', [
-                'employee_id' => $employee->employee_id,
-                'portal_employee_id' => $portalEmployeeId,
-                'error' => $e->getMessage(),
-            ]);
-
-            return $empty;
-        }
-
-        $devices = $this->extractPortalDeviceList($response);
-
-        // Log every response shape so we can confirm the parser is matching
-        // the real portal envelope. Drop this once the badge flips reliably.
-        Log::info('Zlink portal fingerprint/devices response.', [
-            'employee_id' => $employee->employee_id,
-            'portal_employee_id' => $portalEmployeeId,
-            'response_code' => $response['code'] ?? null,
-            'data_keys' => is_array($response['data'] ?? null) ? array_keys($response['data']) : null,
-            'data' => $response['data'] ?? null,
-            'extracted_count' => count($devices),
-        ]);
-
-        // Real CMS credential entries carry signatureIndex (the ZKTeco slot
-        // 0–9). Older / test shapes use fingerIndex. Try both.
-        $fingerIndex = null;
-
-        foreach ($devices as $entry) {
-            if (! is_array($entry)) {
-                continue;
-            }
-
-            foreach (['signatureIndex', 'fingerIndex'] as $field) {
-                if (isset($entry[$field]) && is_numeric($entry[$field])) {
-                    $fingerIndex = (int) $entry[$field];
-                    break 2;
-                }
-            }
-        }
-
-        return ['count' => count($devices), 'finger_index' => $fingerIndex];
-    }
-
-    /**
-     * The portal returns the fingerprint listing in several shapes depending
-     * on the endpoint version. The biological-template endpoint returns
-     * `data.fingerprintVersionMap` — an object keyed by SIGNATURE VERSION
-     * (e.g. "13.0"), NOT by device serial. Each value contains
-     * `cmsCredentialRespVos[]`, where each credential has `signatureIndex`
-     * (the actual ZKTeco finger slot 0–9). Older endpoints return a flat
-     * list under data / data.list / data.results / data.fingerprints.
-     *
-     * This function flattens to a list of credential entries with at least
-     * `signatureIndex` (or legacy `fingerIndex`) populated.
-     *
-     * Each Zlink subsystem has its own success prefix (open API ZCOP, customer
-     * hub ZCHC, device management DMSI, CMS CMSR) — all are "ok". Anything
-     * else is rejected.
-     *
-     * @param  array<string, mixed>  $response
-     * @return array<int, array<string, mixed>>
-     */
-    private function extractPortalDeviceList(array $response): array
-    {
-        $code = (string) ($response['code'] ?? '');
-        $successCodes = ['', 'ZCOP0000', 'ZCHC0000', 'DMSI0000', 'CMSR0000'];
-
-        if (! in_array($code, $successCodes, true)) {
-            return [];
-        }
-
-        $data = $response['data'] ?? [];
-
-        if (! is_array($data)) {
-            return [];
-        }
-
-        // Modern shape: data.fingerprintVersionMap is keyed by signature
-        // version. Drill into cmsCredentialRespVos[] to get each credential.
-        $versionMap = $data['fingerprintVersionMap'] ?? null;
-
-        if (is_array($versionMap) && $versionMap !== []) {
-            $credentials = [];
-
-            foreach ($versionMap as $versionEntry) {
-                if (! is_array($versionEntry)) {
-                    continue;
-                }
-
-                $vos = $versionEntry['cmsCredentialRespVos'] ?? null;
-
-                if (is_array($vos)) {
-                    foreach ($vos as $vo) {
-                        if (is_array($vo)) {
-                            $credentials[] = $vo;
-                        }
-                    }
-
-                    continue;
-                }
-
-                // Fallback: some legacy/test fixtures put fingerIndex
-                // directly on the version entry. Keep the entry as-is so
-                // the caller's signatureIndex/fingerIndex extractor sees it.
-                $credentials[] = $versionEntry;
-            }
-
-            if ($credentials !== []) {
-                return $credentials;
-            }
-        }
-
-        if (array_is_list($data)) {
-            return $data;
-        }
-
-        foreach (['results', 'list', 'devices', 'fingerprints'] as $key) {
-            $candidate = $data[$key] ?? null;
-
-            if (is_array($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return [];
     }
 
     /**
@@ -961,10 +789,10 @@ class EnrollmentService
     /**
      * Fallback duplicate check when Zlink does not expose a fingerprint
      * search endpoint. Consults the persisted DB column (cleared on
-     * explicit delete) and the portal's biological-template endpoint
-     * (covers legacy enrollments that predate the persistence migration).
-     * Past biometric punches are intentionally NOT checked — after an
-     * explicit delete, the row history must not block re-enrollment.
+     * explicit delete) and the portal's credential list (covers legacy
+     * enrollments that predate the persistence migration). Past biometric
+     * punches are intentionally NOT checked — after an explicit delete, the
+     * row history must not block re-enrollment.
      */
     private function guardViaAttendanceHistory(Employee $employee): void
     {
@@ -974,13 +802,35 @@ class EnrollmentService
             );
         }
 
-        $portal = $this->inspectPortalFingerprintDevices($employee);
+        if (! $this->portal->isConfigured()) {
+            return;
+        }
 
-        if ($portal['count'] > 0) {
+        try {
+            $credentials = $this->portal->findFingerprintCredentials((string) $employee->zkteco_pin);
+        } catch (Throwable $e) {
+            Log::info('Portal credential lookup failed during duplicate guard; allowing enrollment.', [
+                'employee_id' => $employee->employee_id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return;
+        }
+
+        if ($credentials !== []) {
+            $fingerIndex = null;
+
+            foreach ($credentials as $credential) {
+                if ($credential['signatureIndex'] !== null) {
+                    $fingerIndex = $credential['signatureIndex'];
+                    break;
+                }
+            }
+
             // Persist the legacy enrollment so future loads hit the fast path.
             $employee->forceFill([
                 'fingerprint_enrolled_at' => now(),
-                'fingerprint_finger_index' => $portal['finger_index'],
+                'fingerprint_finger_index' => $fingerIndex,
             ])->save();
 
             throw new RuntimeException(

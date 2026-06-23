@@ -113,8 +113,8 @@ class ZlinkPortalClient
 
     /**
      * Delete fingerprint credentials by their portal credential ids (the
-     * `id` field on each cmsCredentialRespVos entry returned by
-     * listEmployeeFingerprintDevices). Mirrors the SPA's "Delete" button on
+     * `id` field on each credential returned by findFingerprintCredentials /
+     * findCredentialIdsByEmployeeCode). Mirrors the SPA's "Delete" button on
      * the biological-template page.
      *
      * The SPA hits a single batch endpoint:
@@ -291,31 +291,6 @@ class ZlinkPortalClient
         }
 
         return $credentials;
-    }
-
-    /**
-     * List the devices that hold a fingerprint credential for the given
-     * portal employee. Used as the third "is the user enrolled?" signal —
-     * when the open-API fingerprints/search endpoint 404s (face-only Zlink
-     * builds) and no biometric punch exists yet, this is the only way to
-     * detect a successful enrollment that just happened on the terminal.
-     *
-     * The portal SPA's biological-template page calls this exact endpoint
-     * with bioType=1 (fingerprint) and signatureNumber=5 (slot count to
-     * return). A non-empty devices list = enrolled.
-     *
-     * @return array<string, mixed>
-     */
-    public function listEmployeeFingerprintDevices(
-        string $portalEmployeeId,
-        int $bioType = 1,
-        int $signatureNumber = 5,
-    ): array {
-        return $this->postJson('/zlink-api/v2.0/zlink/cms/credential/fingerprint/devices', [
-            'employeeId' => $portalEmployeeId,
-            'bioType' => $bioType,
-            'signatureNumber' => $signatureNumber,
-        ]);
     }
 
     /**
