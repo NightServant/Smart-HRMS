@@ -148,26 +148,21 @@ class ZlinkClient
     }
 
     /**
-     * Rename / update a department in Zlink by its id.
+     * Rename / update a department in Zlink.
      *
-     * The open API keys the department by `id` (not `departmentId`) and treats
-     * `parentId` as part of the resource; sending `{departmentId, name}` makes
-     * the gateway return HTTP 500 ZKER0999. Mirror the create contract.
+     * Per the open-API docs the update is `PUT /departments/{id}` with the id as
+     * a path parameter; the body carries `name` + `parentId` (both required) and
+     * must NOT include the id. Using POST /departments/update with the id in the
+     * body returns HTTP 500 ZKER0999.
      *
      * @return array<string, mixed>
      */
-    public function updateDepartment(string $id, string $name, ?string $parentId = null): array
+    public function updateDepartment(string $id, string $name, string $parentId): array
     {
-        $body = [
-            'id' => $id,
+        return $this->putJson('/open-apis/org/v1/departments/'.rawurlencode($id), [
             'name' => $name,
-        ];
-
-        if ($parentId !== null && $parentId !== '') {
-            $body['parentId'] = $parentId;
-        }
-
-        return $this->postJson('/open-apis/org/v1/departments/update', $body);
+            'parentId' => $parentId,
+        ]);
     }
 
     /**
@@ -327,13 +322,32 @@ class ZlinkClient
      */
     private function postJson(string $path, array $body): array
     {
+        return $this->sendJson('post', $path, $body);
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     * @return array<string, mixed>
+     */
+    private function putJson(string $path, array $body): array
+    {
+        return $this->sendJson('put', $path, $body);
+    }
+
+    /**
+     * @param  'post'|'put'  $method
+     * @param  array<string, mixed>  $body
+     * @return array<string, mixed>
+     */
+    private function sendJson(string $method, string $path, array $body): array
+    {
         $url = "{$this->baseUrl}{$path}";
 
-        $response = $this->authedRequest()->post($url, $body);
+        $response = $this->authedRequest()->{$method}($url, $body);
 
         if ($response->status() === 401) {
             $this->authenticate(forceRefresh: true);
-            $response = $this->authedRequest()->post($url, $body);
+            $response = $this->authedRequest()->{$method}($url, $body);
         }
 
         $response->throw();

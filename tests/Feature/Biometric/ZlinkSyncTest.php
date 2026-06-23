@@ -42,7 +42,9 @@ function fakeZlinkBase(): void
             'code' => 'ZCOP0000',
             'data' => ['departmentId' => 'zlink-dept-1'],
         ], 200),
-        'https://zlink-open.test/open-apis/org/v1/departments/update' => Http::response([
+        // Update is PUT /departments/{id}; wildcard matches the id path segment.
+        // Defined after /departments/search so the search stub still wins.
+        'https://zlink-open.test/open-apis/org/v1/departments/*' => Http::response([
             'code' => 'ZCOP0000',
         ], 200),
         'https://zlink-open.test/open-apis/org/v1/employees' => Http::response([
@@ -140,11 +142,12 @@ test('DepartmentSyncService updates instead of creating when a mapping already e
     app(DepartmentSyncService::class)->sync($department);
 
     expect($department->fresh()->zlink_sync_status)->toBe('synced');
-    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/open-apis/org/v1/departments/update')
-        // Open API keys by `id` (not `departmentId`) and needs `parentId`,
-        // else it returns HTTP 500 ZKER0999.
-        && ($request->data()['id'] ?? null) === 'zlink-dept-existing'
-        && ($request->data()['parentId'] ?? null) === 'zlink-root-dept');
+    // Update is PUT /departments/{id} with the id in the path (not the body)
+    // and a required parentId; POST /departments/update returns HTTP 500 ZKER0999.
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/open-apis/org/v1/departments/zlink-dept-existing')
+        && $request->method() === 'PUT'
+        && ($request->data()['parentId'] ?? null) === 'zlink-root-dept'
+        && ! array_key_exists('id', $request->data()));
     Http::assertNotSent(fn ($request) => str_ends_with($request->url(), '/open-apis/org/v1/departments')
         && $request->method() === 'POST');
 });
