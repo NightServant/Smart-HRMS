@@ -244,10 +244,20 @@ class ZlinkClient
      */
     public function listDepartments(): array
     {
-        return $this->paginatedSearch(
+        $rows = $this->paginatedSearch(
             path: '/open-apis/org/v1/departments/search',
             listKey: 'depts',
         );
+
+        // TEMP DIAGNOSTIC (revert): dump the live open-API department schema so
+        // we can find the correct parent field name + root id for createDepartment
+        // (createDepartment still returns ZCOP1002 despite sending parentDeptId).
+        \Illuminate\Support\Facades\Log::info('ZLINK_DEPT_DUMP', [
+            'count' => count($rows),
+            'sample' => array_slice($rows, 0, 12),
+        ]);
+
+        return $rows;
     }
 
     /**
