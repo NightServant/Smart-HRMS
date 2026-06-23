@@ -7,7 +7,7 @@ use App\Models\IpcrSubmission;
 use App\Models\IpcrTarget;
 use App\Models\IwrAuditLog;
 use App\Models\Notification;
-use App\Services\Biometric\ZlinkPortalClient;
+use App\Services\Biometric\ZlinkFingerprintProxyClient;
 use App\Services\IpcrFormTemplateService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
@@ -189,10 +189,10 @@ class HistoricalPerformanceSeeder extends Seeder
             ? CarbonImmutable::today()->subDay()
             : CarbonImmutable::today();
         $attendanceLowerBound = CarbonImmutable::parse(self::ATTENDANCE_START);
-        $portal = $this->skipFingerprintCheck ? null : app(ZlinkPortalClient::class);
+        $proxy = $this->skipFingerprintCheck ? null : app(ZlinkFingerprintProxyClient::class);
 
         foreach ($employees as $index => $employee) {
-            if ($portal !== null && ! $this->hasZlinkFingerprint($employee, $portal)) {
+            if ($proxy !== null && ! $this->hasZlinkFingerprint($employee, $proxy)) {
                 $this->command?->info(
                     "Skipping attendance for {$employee->employee_id} — no fingerprint template on Zlink yet."
                 );
@@ -283,26 +283,22 @@ class HistoricalPerformanceSeeder extends Seeder
      * attendance backfilled. Re-running the seeder after a new enrollment
      * picks up the just-enrolled employee.
      *
-     * Uses the SPA-validated `cms/credential/employee/list` endpoint via
-     * ZlinkPortalClient::findCredentialIdsByEmployeeCode. The
-     * fingerprint/devices endpoint and the open-API
-     * /biometric/v1/fingerprints/search both lag behind cloud reality on
-     * this tenant, so they would falsely report "no fingerprint" for
-     * employees that actually have a credential registered.
+     * Asks the fingerprint proxy whether the employee has a credential on the
+     * Zlink terminal. The open-API /biometric/v1/fingerprints/search lags
+     * behind cloud reality on this tenant, so it would falsely report "no
+     * fingerprint" for employees that actually have a credential registered.
      */
-    private function hasZlinkFingerprint(Employee $employee, ZlinkPortalClient $portal): bool
+    private function hasZlinkFingerprint(Employee $employee, ZlinkFingerprintProxyClient $proxy): bool
     {
-        if (empty($employee->zkteco_pin)) {
+        if (empty($employee->zkteco_pin) || ! $proxy->isConfigured()) {
             return false;
         }
 
         try {
-            $credentials = $portal->findCredentialIdsByEmployeeCode((string) $employee->zkteco_pin);
+            return $proxy->listFingerprints((string) $employee->zkteco_pin) !== [];
         } catch (Throwable) {
             return false;
         }
-
-        return $credentials !== [];
     }
 
     /**

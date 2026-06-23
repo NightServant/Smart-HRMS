@@ -28,8 +28,6 @@ class MigrateZlinkSecrets extends Command
         'zlink.app_secret' => 'services.zlink.app_secret',
         'zlink.signature_token' => 'services.zlink.signature_token',
         'zlink.encryption_key' => 'services.zlink.encryption_key',
-        'zlink.portal_username' => 'services.zlink.portal_username',
-        'zlink.portal_password' => 'services.zlink.portal_password',
     ];
 
     public function handle(): int

@@ -39,6 +39,12 @@ return [
         'url' => env('ZLINK_URL', 'https://zlink-open.minervaiot.com'),
         'app_key' => env('ZLINK_APP_KEY'),
         'app_secret' => env('ZLINK_APP_SECRET'),
+        // Fingerprint proxy (Cloudflare Worker). Holds the Zlink portal
+        // credentials and exposes a clean API for on-device fingerprint
+        // enrollment + credential status/deletion. Smart HRMS authenticates
+        // with proxy_api_key only — it never holds the Zlink portal login.
+        'proxy_url' => env('ZLINK_PROXY_URL'),
+        'proxy_api_key' => env('ZLINK_PROXY_API_KEY'),
         'signature_token' => env('ZLINK_SIGNATURE_TOKEN'),
         'encryption_key' => env('ZLINK_ENCRYPTION_KEY'),
         'token_ttl_minutes' => (int) env('ZLINK_TOKEN_TTL_MINUTES', 50),

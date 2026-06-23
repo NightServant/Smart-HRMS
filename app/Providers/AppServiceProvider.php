@@ -9,6 +9,7 @@ use App\Models\IpcrSubmission;
 use App\Models\LeaveRequest;
 use App\Services\Biometric\WebhookCrypto;
 use App\Services\Biometric\ZlinkClient;
+use App\Services\Biometric\ZlinkFingerprintProxyClient;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Date;
@@ -32,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(FortifyRedirectAsIntended::class, RedirectAsIntended::class);
 
         $this->app->singleton(ZlinkClient::class, fn (): ZlinkClient => ZlinkClient::fromConfig());
+        $this->app->singleton(ZlinkFingerprintProxyClient::class, fn (): ZlinkFingerprintProxyClient => ZlinkFingerprintProxyClient::fromConfig());
         $this->app->singleton(WebhookCrypto::class, fn (): WebhookCrypto => WebhookCrypto::fromConfig());
     }
 

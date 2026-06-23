@@ -75,8 +75,6 @@ test('zlink:secrets:migrate writes encrypted rows for every configured secret', 
         'services.zlink.app_secret' => 'app-secret-from-env',
         'services.zlink.signature_token' => 'sig-token',
         'services.zlink.encryption_key' => 'enc-key',
-        'services.zlink.portal_username' => 'portal@example.test',
-        'services.zlink.portal_password' => 'portal-pw',
     ]);
 
     $this->artisan('zlink:secrets:migrate')->assertSuccessful();
@@ -84,11 +82,11 @@ test('zlink:secrets:migrate writes encrypted rows for every configured secret', 
     $repo = new SecretRepository;
 
     expect($repo->get('zlink.app_key'))->toBe('app-key-from-env');
-    expect($repo->get('zlink.portal_password'))->toBe('portal-pw');
+    expect($repo->get('zlink.app_secret'))->toBe('app-secret-from-env');
     expect($repo->get('zlink.signature_token'))->toBe('sig-token');
 
     // Critical: the row must be encrypted at rest, not plaintext.
-    $portalRow = SystemSetting::query()->where('key', 'zlink.portal_password')->first();
-    expect($portalRow->value)->not->toBe('portal-pw');
-    expect($portalRow->type)->toBe('encrypted');
+    $secretRow = SystemSetting::query()->where('key', 'zlink.app_secret')->first();
+    expect($secretRow->value)->not->toBe('app-secret-from-env');
+    expect($secretRow->type)->toBe('encrypted');
 });
