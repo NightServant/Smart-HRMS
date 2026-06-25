@@ -19,7 +19,7 @@ if [ ! -L public/storage ] && [ ! -e public/storage ]; then
     php artisan storage:link >/dev/null 2>&1 || true
 fi
 
-# Wait for database to be reachable (up to 60 seconds)
+# Wait for the database to be reachable (up to 60s).
 echo "Waiting for database..."
 attempts=30
 until php artisan db:monitor --databases=mysql 2>/dev/null || [ "$attempts" -le 0 ]; do
@@ -30,41 +30,22 @@ done
 php artisan migrate --force
 php artisan zlink:secrets:migrate
 
-# One-time historical attendance backfill for EMP-002..EMP-021. The command
-# is gated by a system_settings marker, so this is a no-op after the first
-# successful run on any given environment. Trailing `|| true` keeps the
-# container booting even if the backfill fails — recheck logs above.
+# One-time historical attendance backfill, gated by a system_settings marker
+# (no-op after the first successful run).
 php artisan attendance:seed-historical || true
 
-# Retry any failed jobs from prior deploys before backfilling — old failed
-# jobs picked up the old code path (e.g. open-API createDepartment that 405s)
-# and benefit from running on the new portal-API path.
+# Reconcile any departments/employees still missing a Zlink mapping. Idempotent
+# — existing records are linked, not duplicated. `|| true` so a transient Zlink
+# hiccup never blocks boot.
 php artisan queue:retry all || true
-
-# Manual department mappings: when a department already exists on the Zlink
-# portal but is not visible to our programmatic list endpoint (suspected
-# company/permission scoping difference between SPA login and our API auth),
-# link the local row directly by id. Idempotent — no-op once linked.
-php artisan zlink:link-department --name="Finance Office" --zlink-id=8a8883db9ddfbb75019e02241ee52df3 || true
-
-# Re-queue every department that lacks a Zlink mapping. Must run BEFORE the
-# employee backfill so that employees in those departments find their dept
-# id already populated and avoid the cascading create-on-the-fly chain.
-# Idempotent — DepartmentSyncService finds existing portal departments by
-# name via treeNode and just links the local row.
 php artisan zlink:retry-department-sync --all || true
-
-# Re-queue every employee that lacks a Zlink mapping. Covers records created
-# in earlier releases where the sync wiring didn't exist, where the open-API
-# path 405'd, or where the dispatch landed in failed_jobs. Idempotent: the
-# duplicate-detect branch in EmployeeSyncService backfills zlink_employee_id
-# from Zlink without creating ghosts. `|| true` so a transient Zlink hiccup
-# doesn't block container boot.
 php artisan zlink:retry-employee-sync --all || true
 
+# Build the production caches.
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
+php artisan event:cache
 
 php artisan queue:work --daemon --sleep=3 --tries=3 --timeout=60 &
 php artisan schedule:work &

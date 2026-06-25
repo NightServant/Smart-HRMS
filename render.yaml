@@ -18,6 +18,11 @@ services:
         sync: false   # php artisan key:generate --show → paste here
       - key: APP_URL
         sync: false   # https://<your-service>.onrender.com
+      # Run `php artisan serve` with multiple worker processes so concurrent
+      # requests (page navigation + the 3s enrollment-status poll + assets)
+      # are handled in parallel instead of serialized through one process.
+      - key: PHP_CLI_SERVER_WORKERS
+        value: "3"
 
       # ── Proxy / Session ──────────────────────────────────────────────────────
       - key: TRUSTED_PROXIES

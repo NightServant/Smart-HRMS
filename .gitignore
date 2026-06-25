@@ -26,12 +26,12 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+# Python build artifacts (any module)
+__pycache__/
+*.pyc
 /python/iwr/.venv/
-/python/iwr/__pycache__/
 /python/iwr/models/*.pkl
 /python/iwr/data/
-/python/atre/__pycache__/
-/python/ppe/__pycache__/
 
 # ZKTeco middleware bridge
 /middleware/node_modules/

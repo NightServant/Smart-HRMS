@@ -133,20 +133,6 @@ class EnrollmentService
                         break;
                     }
                 }
-
-                // DIAG: surface the raw fingerprint rows (including empty
-                // results) so we can correlate against the fid we sent to
-                // the portal. Empty results are themselves a signal — they
-                // reveal that the open API isn't seeing what the SPA UI
-                // shows. Remove once the portal `fid` parameter contract
-                // is confirmed.
-                Log::info('zlink.openapi.listEmployeeFingerprints.result', [
-                    'employee_id' => $employee->employee_id,
-                    'zkteco_pin' => (string) $employee->zkteco_pin,
-                    'count' => $fingerprintCount,
-                    'rows' => $fingerprints,
-                    'resolved_finger_index' => $fingerIndex,
-                ]);
             } catch (Throwable $e) {
                 Log::info('Zlink fingerprint status unavailable; falling back to attendance heuristic.', [
                     'employee_id' => $employee->employee_id,
