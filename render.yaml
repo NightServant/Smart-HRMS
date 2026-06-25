@@ -5,7 +5,6 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free
-    region: singapore   # co-locate with the TiDB cluster (AWS ap-southeast-1)
     healthCheckPath: /up
     envVars:
       # ── App ──────────────────────────────────────────────────────────────────
@@ -128,7 +127,6 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free
-    region: singapore
     schedule: "* * * * *"
     startCommand: php artisan queue:work --stop-when-empty --tries=3 --backoff=5
     envVars:
@@ -204,7 +202,6 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: free
-    region: singapore
     schedule: "*/10 * * * *"
     envVars:
       - key: APP_KEY
