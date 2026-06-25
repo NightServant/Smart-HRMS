@@ -70,8 +70,6 @@ services:
         sync: false   # re_... from resend.com/api-keys
 
       # ── Zlink / Fingerprint ──────────────────────────────────────────────────
-      - key: ZLINK_PORTAL_URL
-        value: https://zlink.minervaiot.com
       - key: ZLINK_URL
         value: https://zlink-open.minervaiot.com
       - key: ZLINK_PROXY_URL
@@ -85,11 +83,7 @@ services:
       - key: ZLINK_DEFAULT_DESIGNATION_ID
         sync: false   # Portal "Job Title" UUID for Regular/Permanent — required for createEmployee
       - key: ZLINK_PORTAL_ROOT_DEPARTMENT_ID
-        sync: false   # Portal company-root UUID — required as parentId for createDepartment
-      - key: ZLINK_PORTAL_DEVICE_ID
-        sync: false
-      - key: ZLINK_PORTAL_COMPANY_ID
-        sync: false
+        sync: false   # company-root UUID — required as parentId for createDepartment (open API)
       - key: ZLINK_APP_KEY
         sync: false
       - key: ZLINK_APP_SECRET
@@ -97,10 +91,6 @@ services:
       - key: ZLINK_SIGNATURE_TOKEN
         sync: false
       - key: ZLINK_ENCRYPTION_KEY
-        sync: false
-      - key: ZLINK_PORTAL_USERNAME
-        sync: false
-      - key: ZLINK_PORTAL_PASSWORD
         sync: false
 
       # ── Attendance ───────────────────────────────────────────────────────────
@@ -179,8 +169,6 @@ services:
       # appearing in Zlink: the job ran but the worker had no credentials.
       - key: ZLINK_URL
         value: https://zlink-open.minervaiot.com
-      - key: ZLINK_PORTAL_URL
-        value: https://zlink.minervaiot.com
       - key: ZLINK_PROXY_URL
         value: https://smart-hrms-zlink.egabecervantes.workers.dev
       - key: ZLINK_PROXY_API_KEY
@@ -200,14 +188,6 @@ services:
       - key: ZLINK_DEFAULT_DESIGNATION_ID
         sync: false
       - key: ZLINK_PORTAL_ROOT_DEPARTMENT_ID
-        sync: false
-      - key: ZLINK_PORTAL_DEVICE_ID
-        sync: false
-      - key: ZLINK_PORTAL_COMPANY_ID
-        sync: false
-      - key: ZLINK_PORTAL_USERNAME
-        sync: false
-      - key: ZLINK_PORTAL_PASSWORD
         sync: false
 
   # ── Keep-alive cron — pings /ping every 10 min to prevent cold starts ────

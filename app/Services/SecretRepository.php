@@ -23,8 +23,8 @@ class SecretRepository
     /**
      * Look up a secret by its DB key, with optional fallback to a config path.
      *
-     * @param  string  $key  The system_settings.key — e.g. "zlink.portal_password".
-     * @param  string|null  $configFallback  Dotted config path — e.g. "services.zlink.portal_password".
+     * @param  string  $key  The system_settings.key — e.g. "zlink.app_secret".
+     * @param  string|null  $configFallback  Dotted config path — e.g. "services.zlink.app_secret".
      */
     public function get(string $key, ?string $configFallback = null): ?string
     {
