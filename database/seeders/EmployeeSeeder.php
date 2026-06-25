@@ -1,0 +1,65 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Services\Biometric\EmployeeSyncService;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+
+class EmployeeSeeder extends Seeder
+{
+    public function run(): void
+    {
+        $departmentId = DB::table('departments')
+            ->where('name', 'Administrative Office')
+            ->value('id');
+        $hrmoDepartmentId = DB::table('departments')
+            ->where('name', 'Human Resource Management Office')
+            ->value('id');
+
+        $positionIds = DB::table('employee_positions')
+            ->pluck('id', 'name');
+
+        $employees = [
+            ['employee_id' => 'EMP-001', 'name' => 'John Reyes', 'job_title' => 'Department Head', 'position_id' => $positionIds['Department Head'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => null, 'date_hired' => '2015-03-01'],
+            ['employee_id' => 'EMP-002', 'name' => 'Maria Santos', 'job_title' => 'Administrative Officer II', 'position_id' => $positionIds['Administrative Officer II'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2018-01-15'],
+            ['employee_id' => 'EMP-003', 'name' => 'Mark Bautista', 'job_title' => 'Administrative Officer II', 'position_id' => $positionIds['Administrative Officer II'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2018-04-10'],
+            ['employee_id' => 'EMP-004', 'name' => 'Angela Cruz', 'job_title' => 'Administrative Officer II', 'position_id' => $positionIds['Administrative Officer II'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2019-07-22'],
+            ['employee_id' => 'EMP-005', 'name' => 'Patricia Garcia', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2019-09-05'],
+            ['employee_id' => 'EMP-006', 'name' => 'Kevin Mendoza', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2020-01-13'],
+            ['employee_id' => 'EMP-007', 'name' => 'Lorraine Flores', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2020-03-02'],
+            ['employee_id' => 'EMP-008', 'name' => 'Daniel Ramos', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2020-08-17'],
+            ['employee_id' => 'EMP-009', 'name' => 'Camille Navarro', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2021-02-28'],
+            ['employee_id' => 'EMP-010', 'name' => 'Joshua Aquino', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2021-05-10'],
+            ['employee_id' => 'EMP-011', 'name' => 'Ana Dela Cruz', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2021-09-14'],
+            ['employee_id' => 'EMP-012', 'name' => 'Ramon Villanueva', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2022-01-03'],
+            ['employee_id' => 'EMP-013', 'name' => 'Josephine Pascual', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2022-03-21'],
+            ['employee_id' => 'EMP-014', 'name' => 'Michael Torres', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2022-07-04'],
+            ['employee_id' => 'EMP-015', 'name' => 'Liza Castillo', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2022-10-18'],
+            ['employee_id' => 'EMP-016', 'name' => 'Roberto Jimenez', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2023-02-06'],
+            ['employee_id' => 'EMP-017', 'name' => 'Christine Morales', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2023-05-29'],
+            ['employee_id' => 'EMP-018', 'name' => 'Ferdinand Aguilar', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2023-08-11'],
+            ['employee_id' => 'EMP-019', 'name' => 'Maricel Dela Rosa', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2024-01-07'],
+            ['employee_id' => 'EMP-020', 'name' => 'Benedict Mercado', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2020-06-01'],
+            ['employee_id' => 'EMP-021', 'name' => 'Theresa Evangelista', 'job_title' => 'Administrative Aide I', 'position_id' => $positionIds['Administrative Aide I'] ?? null, 'department_id' => $departmentId, 'supervisor_id' => 'EMP-001', 'date_hired' => '2024-04-15'],
+            ['employee_id' => 'HR-001', 'name' => 'Grace Tan', 'job_title' => 'Department Head', 'position_id' => $positionIds['Department Head'] ?? null, 'department_id' => $hrmoDepartmentId, 'supervisor_id' => null, 'date_hired' => '2024-01-15'],
+            ['employee_id' => 'PMT-001', 'name' => 'Mark Reyes', 'job_title' => 'PMT Officer', 'position_id' => $positionIds['PMT Officer'] ?? null, 'department_id' => $hrmoDepartmentId, 'supervisor_id' => 'HR-001', 'date_hired' => '2024-06-01'],
+        ];
+
+        // Pre-derive the Zlink emp_code so reseeding doesn't strand existing
+        // fingerprint templates already enrolled on the portal. Same algorithm
+        // EmployeeSyncService::deriveZktecoPin uses everywhere else.
+        foreach ($employees as &$employee) {
+            $employee['zkteco_pin'] = EmployeeSyncService::deriveZktecoPin(
+                $employee['employee_id'],
+            );
+        }
+        unset($employee);
+
+        DB::table('employees')->upsert(
+            $employees,
+            ['employee_id'],
+            ['name', 'job_title', 'department_id', 'position_id', 'supervisor_id', 'date_hired', 'zkteco_pin'],
+        );
+    }
+}

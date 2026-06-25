@@ -1,0 +1,64 @@
+/**
+ * FlatFAT Bridge — Lightweight Node.js-to-Python bridge.
+ *
+ * Usage (called by Laravel Process facade):
+ *   echo '{"action":"employee_score","payload":{...}}' | node bridge.cjs
+ */
+
+const { spawn } = require('child_process');
+const path = require('path');
+const { resolvePythonCommand } = require('../shared/resolve-python.cjs');
+
+const PYTHON = resolvePythonCommand(__dirname, 'FLATFAT_PYTHON_PATH', [
+    path.resolve(__dirname, '..', 'iwr'),
+]);
+
+const TIMEOUT = 30000; // 30s timeout for FlatFAT
+
+let input = '';
+process.stdin.on('data', (c) => { input += c; });
+process.stdin.on('end', () => {
+    const child = spawn(PYTHON.command, [...PYTHON.args, 'runner.py'], {
+        cwd: __dirname,
+        timeout: TIMEOUT,
+        stdio: ['pipe', 'pipe', 'pipe'],
+    });
+
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (d) => { stdout += d; });
+    child.stderr.on('data', (d) => { stderr += d; });
+
+    child.on('close', (code) => {
+        if (code !== 0) {
+            if (code === null && stdout.trim()) {
+                try {
+                    const parsed = JSON.parse(stdout.trim());
+                    if (parsed && parsed.status !== 'error') {
+                        process.stdout.write(stdout.trim());
+                        return;
+                    }
+                } catch (_) {}
+            }
+            process.stdout.write(JSON.stringify({
+                status: 'error',
+                notification: `Python exited with code ${code}: ${stderr || stdout}`,
+            }));
+            process.exit(1);
+            return;
+        }
+        process.stdout.write(stdout.trim());
+    });
+
+    child.on('error', (err) => {
+        process.stdout.write(JSON.stringify({
+            status: 'error',
+            notification: `Failed to spawn Python: ${err.message}`,
+        }));
+        process.exit(1);
+    });
+
+    child.stdin.write(input);
+    child.stdin.end();
+});

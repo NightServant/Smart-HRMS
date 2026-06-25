@@ -1,0 +1,46 @@
+/.phpunit.cache
+/bootstrap/ssr
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/resources/js/actions
+/resources/js/routes
+/resources/js/wayfinder
+/vendor
+.DS_Store
+.env
+.env.backup
+.env.production
+.phpactor.json
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/auth.json
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+# Python build artifacts (any module)
+__pycache__/
+*.pyc
+/python/iwr/.venv/
+/python/iwr/models/*.pkl
+/python/iwr/data/
+
+# ZKTeco middleware bridge
+/middleware/node_modules/
+/middleware/dist/
+/middleware/config.json
+/middleware/data/*.sqlite
+
+# ZK-Sync daemon runtime artifacts
+/python/zk-sync/.venv/
+/python/zk-sync/__pycache__/
+/python/zk-sync/.last_sync
+/python/zk-sync/sync.log

@@ -1,0 +1,102 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
+
+class PpeService
+{
+    /**
+     * Predict future performance for an employee using Linear Regression.
+     *
+     * @param  array<int, array<string, mixed>>  $records
+     * @return array<string, mixed>
+     */
+    public function predict(string $employeeName, array $records): array
+    {
+        try {
+            $input = json_encode([
+                'action' => 'predict',
+                'payload' => [
+                    'employee_name' => $employeeName,
+                    'records' => $records,
+                ],
+            ]);
+
+            Log::info('PPE request', ['employee' => $employeeName, 'record_count' => count($records)]);
+
+            $result = Process::path(base_path('python/ppe'))
+                ->timeout(30)
+                ->input($input)
+                ->run('node bridge.cjs');
+
+            if (! $result->successful()) {
+                Log::error('PPE bridge failed', [
+                    'exitCode' => $result->exitCode(),
+                    'output' => $result->output(),
+                    'errorOutput' => $result->errorOutput(),
+                ]);
+
+                return [
+                    'status' => 'error',
+                    'notification' => 'PPE service returned an error.',
+                ];
+            }
+
+            $output = trim($result->output());
+            $decoded = $this->decodeOutput($output);
+
+            if (! is_array($decoded)) {
+                Log::error('PPE invalid JSON response', ['output' => $output]);
+
+                return [
+                    'status' => 'error',
+                    'notification' => 'PPE returned an invalid response.',
+                ];
+            }
+
+            return $decoded;
+        } catch (\Exception $e) {
+            Log::error('PPE service unavailable: '.$e->getMessage());
+
+            return [
+                'status' => 'error',
+                'notification' => 'PPE service is unavailable. Please try again later.',
+            ];
+        }
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    protected function decodeOutput(string $output): ?array
+    {
+        $decoded = json_decode($output, true);
+
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+
+        $normalized = preg_replace(
+            '/([:\[,]\s*)(NaN|-?Infinity)(?=\s*[,}\]])/',
+            '$1null',
+            $output,
+        );
+
+        if (! is_string($normalized) || $normalized === $output) {
+            return null;
+        }
+
+        Log::warning('PPE response required JSON normalization.', [
+            'output' => $output,
+            'normalized_output' => $normalized,
+        ]);
+
+        $decoded = json_decode($normalized, true);
+
+        return json_last_error() === JSON_ERROR_NONE && is_array($decoded)
+            ? $decoded
+            : null;
+    }
+}

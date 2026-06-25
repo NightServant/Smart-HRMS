@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class BiometricDevice extends Model
+{
+    protected $fillable = [
+        'serial_number',
+        'api_key',
+        'ip_address',
+        'name',
+        'last_activity_at',
+        'last_sync_stamp',
+        'records_synced',
+        'is_active',
+    ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'last_activity_at' => 'datetime',
+            'is_active' => 'boolean',
+        ];
+    }
+
+    public function syncIssues(): HasMany
+    {
+        return $this->hasMany(BiometricSyncIssue::class);
+    }
+}

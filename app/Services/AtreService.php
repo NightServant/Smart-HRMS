@@ -1,0 +1,82 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Process;
+
+class AtreService
+{
+    /**
+     * Get training recommendations based on seminars and the structured IPCR form payload.
+     *
+     * @param  array<int, array<string, mixed>>  $seminars
+     * @param  array<string, mixed>  $formPayload
+     * @return array<string, mixed>
+     */
+    public function recommend(array $seminars, array $formPayload): array
+    {
+        try {
+            $input = json_encode([
+                'action' => 'recommend',
+                'payload' => [
+                    'seminars' => $seminars,
+                    'form_payload' => $formPayload,
+                ],
+            ]);
+
+            Log::info('ATRE request', ['seminar_count' => count($seminars)]);
+
+            $result = Process::path(base_path('python/atre'))
+                ->timeout(30)
+                ->input($input)
+                ->run('node bridge.cjs');
+
+            if (! $result->successful()) {
+                Log::error('ATRE bridge failed', [
+                    'exitCode' => $result->exitCode(),
+                    'output' => $result->output(),
+                    'errorOutput' => $result->errorOutput(),
+                ]);
+
+                return [
+                    'status' => 'error',
+                    'recommendations' => [],
+                    'risk_level' => 'NONE',
+                    'risk_actions' => [],
+                    'weak_areas' => [],
+                    'notification' => 'ATRE service returned an error.',
+                ];
+            }
+
+            $output = trim($result->output());
+            $decoded = json_decode($output, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error('ATRE invalid JSON response', ['output' => $output]);
+
+                return [
+                    'status' => 'error',
+                    'recommendations' => [],
+                    'risk_level' => 'NONE',
+                    'risk_actions' => [],
+                    'weak_areas' => [],
+                    'notification' => 'ATRE returned an invalid response.',
+                ];
+            }
+
+            return $decoded;
+        } catch (\Exception $e) {
+            Log::error('ATRE service unavailable: '.$e->getMessage());
+
+            return [
+                'status' => 'error',
+                'recommendations' => [],
+                'risk_level' => 'NONE',
+                'risk_actions' => [],
+                'weak_areas' => [],
+                'notification' => 'ATRE service is unavailable. Please try again later.',
+            ];
+        }
+    }
+}

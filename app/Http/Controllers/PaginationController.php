@@ -1,0 +1,858 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\UpdateEmployeeEmploymentStatusRequest;
+use App\Models\DailyAttendance;
+use App\Models\Department;
+use App\Models\Employee;
+use App\Models\EmployeePosition;
+use App\Models\HistoricalDataRecord;
+use App\Models\LeaveRequest;
+use App\Models\Notification;
+use App\Models\SystemSetting;
+use App\Models\User;
+use App\Services\HistoricalDataSyncService;
+use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class PaginationController extends Controller
+{
+    /**
+     * @param  array<string, string>  $allowedSorts
+     * @return array{sort: string, direction: string}
+     */
+    private function resolveSort(Request $request, array $allowedSorts, string $defaultSort, string $defaultDirection = 'asc'): array
+    {
+        $requestedSort = (string) $request->string('sort', $defaultSort);
+        $requestedDirection = strtolower((string) $request->string('direction', $defaultDirection));
+
+        $sort = array_key_exists($requestedSort, $allowedSorts) ? $requestedSort : $defaultSort;
+        $direction = in_array($requestedDirection, ['asc', 'desc'], true) ? $requestedDirection : $defaultDirection;
+
+        return [
+            'sort' => $sort,
+            'direction' => $direction,
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function leaveRequestFilterOptions(string $column): array
+    {
+        return LeaveRequest::query()
+            ->whereNotNull($column)
+            ->where($column, '!=', '')
+            ->distinct()
+            ->orderBy($column)
+            ->pluck($column)
+            ->map(fn ($value): string => (string) $value)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return array{
+     *     evaluatorName: string|null,
+     *     evaluatorDate: string|null,
+     *     hrPersonnelName: string|null,
+     *     hrPersonnelDate: string|null
+     * }
+     */
+    private function leaveWorkflowSignOffResource(LeaveRequest $leaveRequest): array
+    {
+        $notifications = Notification::query()
+            ->with('user:id,name,role')
+            ->where('document_type', 'leave')
+            ->where('document_id', $leaveRequest->id)
+            ->oldest()
+            ->get();
+
+        $evaluatorNotification = $notifications->first(
+            fn (Notification $notification): bool => $notification->user?->role === User::ROLE_EVALUATOR,
+        );
+        $hrNotification = $notifications->first(
+            fn (Notification $notification): bool => $notification->user?->role === User::ROLE_HR_PERSONNEL,
+        );
+
+        return [
+            'evaluatorName' => $evaluatorNotification?->user?->name,
+            'evaluatorDate' => $evaluatorNotification?->created_at?->format('M d, Y g:i A'),
+            'hrPersonnelName' => $hrNotification?->user?->name,
+            'hrPersonnelDate' => $hrNotification?->created_at?->format('M d, Y g:i A'),
+        ];
+    }
+
+    /**
+     * @return array{semester: 1|2, year: int}
+     */
+    private function resolveIpcrTargetPeriod(string $periodLabel, int $fallbackYear): array
+    {
+        preg_match('/(20\d{2})/', $periodLabel, $yearMatches);
+
+        $normalizedLabel = strtolower(str_replace(['–', '—'], '-', $periodLabel));
+        $resolvedYear = isset($yearMatches[1]) ? (int) $yearMatches[1] : $fallbackYear;
+        $isSecondSemester = str_contains($normalizedLabel, 'second')
+            || (str_contains($normalizedLabel, 'july') && str_contains($normalizedLabel, 'december'));
+
+        return [
+            'semester' => $isSecondSemester ? 2 : 1,
+            'year' => $resolvedYear,
+        ];
+    }
+
+    private function canonicalDepartmentSummaryName(?string $departmentName): string
+    {
+        $trimmedDepartmentName = trim((string) $departmentName);
+        $normalizedDepartmentName = strtolower((string) preg_replace('/\s+/', ' ', $trimmedDepartmentName));
+
+        return match ($normalizedDepartmentName) {
+            'administrative office',
+            'admin office' => 'Administrative Office',
+            default => $trimmedDepartmentName !== '' ? $trimmedDepartmentName : 'Unknown Department',
+        };
+    }
+
+    public function attendanceManagement(Request $request): Response
+    {
+        $search = trim((string) $request->string('search'));
+        $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
+
+        $attendances = DailyAttendance::query()
+            ->with('employee')
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($subQuery) use ($search): void {
+                    $subQuery
+                        ->whereHas('employee', fn ($q) => $q->where('name', 'like', '%'.$search.'%'))
+                        ->orWhere('date', 'like', '%'.$search.'%')
+                        ->orWhere('status', 'like', '%'.$search.'%');
+                });
+            })
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (DailyAttendance $record): array => [
+                'id' => $record->id,
+                'employee_id' => $record->employee_id,
+                'employee_name' => $record->employee?->name ?? 'Unknown',
+                'date' => $record->date?->format('Y-m-d') ?? '-',
+                'time_in' => $record->time_in ?? null,
+                'time_out' => $record->time_out ?? null,
+                'status' => $record->status,
+                'late_minutes' => (int) $record->late_minutes,
+                'source' => $record->source ?? 'biometric',
+            ]);
+
+        $totalRecords = DailyAttendance::query()->count();
+        $onTimeCount = DailyAttendance::query()->where('status', 'on_time')->count();
+        $lateCount = DailyAttendance::query()->where('status', 'late')->count();
+        $incompleteCount = DailyAttendance::query()->where('status', 'incomplete')->count();
+        $biometricCount = DailyAttendance::query()->where('source', 'biometric')->count();
+        $manualCount = DailyAttendance::query()->where('source', 'manual')->count();
+        $importCount = DailyAttendance::query()->where('source', 'import')->count();
+        $mixedCount = DailyAttendance::query()->where('source', 'mixed')->count();
+
+        return Inertia::render('admin/attendance-management', [
+            'search' => $search,
+            'attendances' => $attendances->items(),
+            'pagination' => [
+                'currentPage' => $attendances->currentPage(),
+                'lastPage' => $attendances->lastPage(),
+                'perPage' => $attendances->perPage(),
+                'total' => $attendances->total(),
+            ],
+            'stats' => [
+                'totalRecords' => $totalRecords,
+                'onTimeCount' => $onTimeCount,
+                'lateCount' => $lateCount,
+                'incompleteCount' => $incompleteCount,
+                'biometricCount' => $biometricCount,
+                'manualCount' => $manualCount,
+                'importCount' => $importCount,
+                'mixedCount' => $mixedCount,
+            ],
+            'attendancePolicy' => [
+                'office_hours_start' => (string) SystemSetting::get('office_hours_start', '08:00'),
+                'office_hours_end' => (string) SystemSetting::get('office_hours_end', '17:00'),
+                'late_threshold_minutes' => (int) SystemSetting::get('late_threshold_minutes', 15),
+            ],
+        ]);
+    }
+
+    public function leaveManagement(Request $request): Response
+    {
+        $search = trim((string) $request->string('search'));
+        $leaveTypeFilter = trim((string) $request->string('leaveTypeFilter'));
+        $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
+
+        $leaveRequests = LeaveRequest::query()
+            ->where('stage', 'sent_to_department_head')
+            ->where('dh_decision', 0)
+            ->with(['user:id,name,employee_id', 'employee:employee_id,name,job_title'])
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($subQuery) use ($search): void {
+                    $subQuery
+                        ->where('leave_type', 'like', '%'.$search.'%')
+                        ->orWhere('reason', 'like', '%'.$search.'%')
+                        ->orWhereHas('user', function ($userQuery) use ($search): void {
+                            $userQuery->where('name', 'like', '%'.$search.'%');
+                        });
+                });
+            })
+            ->when($leaveTypeFilter !== '', function ($query) use ($leaveTypeFilter): void {
+                $query->where('leave_type', $leaveTypeFilter);
+            })
+            ->latest()
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (LeaveRequest $leaveRequest): array => [
+                'id' => $leaveRequest->id,
+                'name' => $leaveRequest->user?->name ?? 'Unknown User',
+                'employeeId' => $leaveRequest->employee_id,
+                'jobTitle' => $leaveRequest->employee?->job_title,
+                'leaveType' => $leaveRequest->leave_type,
+                'startDate' => $leaveRequest->start_date?->format('Y-m-d') ?? '-',
+                'endDate' => $leaveRequest->end_date?->format('Y-m-d') ?? '-',
+                'daysRequested' => $leaveRequest->days_requested,
+                'leaveAccrual' => $leaveRequest->leaveAccrual(),
+                'reason' => $leaveRequest->reason,
+                'status' => $leaveRequest->resolvedStatus(),
+                'stage' => $leaveRequest->stage,
+                'dhDecision' => (int) $leaveRequest->dh_decision,
+                'hrDecision' => (int) $leaveRequest->hr_decision,
+                'rejectionReasonText' => $leaveRequest->rejection_reason_text,
+                'hasMedicalCertificate' => (bool) $leaveRequest->medical_certificate_path,
+                'hasMarriageCertificate' => (bool) $leaveRequest->marriage_certificate_path,
+                'hasSoloParentId' => (bool) $leaveRequest->solo_parent_id_path,
+                'createdAt' => $leaveRequest->created_at?->format('M d, Y g:i A'),
+                'workflowSignOff' => $this->leaveWorkflowSignOffResource($leaveRequest),
+            ]);
+
+        $evalStats = [
+            'pendingReview' => LeaveRequest::query()->where('stage', 'sent_to_department_head')->count(),
+            'approvedByDh' => LeaveRequest::query()->where('dh_decision', 1)->count(),
+            'returnedByDh' => LeaveRequest::query()->where('dh_decision', 2)->count(),
+            'total' => LeaveRequest::query()->count(),
+        ];
+
+        return Inertia::render('admin/leave-management', [
+            'search' => $search,
+            'leaveTypeFilter' => $leaveTypeFilter,
+            'leaveTypeOptions' => $this->leaveRequestFilterOptions('leave_type'),
+            'leaveRequests' => $leaveRequests->items(),
+            'pagination' => [
+                'currentPage' => $leaveRequests->currentPage(),
+                'lastPage' => $leaveRequests->lastPage(),
+                'perPage' => $leaveRequests->perPage(),
+                'total' => $leaveRequests->total(),
+            ],
+            'stats' => $evalStats,
+        ]);
+    }
+
+    public function hrLeaveManagement(Request $request): Response
+    {
+        $search = trim((string) $request->string('search'));
+        $leaveTypeFilter = trim((string) $request->string('leaveTypeFilter'));
+        $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
+
+        $leaveRequests = LeaveRequest::query()
+            ->where('stage', 'sent_to_hr')
+            ->where('hr_decision', 0)
+            ->with(['user:id,name,employee_id', 'employee:employee_id,name,job_title'])
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($subQuery) use ($search): void {
+                    $subQuery
+                        ->where('leave_type', 'like', '%'.$search.'%')
+                        ->orWhere('reason', 'like', '%'.$search.'%')
+                        ->orWhereHas('user', function ($userQuery) use ($search): void {
+                            $userQuery->where('name', 'like', '%'.$search.'%');
+                        });
+                });
+            })
+            ->when($leaveTypeFilter !== '', function ($query) use ($leaveTypeFilter): void {
+                $query->where('leave_type', $leaveTypeFilter);
+            })
+            ->latest()
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (LeaveRequest $leaveRequest): array => [
+                'id' => $leaveRequest->id,
+                'name' => $leaveRequest->user?->name ?? 'Unknown User',
+                'employeeId' => $leaveRequest->employee_id,
+                'jobTitle' => $leaveRequest->employee?->job_title,
+                'leaveType' => $leaveRequest->leave_type,
+                'startDate' => $leaveRequest->start_date?->format('Y-m-d') ?? '-',
+                'endDate' => $leaveRequest->end_date?->format('Y-m-d') ?? '-',
+                'daysRequested' => $leaveRequest->days_requested,
+                'leaveAccrual' => $leaveRequest->leaveAccrual(),
+                'reason' => $leaveRequest->reason,
+                'status' => $leaveRequest->resolvedStatus(),
+                'stage' => $leaveRequest->stage,
+                'dhDecision' => (int) $leaveRequest->dh_decision,
+                'hrDecision' => (int) $leaveRequest->hr_decision,
+                'rejectionReasonText' => $leaveRequest->rejection_reason_text,
+                'hasMedicalCertificate' => (bool) $leaveRequest->medical_certificate_path,
+                'hasMarriageCertificate' => (bool) $leaveRequest->marriage_certificate_path,
+                'hasSoloParentId' => (bool) $leaveRequest->solo_parent_id_path,
+                'createdAt' => $leaveRequest->created_at?->format('M d, Y g:i A'),
+                'workflowSignOff' => $this->leaveWorkflowSignOffResource($leaveRequest),
+            ]);
+
+        $hrStats = [
+            'pendingReview' => LeaveRequest::query()->where('stage', 'sent_to_hr')->count(),
+            'fullyApproved' => LeaveRequest::query()->where('status', 'completed')->where('hr_decision', 1)->count(),
+            'rejectedByHr' => LeaveRequest::query()->where('hr_decision', 2)->count(),
+            'total' => LeaveRequest::query()->count(),
+        ];
+
+        return Inertia::render('admin/hr-leave-management', [
+            'search' => $search,
+            'leaveTypeFilter' => $leaveTypeFilter,
+            'leaveTypeOptions' => $this->leaveRequestFilterOptions('leave_type'),
+            'leaveRequests' => $leaveRequests->items(),
+            'pagination' => [
+                'currentPage' => $leaveRequests->currentPage(),
+                'lastPage' => $leaveRequests->lastPage(),
+                'perPage' => $leaveRequests->perPage(),
+                'total' => $leaveRequests->total(),
+            ],
+            'stats' => $hrStats,
+        ]);
+    }
+
+    public function evaluatorAttendanceManagement(Request $request): Response
+    {
+        $search = trim((string) $request->string('search'));
+        $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
+        $evaluatorEmployeeId = $request->user()->employee_id;
+
+        $attendances = DailyAttendance::query()
+            ->with('employee')
+            ->whereHas('employee', fn ($q) => $q->where('supervisor_id', $evaluatorEmployeeId))
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($subQuery) use ($search): void {
+                    $subQuery
+                        ->whereHas('employee', fn ($q) => $q->where('name', 'like', '%'.$search.'%'))
+                        ->orWhere('date', 'like', '%'.$search.'%')
+                        ->orWhere('status', 'like', '%'.$search.'%');
+                });
+            })
+            ->orderByDesc('date')
+            ->orderByDesc('id')
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (DailyAttendance $record): array => [
+                'id' => $record->id,
+                'employee_name' => $record->employee?->name ?? 'Unknown',
+                'employee_id' => $record->employee_id,
+                'date' => $record->date?->format('Y-m-d') ?? '-',
+                'time_in' => $record->time_in ?? null,
+                'time_out' => $record->time_out ?? null,
+                'status' => $record->status,
+                'late_minutes' => (int) $record->late_minutes,
+                'source' => $record->source ?? 'biometric',
+            ]);
+
+        $subordinateIds = \App\Models\Employee::query()
+            ->where('supervisor_id', $evaluatorEmployeeId)
+            ->pluck('employee_id');
+
+        $totalRecords = DailyAttendance::query()->whereIn('employee_id', $subordinateIds)->count();
+        $onTimeCount = DailyAttendance::query()->whereIn('employee_id', $subordinateIds)->where('status', 'on_time')->count();
+        $lateCount = DailyAttendance::query()->whereIn('employee_id', $subordinateIds)->where('status', 'late')->count();
+        $incompleteCount = DailyAttendance::query()->whereIn('employee_id', $subordinateIds)->where('status', 'incomplete')->count();
+
+        $subordinates = \App\Models\Employee::query()
+            ->where('supervisor_id', $evaluatorEmployeeId)
+            ->get(['employee_id', 'name', 'manual_punch_enabled', 'manual_punch_reason', 'manual_punch_start_date', 'manual_punch_end_date'])
+            ->each(fn (\App\Models\Employee $emp) => $emp->refreshManualPunchStatus())
+            ->map(fn (\App\Models\Employee $emp): array => [
+                'employee_id' => $emp->employee_id,
+                'name' => $emp->name,
+                'manual_punch_enabled' => (bool) $emp->manual_punch_enabled,
+                'manual_punch_reason' => $emp->manual_punch_reason,
+                'manual_punch_start_date' => $emp->manual_punch_start_date !== null
+                    ? Carbon::parse($emp->manual_punch_start_date)->toDateString()
+                    : null,
+                'manual_punch_end_date' => $emp->manual_punch_end_date !== null
+                    ? Carbon::parse($emp->manual_punch_end_date)->toDateString()
+                    : null,
+            ]);
+
+        return Inertia::render('admin/evaluator-attendance', [
+            'search' => $search,
+            'attendances' => $attendances->items(),
+            'pagination' => [
+                'currentPage' => $attendances->currentPage(),
+                'lastPage' => $attendances->lastPage(),
+                'perPage' => $attendances->perPage(),
+                'total' => $attendances->total(),
+            ],
+            'stats' => [
+                'totalRecords' => $totalRecords,
+                'onTimeCount' => $onTimeCount,
+                'lateCount' => $lateCount,
+                'incompleteCount' => $incompleteCount,
+            ],
+            'subordinates' => $subordinates,
+        ]);
+    }
+
+    public function employeeDirectory(Request $request): Response
+    {
+        $isHrPersonnel = $request->user()?->hasRole(User::ROLE_HR_PERSONNEL) ?? false;
+        $evaluatorDepartmentId = $isHrPersonnel ? null : $request->user()?->employee?->department_id;
+        $search = trim((string) $request->string('search'));
+        $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
+        $statusFilter = trim((string) $request->string('statusFilter'));
+        $positionFilter = trim((string) $request->string('positionFilter'));
+        $activeDepartmentId = $request->integer('activeDepartmentId') ?: null;
+        $allowedSorts = [
+            'employee_id' => 'users.employee_id',
+            'name' => 'users.name',
+            'email' => 'users.email',
+            'position' => 'employees.job_title',
+        ];
+        ['sort' => $sort, 'direction' => $direction] = $this->resolveSort($request, $allowedSorts, 'employee_id');
+
+        $employees = User::query()
+            ->select('users.*')
+            ->with(['employee.department', 'employee.position', 'employee.latestSubmission'])
+            ->join('employees', 'users.employee_id', '=', 'employees.employee_id')
+            ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
+            ->when(
+                ! $isHrPersonnel,
+                fn ($query) => $query->where('users.role', User::ROLE_EMPLOYEE),
+            )
+            ->when(
+                ! $isHrPersonnel && $evaluatorDepartmentId !== null,
+                fn ($query) => $query->where('employees.department_id', $evaluatorDepartmentId),
+            )
+            ->when(
+                $isHrPersonnel && $activeDepartmentId !== null,
+                fn ($query) => $query->where('employees.department_id', $activeDepartmentId),
+            )
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($subQuery) use ($search): void {
+                    $subQuery
+                        ->where('users.name', 'like', '%'.$search.'%')
+                        ->orWhere('users.email', 'like', '%'.$search.'%')
+                        ->orWhere('users.employee_id', 'like', '%'.$search.'%')
+                        ->orWhere('employees.job_title', 'like', '%'.$search.'%')
+                        ->orWhere('departments.name', 'like', '%'.$search.'%');
+                });
+            })
+            ->when($statusFilter !== '', function ($query) use ($statusFilter): void {
+                $query->where('employees.employment_status', $statusFilter);
+            })
+            ->when($positionFilter !== '', function ($query) use ($positionFilter): void {
+                $query->where('employees.job_title', $positionFilter);
+            })
+            ->orderBy($allowedSorts[$sort], $direction)
+            ->when($sort !== 'name', function ($query) use ($allowedSorts, $direction): void {
+                $query->orderBy($allowedSorts['name'], $direction);
+            })
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (User $user): array => [
+                'id' => $user->id,
+                'user_id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role,
+                'employee_id' => $user->employee_id ?? '',
+                'department_id' => $user->employee?->department_id,
+                'department' => $user->employee?->department?->name ?? '',
+                'position_id' => $user->employee?->position_id,
+                'position' => $user->employee?->position?->name ?? $user->employee?->job_title ?? 'Employee',
+                'employment_status' => $user->employee?->employment_status ?? 'permanent',
+                'date_hired' => $user->employee?->date_hired?->format('Y-m-d') ?? '',
+                'zkteco_pin' => $user->employee?->zkteco_pin,
+                'account_is_active' => (bool) $user->is_active,
+                'account_two_factor_enabled' => $user->two_factor_confirmed_at !== null,
+                'account_created_at' => $user->created_at?->format('Y-m-d H:i:s'),
+                'account_links' => [
+                    'password_reset' => route('admin.user-management.password-reset', $user),
+                    'activate' => route('admin.user-management.activate', $user),
+                    'deactivate' => route('admin.user-management.deactivate', $user),
+                ],
+                'predictive_evaluation_enabled' => ! in_array(
+                    $user->employee_id ?? '',
+                    FlatFatController::EXCLUDED_EMPLOYEE_IDS,
+                    true,
+                ),
+                'performance_rating' => $user->employee?->latestSubmission?->performance_rating,
+                'remarks' => $user->employee?->latestSubmission?->rejection_reason,
+                'notification' => $user->employee?->latestSubmission?->notification,
+            ]);
+
+        $allEmployees = Employee::query()
+            ->when(
+                ! $isHrPersonnel && $evaluatorDepartmentId !== null,
+                fn ($query) => $query->where('department_id', $evaluatorDepartmentId),
+            );
+
+        $departmentsCollection = Department::query()
+            ->with(['positions' => fn ($query) => $query->orderBy('name')])
+            ->when(
+                ! $isHrPersonnel && $evaluatorDepartmentId !== null,
+                fn ($query) => $query->where('id', $evaluatorDepartmentId),
+            )
+            ->orderBy('name')
+            ->get();
+
+        $departments = $departmentsCollection
+            ->map(fn (Department $department): array => [
+                'id' => $department->id,
+                'name' => $department->name,
+                'positions' => $department->positions
+                    ->map(fn (EmployeePosition $position): array => [
+                        'id' => $position->id,
+                        'name' => $position->name,
+                        'linkedAccountRole' => (string) ($position->pivot?->linked_role
+                            ?? EmployeePosition::linkedAccountRoleFor($department->name, $position->name)),
+                    ])
+                    ->values()
+                    ->all(),
+            ])
+            ->values()
+            ->all();
+
+        $allPositions = EmployeePosition::query()
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (EmployeePosition $position): array => [
+                'id' => $position->id,
+                'name' => $position->name,
+                'linkedAccountRole' => $position->linkedAccountRole(),
+            ])
+            ->values()
+            ->all();
+
+        $positionRoleMap = collect($allPositions)
+            ->mapWithKeys(fn (array $position): array => [
+                (string) $position['id'] => (string) $position['linkedAccountRole'],
+            ])
+            ->all();
+
+        $departmentPositionRoleMap = collect($departments)
+            ->mapWithKeys(fn (array $department): array => [
+                (string) $department['id'] => collect($department['positions'])
+                    ->mapWithKeys(fn (array $position): array => [
+                        (string) $position['id'] => (string) $position['linkedAccountRole'],
+                    ])
+                    ->all(),
+            ])
+            ->all();
+
+        $resolvedActiveDepartmentId = $activeDepartmentId
+            ?? $evaluatorDepartmentId
+            ?? ($departments[0]['id'] ?? null);
+
+        $stats = [
+            'total' => (clone $allEmployees)->count(),
+            'casual' => (clone $allEmployees)->where('employment_status', 'casual')->count(),
+            'permanent' => (clone $allEmployees)->where('employment_status', 'permanent')->count(),
+            'job_order' => (clone $allEmployees)->where('employment_status', 'job_order')->count(),
+        ];
+        $payload = [
+            'search' => $search,
+            'sort' => $sort,
+            'direction' => $direction,
+            'statusFilter' => $statusFilter,
+            'positionFilter' => $positionFilter,
+            'activeDepartmentId' => $resolvedActiveDepartmentId,
+            'canFilterByDepartment' => $isHrPersonnel,
+            'employees' => $employees->items(),
+            'pagination' => [
+                'currentPage' => $employees->currentPage(),
+                'lastPage' => $employees->lastPage(),
+                'perPage' => $employees->perPage(),
+                'total' => $employees->total(),
+            ],
+            'stats' => $stats,
+            'nextEmployeeId' => Employee::nextEmployeeId(),
+            'nextEmployeeIdByPrefix' => [
+                'EMP' => Employee::nextEmployeeId('EMP'),
+                'HR' => Employee::nextEmployeeId('HR'),
+                'PMT' => Employee::nextEmployeeId('PMT'),
+            ],
+            'departments' => $departments,
+            'positions' => $allPositions,
+            'positionRoleMap' => $positionRoleMap,
+            'departmentPositionRoleMap' => $departmentPositionRoleMap,
+            'defaultEmployeeRole' => User::ROLE_EMPLOYEE,
+        ];
+
+        return Inertia::render('admin/employee-directory', $payload);
+    }
+
+    public function updateEmployeeEmploymentStatus(UpdateEmployeeEmploymentStatusRequest $request, Employee $employee): RedirectResponse
+    {
+        $employee->update($request->validated());
+
+        return back();
+    }
+
+    public function documentManagement(Request $request): Response
+    {
+        $search = trim((string) $request->string('search'));
+        $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
+        $statusFilter = trim((string) $request->string('statusFilter'));
+        $stageFilter = trim((string) $request->string('stageFilter'));
+        $currentPeriodLabel = (string) SystemSetting::get('ipcr_period_label', 'January to June '.now()->year);
+        $currentPeriodYear = (int) SystemSetting::get('ipcr_period_year', (int) now()->year);
+        ['semester' => $targetSemester, 'year' => $targetYear] = $this->resolveIpcrTargetPeriod($currentPeriodLabel, $currentPeriodYear);
+        $employeeIds = collect(range(2, 21))
+            ->map(fn (int $number): string => 'EMP-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT))
+            ->all();
+
+        $pendingEvaluatorStages = ['sent_to_evaluator', 'data_saved', 'remarks_saved'];
+
+        $employees = Employee::query()
+            ->with([
+                'user',
+                'latestSubmission',
+                'ipcrTargets' => fn ($query) => $query
+                    ->forPeriod($targetSemester, $targetYear)
+                    ->latest('id'),
+            ])
+            ->whereIn('employee_id', $employeeIds)
+            ->whereHas('latestSubmission', function ($submissionQuery) use ($pendingEvaluatorStages, $currentPeriodLabel): void {
+                $submissionQuery
+                    ->whereIn('stage', $pendingEvaluatorStages)
+                    ->where('form_payload->metadata->period', $currentPeriodLabel);
+            })
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($subQuery) use ($search): void {
+                    $subQuery
+                        ->where('employee_id', 'like', '%'.$search.'%')
+                        ->orWhere('name', 'like', '%'.$search.'%')
+                        ->orWhere('job_title', 'like', '%'.$search.'%');
+                });
+            })
+            ->when($statusFilter !== '', function ($query) use ($statusFilter): void {
+                $query->whereHas('latestSubmission', function ($submissionQuery) use ($statusFilter): void {
+                    $submissionQuery->where('status', $statusFilter);
+                });
+            })
+            ->when($stageFilter !== '', function ($query) use ($stageFilter, $pendingEvaluatorStages): void {
+                if (! in_array($stageFilter, $pendingEvaluatorStages, true)) {
+                    $query->whereRaw('1 = 0');
+
+                    return;
+                }
+
+                $query->whereHas('latestSubmission', function ($submissionQuery) use ($stageFilter): void {
+                    $submissionQuery->where('stage', $stageFilter);
+                });
+            })
+            ->orderBy('employee_id')
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(function (Employee $employee): array {
+                $currentTarget = $employee->ipcrTargets->first();
+
+                return [
+                    'id' => $employee->user?->id ?? 0,
+                    'name' => $employee->name ?? 'Unknown',
+                    'email' => $employee->user?->email ?? '-',
+                    'role' => $employee->user?->role ?? 'employee',
+                    'position' => $employee->job_title ?? 'Employee',
+                    'employeeId' => $employee->employee_id,
+                    'submissionStatus' => $employee->latestSubmission?->status,
+                    'submissionStage' => $employee->latestSubmission?->stage,
+                    'finalRating' => $employee->latestSubmission?->final_rating,
+                    'remarks' => $employee->latestSubmission?->rejection_reason,
+                    'currentTargetStatus' => $currentTarget?->status,
+                ];
+            });
+
+        $currentPeriodOpen = SystemSetting::get('ipcr_period_open', false);
+
+        return Inertia::render('performance-evaluation', [
+            'roleView' => 'evaluator',
+            'currentPeriod' => [
+                'label' => $currentPeriodLabel,
+                'year' => $currentPeriodYear,
+                'isOpen' => $currentPeriodOpen,
+            ],
+            'evaluatorPanel' => [
+                'search' => $search,
+                'statusFilter' => $statusFilter,
+                'stageFilter' => $stageFilter,
+                'periodOpen' => $currentPeriodOpen,
+                'employees' => $employees->items(),
+                'pagination' => [
+                    'currentPage' => $employees->currentPage(),
+                    'lastPage' => $employees->lastPage(),
+                    'perPage' => $employees->perPage(),
+                    'total' => $employees->total(),
+                ],
+                'stats' => [
+                    'trackedEmployees' => count($employeeIds),
+                    'submitted' => Employee::query()
+                        ->whereIn('employee_id', $employeeIds)
+                        ->whereHas('latestSubmission', fn ($query) => $query
+                            ->where('stage', '!=', 'finalized')
+                            ->where('form_payload->metadata->period', $currentPeriodLabel))
+                        ->count(),
+                    'pendingEvaluation' => Employee::query()
+                        ->whereIn('employee_id', $employeeIds)
+                        ->whereHas('latestSubmission', fn ($query) => $query
+                            ->where('stage', 'sent_to_evaluator')
+                            ->where('form_payload->metadata->period', $currentPeriodLabel))
+                        ->count(),
+                    'routedToHr' => Employee::query()
+                        ->whereIn('employee_id', $employeeIds)
+                        ->whereHas('latestSubmission', fn ($query) => $query
+                            ->where('stage', 'sent_to_hr')
+                            ->where('form_payload->metadata->period', $currentPeriodLabel))
+                        ->count(),
+                ],
+            ],
+        ]);
+    }
+
+    public function adminHistoricalManagement(
+        Request $request,
+        HistoricalDataSyncService $historicalDataSyncService,
+    ): Response {
+        $historicalDataSyncService->syncAll();
+
+        $search = trim((string) $request->string('search'));
+        $perPage = max(1, min(50, (int) $request->integer('perPage', 10)));
+        $year = $request->integer('year', 0);
+        $allowedSorts = [
+            'employee_name' => 'employee_name',
+            'department_name' => 'department_name',
+            'year' => 'year',
+            'period' => 'period',
+            'quarter' => 'quarter',
+            'attendance_punctuality_rate' => 'attendance_punctuality_rate',
+            'absenteeism_days' => 'absenteeism_days',
+            'tardiness_incidents' => 'tardiness_incidents',
+            'training_completion_status' => 'training_completion_status',
+            'evaluated_performance_score' => 'evaluated_performance_score',
+        ];
+        ['sort' => $sort, 'direction' => $direction] = $this->resolveSort($request, $allowedSorts, 'year', 'asc');
+        if ($sort === 'quarter') {
+            $sort = 'period';
+        }
+
+        $historicalData = HistoricalDataRecord::query()
+            ->when($year > 0, fn ($q) => $q->where('year', $year))
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($subQuery) use ($search): void {
+                    $subQuery
+                        ->where('employee_name', 'like', '%'.$search.'%')
+                        ->orWhere('department_name', 'like', '%'.$search.'%')
+                        ->orWhere('year', 'like', '%'.$search.'%')
+                        ->orWhere('period', 'like', '%'.$search.'%')
+                        ->orWhere('quarter', 'like', '%'.$search.'%')
+                        ->orWhere('training_completion_status', 'like', '%'.$search.'%');
+                });
+            })
+            ->orderBy('employee_name')
+            ->orderBy('department_name')
+            ->when($sort !== 'year', function ($query): void {
+                $query->orderBy('year', 'desc');
+            })
+            ->when($sort === 'year', function ($query) use ($direction): void {
+                $query->orderBy('year', $direction);
+            })
+            ->when($sort === 'period', function ($query) use ($direction): void {
+                $query->orderByRaw(
+                    "CASE COALESCE(NULLIF(period, ''), quarter)
+                        WHEN 'S1' THEN 1
+                        WHEN 'Q1' THEN 1
+                        WHEN 'Q2' THEN 1
+                        WHEN 'S2' THEN 2
+                        WHEN 'Q3' THEN 2
+                        WHEN 'Q4' THEN 2
+                        ELSE 3
+                    END {$direction}"
+                );
+            }, function ($query): void {
+                $query->orderByRaw(
+                    "CASE COALESCE(NULLIF(period, ''), quarter)
+                        WHEN 'S1' THEN 1
+                        WHEN 'Q1' THEN 1
+                        WHEN 'Q2' THEN 1
+                        WHEN 'S2' THEN 2
+                        WHEN 'Q3' THEN 2
+                        WHEN 'Q4' THEN 2
+                        ELSE 3
+                    END ASC"
+                );
+            })
+            ->when(
+                ! in_array($sort, ['employee_name', 'department_name', 'year', 'period'], true),
+                function ($query) use ($allowedSorts, $sort, $direction): void {
+                    $query->orderBy($allowedSorts[$sort], $direction);
+                }
+            )
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (HistoricalDataRecord $historicalDataRecord): array => [
+                'id' => $historicalDataRecord->id,
+                'employeeName' => $historicalDataRecord->employee_name,
+                'departmentName' => $historicalDataRecord->department_name,
+                'year' => $historicalDataRecord->year,
+                'period' => $historicalDataRecord->resolvedPeriod(),
+                'quarter' => $historicalDataRecord->quarter,
+                'attendancePunctualityRate' => $historicalDataRecord->attendance_punctuality_rate,
+                'absenteeismDays' => $historicalDataRecord->absenteeism_days,
+                'tardinessIncidents' => $historicalDataRecord->tardiness_incidents,
+                'trainingCompletionStatus' => $historicalDataRecord->training_completion_status,
+                'evaluatedPerformanceScore' => (float) $historicalDataRecord->evaluated_performance_score,
+            ]);
+
+        $summaryRecords = HistoricalDataRecord::query()
+            ->when($year > 0, fn ($q) => $q->where('year', $year))
+            ->whereNotNull('evaluated_performance_score')
+            ->select(['department_name', 'employee_name', 'evaluated_performance_score'])
+            ->get();
+
+        $departmentSummary = $summaryRecords
+            ->groupBy(fn (HistoricalDataRecord $record): string => $this->canonicalDepartmentSummaryName($record->department_name))
+            ->map(function ($deptRecords) {
+                $employeeAvgs = $deptRecords
+                    ->groupBy('employee_name')
+                    ->map(fn ($recs) => round($recs->avg('evaluated_performance_score'), 2))
+                    ->sortDesc();
+
+                return [
+                    'top' => $employeeAvgs->take(3)
+                        ->map(fn ($score, $name) => ['name' => $name, 'score' => $score])
+                        ->values(),
+                    'at_risk' => $employeeAvgs->reverse()->take(3)
+                        ->map(fn ($score, $name) => ['name' => $name, 'score' => $score])
+                        ->values(),
+                    'avg_score' => round($employeeAvgs->avg(), 2),
+                    'total_employees' => $employeeAvgs->count(),
+                ];
+            });
+
+        return Inertia::render('admin/historical-data', [
+            'search' => $search,
+            'sort' => $sort,
+            'direction' => $direction,
+            'year' => $year > 0 ? $year : null,
+            'historicalData' => $historicalData->items(),
+            'pagination' => [
+                'currentPage' => $historicalData->currentPage(),
+                'lastPage' => $historicalData->lastPage(),
+                'perPage' => $historicalData->perPage(),
+                'total' => $historicalData->total(),
+            ],
+            'departmentSummary' => $departmentSummary,
+        ]);
+    }
+}
