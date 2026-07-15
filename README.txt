@@ -58,10 +58,10 @@
 
        Displays aggregated HR metrics in real time using the
        FlatFAT algorithm, including live employee attendance
-       pulled directly from the biometric device (ZKTeco /
-       ADMS protocol). HR personnel get an at-a-glance view
-       of workforce status without waiting for end-of-day
-       reports.
+       streamed from the biometric terminal via the ZKBio
+       Zlink cloud webhook. HR personnel get an at-a-glance
+       view of workforce status without waiting for
+       end-of-day reports.
 
 
     4. AUTOMATED TRAINING RECOMMENDATION ENGINE (ATRE)
@@ -75,81 +75,92 @@
 
 
 ----------------------------------------------------------------
- INSTALLATION GUIDE
+ GETTING STARTED (INSTALLER)
 ----------------------------------------------------------------
 
-    PREREQUISITES
-    -------------
-        * PHP 8.2+ with required extensions
-        * Composer 2.x
-        * Node.js 20+ and npm
-        * Python 3.11+ (for the four AI modules)
-        * MySQL 8 or MariaDB 10.6+
-        * Laravel Herd (recommended) -- serves the app at
-          https://smart-hrms.test
+    REQUIREMENTS
+    ------------
+        * Windows 10 or Windows 11 (64-bit)
+        * An active internet connection
+
+          The desktop app connects to the Smart HRMS cloud
+          server and WILL NOT run offline.
 
 
     STEP-BY-STEP PROCEDURE
     ----------------------
 
-        Step 1: Clone the repository
-            > git clone https://github.com/your-org/Smart-HRMS.git
-            > cd Smart-HRMS
+        Step 1: Run the installer
+            Double-click "Smart-HRMS-Setup-1.0.0.exe".
 
-        Step 2: Install PHP dependencies
-            > composer install
+        Step 2: Follow the setup wizard
+            Accept the prompts to install the application.
 
-        Step 3: Install JavaScript dependencies
-            > npm install
+        Step 3: Launch the application
+            Open "Smart HRMS" from the Start menu or the
+            desktop shortcut created by the installer.
 
-        Step 4: Set up your environment file
-            > cp .env.example .env
-            > php artisan key:generate
+        Step 4: Wait for the cloud server to wake
+            The FIRST launch may take up to 5 minutes while
+            the cloud server starts up. A loading screen
+            shows progress -- this is normal after a period
+            of inactivity and only happens on a cold start.
 
-            Then edit .env to configure your database
-            connection (DB_DATABASE, DB_USERNAME, DB_PASSWORD).
 
-        Step 5: Run database migrations and seeders
-            > php artisan migrate --seed
+    NOTE ON WINDOWS SMARTSCREEN
+    ---------------------------
+        The installer is unsigned, so Windows SmartScreen may
+        display a warning. If it appears, choose:
 
-        Step 6: Set up the Python AI modules
-                (each has its own virtual environment)
+            "More info"  ->  "Run anyway"
 
-            > cd python/iwr
-            > python -m venv .venv
-            > .venv/bin/pip install -r requirements.txt
-            > cd ../..
-
-            Repeat for: python/ppe, python/atre,
-            and python/rt-hr-dashboard.
-
-        Step 7: Build frontend assets
-            > npm run build
-
-        Step 8: Start the development environment
-            > composer run dev
-
-            This boots the Laravel server, queue worker, log
-            tail, and Vite dev server concurrently.
-
-        Step 9: Access the application
-            * With Laravel Herd: https://smart-hrms.test
-            * Without Herd:      http://localhost:8000
-
-    TIP: After cloning, you can also run "composer run setup"
-         to install dependencies, migrate, and build in a
-         single command.
+        to continue with the installation.
 
 
 ----------------------------------------------------------------
- DEFAULT USER CREDENTIALS
+ LIVE SYSTEM ACCESS
 ----------------------------------------------------------------
 
-    All seeded accounts share the password: password
+    The system is also accessible from any web browser at:
+
+        https://smart-hrms.onrender.com/
+
+    The same cold-start behavior applies: if the server has
+    been idle, the first request may take up to 5 minutes to
+    respond while it wakes.
 
 
-    EMPLOYEES
+----------------------------------------------------------------
+ USER ACCOUNTS & CREDENTIALS
+----------------------------------------------------------------
+
+    All accounts below share the password: password
+
+    These are demo/thesis accounts provided for evaluation
+    and demonstration purposes.
+
+
+    ADMINISTRATOR
+    -------------
+        (No administrator account is seeded in this build.)
+
+
+    HR PERSONNEL
+    ------------
+        Name        Email                  ID
+        ----        -----                  --
+        Grace Tan   grace.tan@shrms.test   HR-001
+
+
+    EVALUATOR
     ---------
+        Name         Email                   ID
+        ----         -----                   --
+        John Reyes   john.reyes@shrms.test   EMP-001
+
+
+    EMPLOYEE
+    --------
         Name                  Email                              ID
         ----                  -----                              --
         Maria Santos          maria.santos@shrms.test            EMP-002
@@ -174,20 +185,6 @@
         Theresa Evangelista   theresa.evangelista@shrms.test     EMP-021
 
 
-    EVALUATOR
-    ---------
-        Name         Email                   ID
-        ----         -----                   --
-        John Reyes   john.reyes@shrms.test   EMP-001
-
-
-    HR PERSONNEL
-    ------------
-        Name        Email                  ID
-        ----        -----                  --
-        Grace Tan   grace.tan@shrms.test   HR-001
-
-
     PMT OFFICER
     -----------
         Name         Email                   ID
@@ -204,8 +201,7 @@
     function. Known limitations include:
 
         * NO OFFLINE ACCESSIBILITY
-            The system requires an active internet/LAN
-            connection and a running Laravel + Python stack.
+            The system requires an active internet connection.
             There is no offline or sync-on-reconnect mode.
 
         * NO PAYROLL MANAGEMENT
@@ -224,8 +220,8 @@
 
         * BIOMETRIC DEPENDENCY
             Real-time attendance metrics depend on a properly
-            configured ZKTeco-compatible device using the
-            ADMS protocol.
+            configured ZKTeco-compatible device bound to a
+            ZKBio Zlink tenant.
 
         * ENGLISH-ONLY UI
             No multi-language localization at this time.
