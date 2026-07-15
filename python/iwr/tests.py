@@ -1,7 +1,7 @@
 # =============================================================================
 # tests.py
 # SHRMS — Intelligent Workflow Routing
-# Task 6 of 7 — Black-Box Functional Test Suite (IPCR + Leave paths)
+# Black-Box Functional Test Suite (IPCR + Leave paths)
 #
 # WHAT THIS FILE IS:
 #   The formal black-box functional test suite for the Intelligent Workflow

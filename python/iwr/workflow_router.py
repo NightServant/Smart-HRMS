@@ -1,7 +1,7 @@
 # =============================================================================
 # workflow_router.py
 # SHRMS — Intelligent Workflow Routing
-# Task 5 of 7 — Main Orchestrator (Evaluation + Leave Application paths)
+# Main router for the Evaluation + Leave Application paths.
 #
 # WHAT THIS FILE IS:
 #   The main orchestrator for the IPCR evaluation routing.

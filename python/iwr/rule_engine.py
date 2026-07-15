@@ -1,7 +1,7 @@
 # =============================================================================
 # rule_engine.py
 # SHRMS — Intelligent Workflow Routing
-# Task 2 of 7 — Rule-Based Workflow (Layer 1)
+# Rule-Based Workflow (Layer 1)
 #
 # WHAT THIS FILE IS:
 #   Layer 1 of the Intelligent Workflow Routing system.

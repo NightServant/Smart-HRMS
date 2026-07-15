@@ -8,10 +8,9 @@ use RuntimeException;
 /**
  * Thin client for the Smart HRMS fingerprint proxy (a Cloudflare Worker).
  *
- * The proxy holds the Zlink portal credentials and exposes a small, clean API.
- * Smart HRMS authenticates with a single bearer key (ZLINK_PROXY_API_KEY) and
- * never sees the Zlink login, cookies, or portal token chain — those live in
- * the proxy.
+ * The proxy holds the Zlink admin credentials and exposes a small API. Smart
+ * HRMS authenticates with a single bearer key (ZLINK_PROXY_API_KEY); the admin
+ * session stays inside the proxy.
  */
 class ZlinkFingerprintProxyClient
 {

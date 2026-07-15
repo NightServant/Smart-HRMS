@@ -99,9 +99,8 @@ class EnrollmentService
         $hasPin = ! empty($employee->zkteco_pin);
 
         // Short-lived confirmed-enrollment cache (5 min TTL). Avoids Zlink
-        // round-trips on the 3-second poll tick during active sessions, but
-        // still detects deletions in the Zlink portal within 5 minutes —
-        // unlike the old fast-path that never re-validated after first write.
+        // round-trips on the 3-second poll tick during active sessions while
+        // still detecting deletions in the Zlink admin UI within 5 minutes.
         if ($hasPin && $employee->fingerprint_enrolled_at !== null) {
             $confirmedKey = self::ENROLLMENT_CONFIRMED_CACHE_PREFIX.$employee->employee_id;
 
@@ -171,9 +170,8 @@ class EnrollmentService
         }
 
         // Third signal (when the open API doesn't expose fingerprints):
-        // ask the portal whether the active remote-registration session has
-        // completed. This is the most reliable on-device-capture signal —
-        // the SPA itself polls the same endpoint to flip its UI.
+        // ask the proxy whether the active remote-registration session has
+        // completed. This is the most reliable on-device-capture signal.
         if ($hasPin && $fingerprintCount === 0 && $this->checkActiveRegistrationSession($employee)) {
             $fingerprintCount = 1;
         }
@@ -393,9 +391,9 @@ class EnrollmentService
     }
 
     /**
-     * Try the open-API trigger first; fall back to the customer admin portal
-     * client when the open API doesn't expose the endpoint (404). Returns true
-     * if either transport succeeded, false if both are unavailable.
+     * Try the open-API trigger first; fall back to the proxy client when the
+     * open API doesn't expose the endpoint (404). Returns true if either
+     * transport succeeded, false if both are unavailable.
      */
     private function triggerWithBestAvailableTransport(Employee $employee, string $deviceSn, int $fingerIndex): bool
     {

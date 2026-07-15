@@ -47,7 +47,7 @@ class EmployeeSeeder extends Seeder
         ];
 
         // Pre-derive the Zlink emp_code so reseeding doesn't strand existing
-        // fingerprint templates already enrolled on the portal. Same algorithm
+        // fingerprint templates already enrolled in Zlink. Same algorithm
         // EmployeeSyncService::deriveZktecoPin uses everywhere else.
         foreach ($employees as &$employee) {
             $employee['zkteco_pin'] = EmployeeSyncService::deriveZktecoPin(
