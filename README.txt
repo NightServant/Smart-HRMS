@@ -192,6 +192,36 @@
         Mark Reyes   mark.reyes@shrms.test   PMT-001
 
 
+    ADDITIONAL EMPLOYEE ACCOUNTS (LIVE-CREATED)
+    -------------------------------------------
+        These employee accounts were added through the app's
+        Employee Directory after the initial setup. Each was
+        assigned its own random temporary password at creation
+        (shown once to HR) and requires a password change on
+        first login, so a shared password is not listed here.
+        For evaluation, use the demo accounts above instead.
+
+        Name                  Email                              ID
+        ----                  -----                              --
+        Juan Dela Cruz        juan.delacruz@shrms.test           EMP-022
+        Maria Dela Cruz       maria.delacruz@shrms.test          EMP-023
+        Michelle Dela Cruz    michelle.delacruz@shrms.test       EMP-025
+        John Doctor           john.doctor@shrms.test             EMP-026
+        Mark Delos Santos     mark.delossantos@shrms.test        EMP-027
+        Juan David            juan.david@shrms.test              EMP-028
+        Henry Roque           henry.roque@shrms.test             EMP-029
+        Gabe Cervantes        gabe.cervantes@shrms.test          EMP-030
+        Kim Mendoza           kim.mendoza@shrms.test             EMP-031
+        Ronell Bagain         ronell.bagain@shrms.test           EMP-032
+        May Nard              may.nard@shrms.test                EMP-033
+        Lem Dough             lem.dough@shrms.test               EMP-034
+        Jose Santos           jose.santos@shrms.test             EMP-035
+        Martin Santos         martin.santos@shrms.test           EMP-037
+
+        (EMP-024 and the EMP-036 migration test account are
+        inactive/internal and are omitted.)
+
+
 ----------------------------------------------------------------
  SYSTEM LIMITATIONS
 ----------------------------------------------------------------
