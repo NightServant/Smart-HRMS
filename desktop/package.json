@@ -1,0 +1,47 @@
+{
+    "name": "smart-hrms-desktop",
+    "productName": "Smart HRMS",
+    "version": "1.0.0",
+    "description": "Desktop wrapper for the Smart HRMS web application",
+    "author": "Smart HRMS",
+    "license": "MIT",
+    "main": "main.js",
+    "scripts": {
+        "start": "electron .",
+        "dist:win": "electron-builder --win nsis --x64"
+    },
+    "devDependencies": {
+        "electron": "^33.2.1",
+        "electron-builder": "^25.1.8"
+    },
+    "build": {
+        "appId": "com.smarthrms.desktop",
+        "productName": "Smart HRMS",
+        "directories": {
+            "output": "release",
+            "buildResources": "build"
+        },
+        "files": [
+            "main.js",
+            "preload.js",
+            "splash.html",
+            "lib/**/*",
+            "build/icon.ico"
+        ],
+        "win": {
+            "target": [
+                "nsis"
+            ],
+            "icon": "build/icon.ico",
+            "artifactName": "Smart-HRMS-Setup-${version}.exe"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "perMachine": false,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "Smart HRMS"
+        }
+    }
+}

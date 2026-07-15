@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:;" />
+    <title>Smart HRMS</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --bg-2: #111c33;
+            --card: #16233d;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --accent: #3b82f6;
+            --accent-2: #60a5fa;
+            --skeleton: #24324f;
+            --skeleton-sheen: #33456b;
+            --danger: #f87171;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            height: 100%;
+            overflow: hidden;
+            -webkit-user-select: none;
+            user-select: none;
+            cursor: default;
+        }
+
+        body {
+            font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(1200px 500px at 50% -20%, #1e2f52 0%, transparent 60%),
+                linear-gradient(160deg, var(--bg) 0%, var(--bg-2) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Whole splash is draggable (frameless window). */
+            -webkit-app-region: drag;
+        }
+
+        .wrap {
+            width: 100%;
+            padding: 28px 30px 26px;
+            text-align: center;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 11px;
+            margin-bottom: 4px;
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent) 0%, #2563eb 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 17px;
+            letter-spacing: 0.5px;
+            color: #fff;
+            box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+        }
+
+        .title {
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+
+        .subtitle {
+            margin: 6px 0 20px;
+            font-size: 12.5px;
+            color: var(--muted);
+        }
+
+        /* Skeleton loading bars */
+        .skeleton {
+            display: flex;
+            flex-direction: column;
+            gap: 9px;
+            margin: 0 auto 18px;
+            max-width: 300px;
+        }
+
+        .bar {
+            height: 11px;
+            border-radius: 6px;
+            background: linear-gradient(
+                90deg,
+                var(--skeleton) 0%,
+                var(--skeleton-sheen) 50%,
+                var(--skeleton) 100%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.4s ease-in-out infinite;
+        }
+
+        .bar.w1 { width: 100%; }
+        .bar.w2 { width: 82%; }
+        .bar.w3 { width: 66%; }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Status row: spinner + message */
+        .status {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            min-height: 20px;
+            font-size: 12.5px;
+            color: var(--text);
+        }
+
+        .spinner {
+            width: 15px;
+            height: 15px;
+            border: 2px solid rgba(148, 163, 184, 0.3);
+            border-top-color: var(--accent-2);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            flex: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .elapsed {
+            margin-top: 8px;
+            font-size: 11px;
+            color: var(--muted);
+            font-variant-numeric: tabular-nums;
+        }
+
+        /* Action states (offline / error) */
+        .actions {
+            margin-top: 16px;
+            display: none;
+        }
+
+        button {
+            -webkit-app-region: no-drag;
+            background: var(--accent);
+            color: #fff;
+            border: 0;
+            border-radius: 8px;
+            padding: 9px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        button:hover { background: #2563eb; }
+        button:active { transform: translateY(1px); }
+
+        .icon-state {
+            font-size: 30px;
+            margin-bottom: 6px;
+            display: none;
+        }
+
+        /* State toggles */
+        body.state-offline .skeleton,
+        body.state-offline .status,
+        body.state-offline .elapsed,
+        body.state-error .skeleton,
+        body.state-error .status,
+        body.state-error .elapsed {
+            display: none;
+        }
+
+        body.state-offline .actions,
+        body.state-error .actions {
+            display: block;
+        }
+
+        body.state-offline .icon-state,
+        body.state-error .icon-state {
+            display: block;
+        }
+
+        .message {
+            font-size: 12.5px;
+            color: var(--muted);
+            line-height: 1.5;
+            max-width: 320px;
+            margin: 0 auto;
+            min-height: 18px;
+        }
+
+        body.state-offline .message,
+        body.state-error .message {
+            color: var(--danger);
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="brand">
+            <div class="logo">HR</div>
+            <div class="title">Smart HRMS</div>
+        </div>
+        <div class="subtitle">Human Resource Management System</div>
+
+        <div class="icon-state" id="stateIcon">&#128246;</div>
+
+        <div class="skeleton" id="skeleton">
+            <div class="bar w1"></div>
+            <div class="bar w2"></div>
+            <div class="bar w3"></div>
+        </div>
+
+        <div class="status" id="statusRow">
+            <div class="spinner"></div>
+            <span id="statusText">Connecting to Smart HRMS server&hellip;</span>
+        </div>
+
+        <div class="elapsed" id="elapsed"></div>
+
+        <div class="message" id="message"></div>
+
+        <div class="actions" id="actions">
+            <button id="retryBtn" type="button">Retry</button>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var body = document.body;
+            var statusText = document.getElementById('statusText');
+            var elapsedEl = document.getElementById('elapsed');
+            var messageEl = document.getElementById('message');
+            var stateIcon = document.getElementById('stateIcon');
+            var retryBtn = document.getElementById('retryBtn');
+
+            function fmtElapsed(ms) {
+                if (!ms || ms < 1000) {
+                    return '';
+                }
+                var s = Math.floor(ms / 1000);
+                var m = Math.floor(s / 60);
+                var rem = s % 60;
+                if (m > 0) {
+                    return 'Elapsed: ' + m + 'm ' + (rem < 10 ? '0' : '') + rem + 's';
+                }
+                return 'Elapsed: ' + rem + 's';
+            }
+
+            function toLoadingState() {
+                body.classList.remove('state-offline', 'state-error');
+            }
+
+            // Staged status messages keyed by phase + elapsed thresholds.
+            function messageFor(phase, elapsedMs) {
+                if (phase === 'launching' || phase === 'ready') {
+                    return 'Server is ready. Loading Smart HRMS…';
+                }
+                if (phase === 'waking' || elapsedMs >= 60000) {
+                    if (elapsedMs >= 120000) {
+                        return 'Still waking the server—almost there, thanks for your patience…';
+                    }
+                    return 'Server is waking up—this can take up to 5 minutes after inactivity…';
+                }
+                if (elapsedMs >= 20000) {
+                    return 'Server is waking up—this can take up to 5 minutes after inactivity…';
+                }
+                return 'Connecting to Smart HRMS server…';
+            }
+
+            if (window.shrms) {
+                window.shrms.onStatus(function (s) {
+                    toLoadingState();
+                    var phase = s && s.phase ? s.phase : 'connecting';
+                    var elapsedMs = s && s.elapsedMs ? s.elapsedMs : 0;
+                    statusText.innerHTML = messageFor(phase, elapsedMs);
+                    elapsedEl.textContent = fmtElapsed(elapsedMs);
+                });
+
+                window.shrms.onOffline(function () {
+                    body.classList.remove('state-error');
+                    body.classList.add('state-offline');
+                    stateIcon.innerHTML = '&#128246;'; // no-signal
+                    messageEl.textContent =
+                        'Internet connection is required to run Smart HRMS. Please connect and try again.';
+                });
+
+                window.shrms.onError(function () {
+                    body.classList.remove('state-offline');
+                    body.classList.add('state-error');
+                    stateIcon.innerHTML = '&#9888;&#65039;'; // warning
+                    messageEl.textContent =
+                        'The Smart HRMS server did not respond in time. It may still be waking up—please try again.';
+                });
+            }
+
+            retryBtn.addEventListener('click', function () {
+                toLoadingState();
+                statusText.innerHTML = 'Connecting to Smart HRMS server…';
+                elapsedEl.textContent = '';
+                messageEl.textContent = '';
+                if (window.shrms) {
+                    window.shrms.retry();
+                }
+            });
+        })();
+    </script>
+</body>
+</html>
