@@ -179,7 +179,7 @@ class AttendanceImportController extends Controller
      */
     private function parseFile(string $filePath, string $extension): array
     {
-        // Detect actual file type by reading magic bytes (XLSX files disguised as .csv)
+        // Detect the real file type from magic bytes (XLSX files sometimes arrive with a .csv extension)
         $isExcel = in_array($extension, ['xlsx', 'xls']);
 
         if (! $isExcel) {

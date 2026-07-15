@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::table('employees', function (Blueprint $table): void {
             // Persisted "fingerprint is on file at the terminal" signal,
             // written once verificationStatus confirms either the open API
-            // or the portal sees a credential. Without this the badge would
+            // or the proxy sees a credential. Without this the badge would
             // reset to "Not enrolled" on every login because the React
             // component state is in-memory only and hasBiometricActivity()
             // doesn't flip until the user actually punches in.

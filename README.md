@@ -42,81 +42,56 @@ Applies **Content-Based Filtering** to map competency gaps from IPCR evaluation 
 
 ---
 
-## Installation Guide
+## Getting Started (Installer)
 
-Follow these steps to clone and run Smart HRMS on your local machine.
+Smart HRMS is distributed as a Windows desktop application that connects to the Smart HRMS cloud server.
 
-### Prerequisites
+### Requirements
 
-- **PHP 8.2+** with required extensions
-- **Composer 2.x**
-- **Node.js 20+** and **npm**
-- **Python 3.11+** (for the four AI modules)
-- **MySQL 8** or **MariaDB 10.6+**
-- **Laravel Herd** (recommended) — serves the app at `https://smart-hrms.test`
+- **Windows 10 or Windows 11 (64-bit)**
+- **An active internet connection** — the desktop app connects to the cloud server and **will not run offline**.
 
 ### Step-by-Step Procedure
 
-1. **Clone the repository**
-    ```bash
-    git clone https://github.com/your-org/Smart-HRMS.git
-    cd Smart-HRMS
-    ```
+1. **Run the installer** — double-click **`Smart-HRMS-Setup-1.0.0.exe`**.
+2. **Follow the setup wizard** — accept the prompts to install the application.
+3. **Launch the application** — open **"Smart HRMS"** from the Start menu or the desktop shortcut.
+4. **Wait for the cloud server to wake** — the **first launch may take up to 5 minutes** while the cloud server starts up. A loading screen shows progress. This is normal after a period of inactivity and only happens on a cold start.
 
-2. **Install PHP dependencies**
-    ```bash
-    composer install
-    ```
-
-3. **Install JavaScript dependencies**
-    ```bash
-    npm install
-    ```
-
-4. **Set up your environment file**
-    ```bash
-    cp .env.example .env
-    php artisan key:generate
-    ```
-    Then edit `.env` to configure your database connection (`DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`).
-
-5. **Run database migrations and seeders**
-    ```bash
-    php artisan migrate --seed
-    ```
-
-6. **Set up the Python AI modules** (each has its own virtual environment)
-    ```bash
-    cd python/iwr            && python -m venv .venv && .venv/bin/pip install -r requirements.txt && cd ../..
-    cd python/ppe            && python -m venv .venv && .venv/bin/pip install -r requirements.txt && cd ../..
-    cd python/atre           && python -m venv .venv && .venv/bin/pip install -r requirements.txt && cd ../..
-    cd python/rt-hr-dashboard && python -m venv .venv && .venv/bin/pip install -r requirements.txt && cd ../..
-    ```
-
-7. **Build frontend assets**
-    ```bash
-    npm run build
-    ```
-
-8. **Start the development environment**
-    ```bash
-    composer run dev
-    ```
-    This boots the Laravel server, queue worker, log tail, and Vite dev server concurrently.
-
-9. **Access the application**
-    - With Laravel Herd: visit **https://smart-hrms.test**
-    - Without Herd: visit **http://localhost:8000**
-
-> 💡 **One-shot setup:** after cloning, you can also run `composer run setup` to install dependencies, migrate, and build in a single command.
+> ⚠️ **Windows SmartScreen:** The installer is unsigned, so Windows SmartScreen may display a warning. If it appears, choose **"More info" → "Run anyway"** to continue.
 
 ---
 
-## Default User Credentials
+## Live System Access
 
-All seeded accounts share the password **`password`**.
+The system is also accessible from any web browser at:
 
-### Employees
+**https://smart-hrms.onrender.com/**
+
+The same cold-start behavior applies: if the server has been idle, the first request may take up to 5 minutes to respond while it wakes.
+
+---
+
+## User Accounts & Credentials
+
+All accounts below share the password **`password`**.
+
+> These are **demo/thesis accounts** provided for evaluation and demonstration purposes.
+
+### Administrator
+*No administrator account is seeded in this build.*
+
+### HR Personnel
+| Name       | Email                 | Employee ID |
+| ---------- | --------------------- | ----------- |
+| Grace Tan  | grace.tan@shrms.test  | HR-001      |
+
+### Evaluator
+| Name        | Email                  | Employee ID |
+| ----------- | ---------------------- | ----------- |
+| John Reyes  | john.reyes@shrms.test  | EMP-001     |
+
+### Employee
 | Name                  | Email                              | Employee ID |
 | --------------------- | ---------------------------------- | ----------- |
 | Maria Santos          | maria.santos@shrms.test            | EMP-002     |
@@ -140,16 +115,6 @@ All seeded accounts share the password **`password`**.
 | Benedict Mercado      | benedict.mercado@shrms.test        | EMP-020     |
 | Theresa Evangelista   | theresa.evangelista@shrms.test     | EMP-021     |
 
-### Evaluator
-| Name        | Email                  | Employee ID |
-| ----------- | ---------------------- | ----------- |
-| John Reyes  | john.reyes@shrms.test  | EMP-001     |
-
-### HR Personnel
-| Name       | Email                 | Employee ID |
-| ---------- | --------------------- | ----------- |
-| Grace Tan  | grace.tan@shrms.test  | HR-001      |
-
 ### PMT Officer
 | Name        | Email                  | Employee ID |
 | ----------- | ---------------------- | ----------- |
@@ -161,7 +126,7 @@ All seeded accounts share the password **`password`**.
 
 While Smart HRMS covers a broad range of HR workflows, it is intentionally **scoped** and does not address every HR function. Known limitations include:
 
-- **No offline accessibility** — the system requires an active internet/LAN connection and a running Laravel + Python stack. There is no offline or sync-on-reconnect mode.
+- **No offline accessibility** — the system requires an active internet connection. There is no offline or sync-on-reconnect mode.
 - **No payroll management** — salary computation, pay slip generation, tax withholding, and benefits disbursement are out of scope.
 - **No recruitment management** — applicant tracking, job posting, interview scheduling, and onboarding pipelines are not included.
 - **Limited mobile experience** — the interface is responsive but not packaged as a native mobile application.
